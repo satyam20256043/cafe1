@@ -1,0 +1,24 @@
+[
+  {
+    "id": "indiranagar",
+    "name": "The Roasted Bean",
+    "location": "12th Main Road, Indiranagar, Bengaluru",
+    "timings": "9:00 AM - 11:00 PM",
+    "contact": "+91 98765 43210",
+    "map": "https://maps.google.com/?q=Roasted+Bean+Indiranagar",
+    "wifi": "RoastedBean_Guest / Coffee123",
+    "review": "https://g.page/r/roasted-bean-indira",
+    "status": "offline"
+  },
+  {
+    "id": "koramangala",
+    "name": "Mocha & Co.",
+    "location": "5th Block, Koramangala, Bengaluru",
+    "timings": "10:00 AM - 12:00 AM",
+    "contact": "+91 87654 32109",
+    "map": "https://maps.google.com/?q=Mocha+Koramangala",
+    "wifi": "Mocha_Kora_5G / EspressoHigh",
+    "review": "https://g.page/r/mocha-kora",
+    "status": "offline"
+  }
+]

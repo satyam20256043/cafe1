@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1",
+    "name": "Cold Coffee",
+    "category": "Coffee",
+    "price": 149,
+    "discount": 0
+  },
+  {
+    "id": "2",
+    "name": "Peri Peri Fries",
+    "category": "Fries",
+    "price": 119,
+    "discount": 10
+  },
+  {
+    "id": "3",
+    "name": "Alfredo Pasta",
+    "category": "Pasta",
+    "price": 229,
+    "discount": 0
+  },
+  {
+    "id": "4",
+    "name": "Classic Cheese Burger",
+    "category": "Burgers",
+    "price": 179,
+    "discount": 20
+  },
+  {
+    "id": "5",
+    "name": "Virgin Mojito",
+    "category": "Mocktails",
+    "price": 140,
+    "discount": 0
+  }
+]
