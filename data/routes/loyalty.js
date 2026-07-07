@@ -39,6 +39,7 @@ app.post('/api/businesses/:id/loyalty/award', requireAuth, requireBranchAccess, 
   const { phone, name, amountSpent, orderId } = req.body;
   if (!phone || !amountSpent) return res.status(400).json({ error: 'phone and amountSpent required' });
   const card = db.awardPoints(req.params.id, phone, name, parseFloat(amountSpent), orderId);
+  db.logEvent(req.params.id, 'loyalty.earned', { customerPhone: phone, actor: 'system', metadata: { amountSpent: parseFloat(amountSpent), orderId, points: card.points } });
   emitToBranch(req.params.id, 'loyalty_update', { businessId: req.params.id, card });
   res.json({ card });
 });
@@ -51,6 +52,7 @@ app.post('/api/businesses/:id/loyalty/redeem-stamps', requireAuth, requireBranch
   const { phone } = req.body;
   if (!phone) return res.status(400).json({ error: 'phone required' });
   const result = db.redeemStamps(req.params.id, phone);
+  if (result.success) db.logEvent(req.params.id, 'loyalty.redeemed', { customerPhone: phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { type: 'stamps' } });
   res.json(result);
 });
 
@@ -61,6 +63,7 @@ app.post('/api/businesses/:id/loyalty/redeem-points', requireAuth, requireBranch
   const { phone, points } = req.body;
   if (!phone || !points) return res.status(400).json({ error: 'phone and points required' });
   const result = db.redeemPoints(req.params.id, phone, parseInt(points));
+  if (result.success) db.logEvent(req.params.id, 'loyalty.redeemed', { customerPhone: phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { type: 'points', points: parseInt(points) } });
   res.json(result);
 });
 
@@ -166,6 +169,7 @@ app.post('/api/businesses/:id/loyalty/birthday-campaign', requireAuth, requireBr
     // Single recipient
     const msg = buildMsg(singleName);
     const sent = await sendWA(singlePhone, msg);
+    if (db) db.logEvent(req.params.id, 'campaign.sent', { customerPhone: singlePhone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'birthday', sent } });
     return res.json({ success: true, sent, message: msg, note: sent ? undefined : 'WhatsApp not connected — copy message manually' });
   }
 
@@ -179,6 +183,7 @@ app.post('/api/businesses/:id/loyalty/birthday-campaign', requireAuth, requireBr
     const msg = buildMsg(c.name);
     const ok  = await sendWA(c.phone, msg);
     if (ok) sentCount++;
+    db.logEvent(req.params.id, 'campaign.sent', { customerPhone: c.phone, actor: 'system', metadata: { source: 'birthday', sent: ok } });
   }
   const waConnected = whatsappClient && whatsappConnectionStatus === 'Connected';
   res.json({

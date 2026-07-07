@@ -44,5 +44,21 @@
     "guests": 2,
     "datetime": "2026-06-15T19:00",
     "status": "pending"
+  },
+  {
+    "id": "r_1783407722239",
+    "name": "Test Customer",
+    "phone": "9998887771",
+    "guests": 2,
+    "datetime": "Tonight 8PM",
+    "status": "pending"
+  },
+  {
+    "id": "r_1783408249260",
+    "name": "Test Customer",
+    "phone": "9998887771",
+    "guests": 2,
+    "datetime": "Tonight 8PM",
+    "status": "pending"
   }
 ]

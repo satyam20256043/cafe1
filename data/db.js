@@ -6,7 +6,13 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DATA_DIR = path.join(__dirname, 'data');
+// This file already lives in the data/ directory — do NOT join another 'data'
+// segment here. That bug used to make this module read/write a phantom
+// data/data/cafe_hq.db that server.js and every route module never saw,
+// while migrateFromJSON() silently failed to find businesses.json (wrong
+// path) and left the `businesses` table empty, which then made every order
+// insert fail its FOREIGN KEY constraint and crash the whole process.
+const DATA_DIR = __dirname;
 const DB_PATH  = path.join(DATA_DIR, 'cafe_hq.db');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -144,6 +150,22 @@ db.exec(`
     size_kb    INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+
+  -- Business Intelligence event log — append-only record of every meaningful
+  -- action, so future AI features (churn, forecasting, personalization) have
+  -- history to learn from instead of starting from zero.
+  CREATE TABLE IF NOT EXISTS events (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id    TEXT NOT NULL,
+    event_type     TEXT NOT NULL,
+    customer_phone TEXT,
+    actor          TEXT,
+    metadata       TEXT,
+    created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_events_biz_time  ON events(business_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_events_biz_type  ON events(business_id, event_type);
+  CREATE INDEX IF NOT EXISTS idx_events_biz_phone ON events(business_id, customer_phone);
 `);
 
 
@@ -317,40 +339,60 @@ function migrateFromJSON() {
     const businesses = JSON.parse(fs.readFileSync(BUSINESSES_FILE, 'utf-8'));
     const migrateTx = db.transaction(() => {
       businesses.forEach(b => {
+        // The businesses row is the one insert every other table's FOREIGN KEY
+        // depends on (orders, etc.) — it must NEVER be rolled back by a later
+        // failure in this branch's optional JSON files, so it isn't wrapped in
+        // the same try/catch as the rest.
         stmts.insertBusiness.run(b.id, b.name, b.location, b.timings, b.contact, b.map||'', b.wifi||'', b.review||'', b.status||'online');
 
         // Menu
-        const menuFile = path.join(DATA_DIR, b.id, 'menu.json');
-        if (fs.existsSync(menuFile)) {
-          const menu = JSON.parse(fs.readFileSync(menuFile, 'utf-8'));
-          menu.forEach(item => stmts.insertMenuItem.run(b.id, item.name, item.category||'General', item.price||0, item.discount||0, item.description||''));
-        }
-        // Reservations
-        const resFile = path.join(DATA_DIR, b.id, 'reservations.json');
-        if (fs.existsSync(resFile)) {
-          const res = JSON.parse(fs.readFileSync(resFile, 'utf-8'));
-          res.forEach(r => stmts.insertReservation.run(r.id||`res_${Date.now()}_${Math.random()}`, b.id, r.name, r.phone, r.guests||1, r.datetime));
-        }
-        // Feedback
-        const fbFile = path.join(DATA_DIR, b.id, 'feedback.json');
-        if (fs.existsSync(fbFile)) {
-          const fb = JSON.parse(fs.readFileSync(fbFile, 'utf-8'));
-          fb.forEach(f => stmts.insertFeedback.run(f.id||`fb_${Date.now()}_${Math.random()}`, b.id, f.customerName, f.phone, f.rating||5, f.comment, f.source||'web', f.couponCode||null));
-        }
+        try {
+          const menuFile = path.join(DATA_DIR, b.id, 'menu.json');
+          if (fs.existsSync(menuFile)) {
+            const menu = JSON.parse(fs.readFileSync(menuFile, 'utf-8'));
+            menu.forEach(item => stmts.insertMenuItem.run(b.id, item.name, item.category||'General', item.price||0, item.discount||0, item.description||''));
+          }
+        } catch (e) { console.error(`[DB] Migration: menu import failed for ${b.id}:`, e.message); }
+
+        // Reservations — ids in the seed JSON (e.g. 'r1','r2') are only unique
+        // per branch, but the reservations table's id is a global PRIMARY KEY,
+        // so prefix with the branch id to avoid cross-branch collisions.
+        try {
+          const resFile = path.join(DATA_DIR, b.id, 'reservations.json');
+          if (fs.existsSync(resFile)) {
+            const res = JSON.parse(fs.readFileSync(resFile, 'utf-8'));
+            res.forEach(r => stmts.insertReservation.run(`${b.id}_${r.id || Date.now() + '_' + Math.random()}`, b.id, r.name, r.phone, r.guests||1, r.datetime));
+          }
+        } catch (e) { console.error(`[DB] Migration: reservations import failed for ${b.id}:`, e.message); }
+
+        // Feedback — same cross-branch id collision risk as reservations.
+        try {
+          const fbFile = path.join(DATA_DIR, b.id, 'feedback.json');
+          if (fs.existsSync(fbFile)) {
+            const fb = JSON.parse(fs.readFileSync(fbFile, 'utf-8'));
+            fb.forEach(f => stmts.insertFeedback.run(`${b.id}_${f.id || Date.now() + '_' + Math.random()}`, b.id, f.customerName, f.phone, f.rating||5, f.comment, f.source||'web', f.couponCode||null));
+          }
+        } catch (e) { console.error(`[DB] Migration: feedback import failed for ${b.id}:`, e.message); }
+
         // CRM
-        const crmFile = path.join(DATA_DIR, b.id, 'customer_profiles.json');
-        if (fs.existsSync(crmFile)) {
-          const crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8'));
-          crm.forEach(c => stmts.upsertCustomer.run(b.id, c.phone, c.name||'', c.visits||0, c.lastIntent||'', c.loyaltyTier||'New', JSON.stringify(c.tags||[])));
-        }
+        try {
+          const crmFile = path.join(DATA_DIR, b.id, 'customer_profiles.json');
+          if (fs.existsSync(crmFile)) {
+            const crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8'));
+            crm.forEach(c => stmts.upsertCustomer.run(b.id, c.phone, c.name||'', c.visits||0, c.lastIntent||'', c.loyaltyTier||'New', JSON.stringify(c.tags||[])));
+          }
+        } catch (e) { console.error(`[DB] Migration: customer profiles import failed for ${b.id}:`, e.message); }
+
         // Settings
-        const setFile = path.join(DATA_DIR, b.id, 'settings.json');
-        if (fs.existsSync(setFile)) {
-          const s = JSON.parse(fs.readFileSync(setFile, 'utf-8'));
-          stmts.upsertSettings.run(b.id, s.autoPilotActive ? 1 : 0);
-        } else {
-          stmts.upsertSettings.run(b.id, 0);
-        }
+        try {
+          const setFile = path.join(DATA_DIR, b.id, 'settings.json');
+          if (fs.existsSync(setFile)) {
+            const s = JSON.parse(fs.readFileSync(setFile, 'utf-8'));
+            stmts.upsertSettings.run(b.id, s.autoPilotActive ? 1 : 0);
+          } else {
+            stmts.upsertSettings.run(b.id, 0);
+          }
+        } catch (e) { console.error(`[DB] Migration: settings import failed for ${b.id}:`, e.message); }
       });
     });
     migrateTx();
@@ -777,3 +819,55 @@ Object.assign(module.exports, {
   getLoyaltyLeaderboard, getUpcomingBirthdays, getLoyaltyHistory,
   STAMPS_FOR_FREE, POINTS_FOR_FREE,
 });
+
+// ── Business Intelligence event log ───────────────────────────────────────────
+const logEventStmt = db.prepare(`
+  INSERT INTO events (business_id, event_type, customer_phone, actor, metadata)
+  VALUES (?, ?, ?, ?, ?)
+`);
+
+// Never throws — logging must not break the request that triggered it.
+function logEvent(businessId, eventType, { customerPhone, actor, metadata } = {}) {
+  try {
+    logEventStmt.run(
+      businessId,
+      eventType,
+      customerPhone ? normalizePhone(customerPhone) : null,
+      actor || 'system',
+      metadata !== undefined ? JSON.stringify(metadata) : null
+    );
+  } catch (e) {
+    console.error('[events] logEvent failed:', e.message);
+  }
+}
+
+function getEvents(businessId, { type, from, to, limit = 200 } = {}) {
+  let q = 'SELECT * FROM events WHERE business_id = ?';
+  const params = [businessId];
+  if (type) { q += ' AND event_type = ?'; params.push(type); }
+  if (from) { q += ' AND created_at >= ?'; params.push(from); }
+  if (to)   { q += ' AND created_at <= ?'; params.push(to); }
+  q += ' ORDER BY created_at DESC LIMIT ?';
+  params.push(limit);
+  return db.prepare(q).all(...params).map(r => ({
+    ...r,
+    metadata: r.metadata ? JSON.parse(r.metadata) : null,
+  }));
+}
+
+// Agency-wide roll-up across all businesses (for HQ).
+function getAllEvents({ type, from, to, limit = 200 } = {}) {
+  let q = 'SELECT * FROM events WHERE 1=1';
+  const params = [];
+  if (type) { q += ' AND event_type = ?'; params.push(type); }
+  if (from) { q += ' AND created_at >= ?'; params.push(from); }
+  if (to)   { q += ' AND created_at <= ?'; params.push(to); }
+  q += ' ORDER BY created_at DESC LIMIT ?';
+  params.push(limit);
+  return db.prepare(q).all(...params).map(r => ({
+    ...r,
+    metadata: r.metadata ? JSON.parse(r.metadata) : null,
+  }));
+}
+
+Object.assign(module.exports, { logEvent, getEvents, getAllEvents });

@@ -156,5 +156,26 @@
     "feedbackCount": 0,
     "offersReceived": [],
     "loyaltyTier": "New Customer"
+  },
+  {
+    "phone": "9998887771",
+    "name": "Test Customer",
+    "visits": 8,
+    "tags": [
+      "chat_initiated",
+      "asked_menu",
+      "gave_feedback",
+      "web_booking"
+    ],
+    "lastActive": "7/7/2026, 12:40:49 PM",
+    "averageRating": 5,
+    "feedbackCount": 2,
+    "offersReceived": [
+      {
+        "offer": "Feedback Reward: Coupon THANKYOU15 (15% Off)",
+        "timestamp": "2026-07-07T07:02:02.226Z"
+      }
+    ],
+    "loyaltyTier": "VIP"
   }
 ]

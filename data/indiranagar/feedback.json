@@ -55,5 +55,23 @@
     "comment": "Staff is extremely polite. They helped us reserve a group table. Highly recommended! Sync review from GBP.",
     "timestamp": "24/5/2026, 8:12:23 pm",
     "source": "google"
+  },
+  {
+    "id": "f_1783407722223",
+    "customerName": "Test Customer",
+    "rating": 5,
+    "comment": "Great service!",
+    "timestamp": "7/7/2026, 12:32:02 PM",
+    "source": "web",
+    "couponCode": "THANKYOU15"
+  },
+  {
+    "id": "f_1783408249246",
+    "customerName": "Test Customer",
+    "rating": 5,
+    "comment": "Great service!",
+    "timestamp": "7/7/2026, 12:40:49 PM",
+    "source": "web",
+    "couponCode": "THANKYOU15"
   }
 ]

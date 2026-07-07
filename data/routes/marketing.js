@@ -61,6 +61,7 @@ app.post('/api/businesses/:id/google-review/:claimId/approve', requireAuth, requ
   claims[idx].status = 'approved';
   claims[idx].approvedAt = new Date().toISOString();
   writeBranchData(id, 'google_review_claims.json', claims);
+  if (db) db.logEvent(id, 'review.verified', { customerPhone: claim.phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { claimId, pointsAwarded: 100 } });
   emitToBranch(id, 'google_review_claim_update', { branchId: id, claim: claims[idx] });
 
   // Notify customer via WhatsApp
@@ -97,6 +98,7 @@ app.post('/api/businesses/:id/google-review/:claimId/reject', requireAuth, requi
   claims[idx].rejectedAt = new Date().toISOString();
   claims[idx].rejectReason = reason || 'Review not found';
   writeBranchData(id, 'google_review_claims.json', claims);
+  if (db) db.logEvent(id, 'review.claimed', { customerPhone: claims[idx].phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { claimId, status: 'rejected', reason: claims[idx].rejectReason } });
   emitToBranch(id, 'google_review_claim_update', { branchId: id, claim: claims[idx] });
 
   // Notify customer
@@ -155,10 +157,11 @@ app.post('/api/businesses/:id/reservations', (req, res) => {
   };
   reservations.push(newRes);
   writeBranchData(id, 'reservations.json', reservations);
-  
+  if (db) db.logEvent(id, 'reservation.created', { customerPhone: phone, actor: 'customer', metadata: { guests: newRes.guests, datetime, channel: 'web' } });
+
   // Update customer CRM profile
   updateCustomerProfile(id, phone, name, 'web_booking');
-  
+
   emitToBranch(id, 'reservation_update', { branchId: id, reservations });
   res.json({ success: true, reservation: newRes });
 });
@@ -173,6 +176,7 @@ app.post('/api/businesses/:id/reservations/:resId/status', requireAuth, requireB
 
   reservations[index].status = status;
   writeBranchData(id, 'reservations.json', reservations);
+  if (db) db.logEvent(id, 'reservation.status', { customerPhone: reservations[index].phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { resId, status } });
 
   // SIMULATE SENDING WHATSAPP CONGRATULATORY UPDATE
   if (whatsappClient && whatsappConnectionStatus === 'Connected') {
@@ -246,7 +250,8 @@ app.post('/api/businesses/:id/feedback', (req, res) => {
   }
   feedback.push(newFb);
   writeBranchData(id, 'feedback.json', feedback);
-  
+  if (db) db.logEvent(id, 'feedback.submitted', { customerPhone: phone, actor: 'customer', metadata: { rating: newFb.rating, channel: 'web' } });
+
   // Update customer CRM profile
   const reviews = feedback.filter(f => f.customerName === customerName);
   const totalStars = reviews.reduce((sum, r) => sum + r.rating, 0);
@@ -623,7 +628,8 @@ app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', re
     const wid = sug.customerPhone.includes('@') ? sug.customerPhone : `${sug.customerPhone}@c.us`;
     whatsappClient.sendMessage(wid, textToSend).catch(e => console.error('[WhatsApp AI Campaign Error]', e));
   }
-  
+
+  if (db) db.logEvent(id, 'campaign.sent', { customerPhone: sug.customerPhone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'ai_campaign', suggestionId, offerText: textToSend } });
   res.json({ success: true, suggestion: sug });
 });
 
@@ -679,6 +685,7 @@ app.post('/api/businesses/:id/offers/:offerId/approve', requireAuth, requireBran
     timestamp: new Date().toLocaleTimeString()
   });
 
+  if (db) db.logEvent(id, 'campaign.sent', { customerPhone: phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'offer_request_approved', offerId } });
   emitToBranch(id, 'offers_update', { branchId: id, offers });
   res.json({ success: true, offers });
 });

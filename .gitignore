@@ -10,10 +10,13 @@ node_modules/
 .wwebjs_cache/
 
 # Runtime data — tenant databases and backups
-data/cafe_hq.db
-data/cafe_hq.db-shm
-data/cafe_hq.db-wal
+# (glob, not path-anchored, so this also catches the now-fixed data/data/
+# shadow-db path bug if it were ever reintroduced)
+cafe_hq.db
+cafe_hq.db-shm
+cafe_hq.db-wal
 data/backups/
+data/_pre-launch-db-fix-backup/
 data/*.txt
 data/server_log.txt
 *.bak

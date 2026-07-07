@@ -394,12 +394,13 @@ function getLoyaltyTier(visits) {
 function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFields = {}) {
   const profiles = getBranchData(branchId, 'customer_profiles.json');
   let profile = profiles.find(p => p.phone === phone);
+  const isNewCustomer = !profile;
   if (!profile) {
-    profile = { 
-      phone, 
-      name: name || 'Customer', 
-      visits: 0, 
-      tags: [], 
+    profile = {
+      phone,
+      name: name || 'Customer',
+      visits: 0,
+      tags: [],
       lastActive: new Date().toLocaleString(),
       averageRating: 0,
       feedbackCount: 0,
@@ -407,8 +408,10 @@ function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFiel
     };
     profiles.push(profile);
   }
-  
+
   profile.visits += 1;
+  if (db) db.logEvent(branchId, isNewCustomer ? 'customer.new' : 'customer.repeat',
+    { customerPhone: phone, actor: 'system', metadata: { visits: profile.visits, lastIntent: lastIntent || null } });
   profile.lastActive = new Date().toLocaleString();
   
   if (name) profile.name = name;
@@ -623,7 +626,17 @@ function generateLocalConversationalReply(branchId, text, lang, fromPhone) {
 }
 
 // AI response brain
+// Thin wrapper: logs inbound/outbound chat events around the real dispatcher
+// below, so every channel (webhook, chat simulator, /chat endpoint) gets
+// logging for free without threading logEvent through every return branch.
 async function processCafeBotReply(branchId, fromPhone, incomingMessage) {
+  if (db) db.logEvent(branchId, 'chat.inbound', { customerPhone: fromPhone, actor: 'customer', metadata: { text: incomingMessage } });
+  const reply = await processCafeBotReplyInner(branchId, fromPhone, incomingMessage);
+  if (db) db.logEvent(branchId, 'chat.outbound', { customerPhone: fromPhone, actor: 'ai', metadata: { text: reply } });
+  return reply;
+}
+
+async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
   updateTrafficStats(branchId);
 
   const business = businesses.find(b => b.id === branchId) || businesses[0];
@@ -808,7 +821,9 @@ async function processCafeBotReply(branchId, fromPhone, incomingMessage) {
       };
       feedback.push(newFb);
       writeBranchData(branchId, 'feedback.json', feedback);
-      
+      if (db) db.logEvent(branchId, 'feedback.submitted',
+        { customerPhone: fromPhone, actor: 'customer', metadata: { rating: newFb.rating, channel: 'chat' } });
+
       // Keep in GOOGLE_REVIEW_PENDING for 5-star so we can reward Google review confirmation
       userState.state = data.rating === 5 ? 'GOOGLE_REVIEW_PENDING' : 'IDLE';
       userState.feedbackData = { rating: null, comment: null };
@@ -932,7 +947,9 @@ async function processCafeBotReply(branchId, fromPhone, incomingMessage) {
       };
       reservations.push(newRes);
       writeBranchData(branchId, 'reservations.json', reservations);
-      
+      if (db) db.logEvent(branchId, 'reservation.created',
+        { customerPhone: fromPhone, actor: 'customer', metadata: { guests: data.guests, datetime: data.datetime, channel: 'chat' } });
+
       userState.state = 'IDLE';
       userState.reservationData = { name: null, guests: null, datetime: null };
 
@@ -1371,6 +1388,9 @@ function runAutoPilotCampaign(branchId, forceDay = null) {
       sender: 'ai',
       timestamp: new Date().toLocaleTimeString()
     });
+
+    if (db) db.logEvent(branchId, 'campaign.sent',
+      { customerPhone: cust.phone, actor: 'system', metadata: { source: 'autopilot', day: today, offer: campaignText } });
   });
 
   // Write profiles back
@@ -1451,6 +1471,7 @@ const routeCtx = {
   initializeBusinessFiles,
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
+  logEvent: (db && db.logEvent) || (() => {}),
   waApi, genAI, razorpay: (() => { try { return new (require('razorpay'))({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }); } catch(e){ return null; } })(),
   whatsappConnectionStatus: 'Disconnected',
   requireAuth, requireBranchAccess, requireRole,
@@ -1538,6 +1559,8 @@ app.post('/api/businesses/:id/walkin', requireAuth, requireBranchAccess, (req, r
   } catch(e) { return res.status(500).json({ error: 'Could not save customer' }); }
 
   const pointsAwarded = isNew ? 10 : 0;
+  if (db) db.logEvent(id, 'walkin.registered',
+    { customerPhone: cleanPhone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { isNew, visits: customer.visits } });
   res.json({ success: true, isNew, customer, pointsAwarded });
 });
 
@@ -1675,6 +1698,20 @@ app.get('/api/businesses/:id/at-risk-customers', requireAuth, requireBranchAcces
   res.json(atRisk);
 });
 
+// ── Business Intelligence event log — read endpoints ─────────────────────────
+app.get('/api/businesses/:id/events', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  const { type, from, to, limit } = req.query;
+  res.json(db.getEvents(req.params.id, { type, from, to, limit: limit ? parseInt(limit) : undefined }));
+});
+
+// Agency-wide roll-up across all tenants (for HQ)
+app.get('/api/admin/events', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
+  if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  const { type, from, to, limit } = req.query;
+  res.json(db.getAllEvents({ type, from, to, limit: limit ? parseInt(limit) : undefined }));
+});
+
 app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requireBranchAccess, async (req, res) => {
   const { id } = req.params;
   const { phone, name, offerText } = req.body;
@@ -1705,6 +1742,8 @@ app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requir
     } catch(e) {}
   }
 
+  if (db) db.logEvent(id, 'campaign.sent',
+    { customerPhone: phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'winback', sent, offerText: offerText || null } });
   res.json({ success: true, sent, message: sent ? 'WhatsApp message sent!' : 'Offer logged (WhatsApp not configured)' });
 });
 
@@ -1902,6 +1941,18 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`[Socket.io] Client disconnected: ${socket.id}`);
   });
+});
+
+// ── Crash-proofing (multi-tenant safety net) ─────────────────────────────────
+// This is a shared process serving every café on the platform. A single bad
+// request (e.g. a synchronous DB error thrown inside an async route handler,
+// which Express 4 does not catch) must never crash the process and take down
+// every other tenant. Log and keep running rather than exit.
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL — uncaughtException, process kept alive]', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL — unhandledRejection, process kept alive]', reason);
 });
 
 server.listen(PORT, () => {

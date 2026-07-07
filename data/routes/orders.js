@@ -25,41 +25,48 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
     return res.status(400).json({ error: 'customerName and items are required' });
   }
 
-  // Fetch live prices from menu to prevent tampering
-  const menu = getBranchData(businessId, 'menu.json');
-  let subtotal = 0, discount = 0;
-  const validatedItems = items.map(item => {
-    const menuItem = menu.find(m => String(m.id) === String(item.id));
-    const price    = menuItem ? menuItem.price : (item.price || 0);
-    const disc     = menuItem ? (menuItem.discount || 0) : 0;
-    const qty      = Math.max(1, parseInt(item.qty) || 1);
-    const lineTotal = price * qty * (1 - disc / 100);
-    subtotal  += price * qty;
-    discount  += price * qty * (disc / 100);
-    return { id: item.id, name: menuItem?.name || item.name, price, discount: disc, qty, lineTotal };
-  });
+  try {
+    // Fetch live prices from menu to prevent tampering
+    const menu = getBranchData(businessId, 'menu.json');
+    let subtotal = 0, discount = 0;
+    const validatedItems = items.map(item => {
+      const menuItem = menu.find(m => String(m.id) === String(item.id));
+      const price    = menuItem ? menuItem.price : (item.price || 0);
+      const disc     = menuItem ? (menuItem.discount || 0) : 0;
+      const qty      = Math.max(1, parseInt(item.qty) || 1);
+      const lineTotal = price * qty * (1 - disc / 100);
+      subtotal  += price * qty;
+      discount  += price * qty * (disc / 100);
+      return { id: item.id, name: menuItem?.name || item.name, price, discount: disc, qty, lineTotal };
+    });
 
-  const tax   = parseFloat(((subtotal - discount) * 0.05).toFixed(2));  // 5% GST
-  const total = parseFloat((subtotal - discount + tax).toFixed(2));
+    const tax   = parseFloat(((subtotal - discount) * 0.05).toFixed(2));  // 5% GST
+    const total = parseFloat((subtotal - discount + tax).toFixed(2));
 
-  let order;
-  if (db) {
-    order = db.createOrder({ businessId, customerName, customerPhone, tableNo,
-      orderType: orderType || 'dine_in', items: validatedItems,
-      subtotal, discount, tax, total, notes, paymentMethod: paymentMethod || 'cash' });
-  } else {
-    // Legacy JSON fallback
-    const orders = getBranchData(businessId, 'orders.json') || [];
-    order = { id: `ord_${Date.now()}`, businessId, customerName, customerPhone, tableNo,
-      orderType: orderType||'dine_in', items: validatedItems, subtotal, discount, tax, total,
-      notes, paymentMethod: paymentMethod||'cash', status: 'pending', payment_status: 'pending',
-      created_at: new Date().toISOString() };
-    orders.push(order);
-    writeBranchData(businessId, 'orders.json', orders);
+    let order;
+    if (db) {
+      order = db.createOrder({ businessId, customerName, customerPhone, tableNo,
+        orderType: orderType || 'dine_in', items: validatedItems,
+        subtotal, discount, tax, total, notes, paymentMethod: paymentMethod || 'cash' });
+    } else {
+      // Legacy JSON fallback
+      const orders = getBranchData(businessId, 'orders.json') || [];
+      order = { id: `ord_${Date.now()}`, businessId, customerName, customerPhone, tableNo,
+        orderType: orderType||'dine_in', items: validatedItems, subtotal, discount, tax, total,
+        notes, paymentMethod: paymentMethod||'cash', status: 'pending', payment_status: 'pending',
+        created_at: new Date().toISOString() };
+      orders.push(order);
+      writeBranchData(businessId, 'orders.json', orders);
+    }
+
+    if (db) db.logEvent(businessId, 'order.placed',
+      { customerPhone: customerPhone, actor: 'customer', metadata: { orderId: order.id, total, itemCount: validatedItems.length, orderType: orderType || 'dine_in' } });
+    emitToBranch(businessId, 'new_order', { businessId, order });
+    res.status(201).json(order);
+  } catch (err) {
+    console.error('[orders] Failed to create order:', err.message);
+    res.status(500).json({ error: 'Could not place order. Please try again or ask staff for help.' });
   }
-
-  emitToBranch(businessId, 'new_order', { businessId, order });
-  res.status(201).json(order);
 });
 
 // ── List orders ───────────────────────────────────────────────────────────────
@@ -98,6 +105,9 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
   const customerPhone = order.customer_phone || order.phone;
   const customerName  = order.customer_name  || order.name || 'Customer';
   const orderTotal    = parseFloat(order.total || 0);
+
+  if (db) db.logEvent(bizId, 'order.status',
+    { customerPhone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { orderId, status, total: orderTotal } });
 
   // public: the customer's table-order tracking page needs this event too
   emitToBranch(req.params.id, 'order_status_update', { businessId: req.params.id, orderId, status }, { public: true });
@@ -208,6 +218,11 @@ app.post('/api/businesses/:id/orders/:orderId/verify-payment', (req, res) => {
       razorpayOrderId: razorpay_order_id, razorpayPaymentId: razorpay_payment_id
     });
     db.updateOrderStatus(req.params.orderId, 'confirmed');
+    const paidOrder = db.getOrderById(req.params.orderId);
+    db.logEvent(req.params.id, 'payment.paid', {
+      customerPhone: paidOrder?.customer_phone, actor: 'customer',
+      metadata: { orderId: req.params.orderId, total: paidOrder?.total, method: 'razorpay' },
+    });
   }
 
   emitToBranch(req.params.id, 'payment_confirmed', { businessId: req.params.id, orderId: req.params.orderId }, { public: true });
