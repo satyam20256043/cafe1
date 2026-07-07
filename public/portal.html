@@ -328,21 +328,13 @@ async function showApp() {
     const myBiz = all.find(b => b.id === bizId);
     if (!myBiz) { doLogout(); return; }
     showSubscriptionBanner(myBiz);
-    const phone = myBiz.ownerPhone || myBiz.contact || '';
-    const fgId  = myBiz.franchiseGroupId || '';
-    allMyBranches = all.filter(b =>
-      b.id === bizId ||
-      (fgId && b.franchiseGroupId === fgId) ||
-      (phone && phone.length >= 8 && (b.ownerPhone === phone || b.contact === phone))
-    );
-    allMyBranches = [...new Map(allMyBranches.map(b => [b.id, b])).values()];
-    document.getElementById('header-cafe-name').textContent =
-      allMyBranches.length > 1 ? `${allMyBranches.length} branches` : myBiz.name;
-    if (allMyBranches.length > 1) {
-      renderFranchiseHub(allMyBranches, myBiz);
-    } else {
-      renderSingleBranch(myBiz);
-    }
+    // Independent-café SaaS (not a franchise): an owner only ever sees their
+    // own café. The old logic also grouped cafés that merely shared an owner
+    // phone/contact number, which would have let two unrelated cafés see each
+    // other's stats — dropped.
+    allMyBranches = [myBiz];
+    document.getElementById('header-cafe-name').textContent = myBiz.name;
+    renderSingleBranch(myBiz);
   } catch(e) {
     document.getElementById('dash-content').innerHTML =
       `<div style="text-align:center;padding:60px;color:var(--ink-3)">Error loading data: ${e.message}</div>`;
