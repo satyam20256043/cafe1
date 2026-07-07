@@ -1,10 +1,14 @@
 {
-  "name": "cafe-sais-automation-bot",
+  "name": "zordic-california",
   "version": "1.0.0",
-  "description": "Multi-Tenant SaaS Café Automation Bot with real WhatsApp linking, Local CRM and Dynamic Pricing Reasoning Engine.",
-  "main": "server.js",
+  "description": "Zordic — AI growth platform for cafés and restaurants: WhatsApp AI receptionist, QR ordering, loyalty, and revenue-attribution marketing.",
+  "main": "data/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node data/server.js",
+    "start:legacy": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "@google/generative-ai": "^0.11.4",
@@ -17,9 +21,9 @@
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
     "socket.io": "^4.7.5",
-    "web-push": "^3.6.7",
-    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js"
+    "web-push": "^3.6.7"
   },
-  "author": "Antigravity AI",
-  "license": "MIT"
+  "author": "Zordic",
+  "license": "UNLICENSED",
+  "private": true
 }
