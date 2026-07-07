@@ -166,6 +166,28 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_events_biz_time  ON events(business_id, created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_events_biz_type  ON events(business_id, event_type);
   CREATE INDEX IF NOT EXISTS idx_events_biz_phone ON events(business_id, customer_phone);
+
+  -- Coupons — every offer/campaign issues one of these instead of a bare
+  -- string discount code, so "campaign sent -> redeemed -> revenue" becomes
+  -- provable attribution data instead of a guess.
+  CREATE TABLE IF NOT EXISTS coupons (
+    id               TEXT PRIMARY KEY,
+    business_id      TEXT NOT NULL,
+    code             TEXT NOT NULL,
+    source_type      TEXT NOT NULL,   -- ai_campaign|offer_request|feedback5|review|winback|birthday|autopilot
+    source_id        TEXT,
+    customer_phone   TEXT,
+    discount_type    TEXT NOT NULL,   -- percent|flat|free_item
+    discount_value   REAL DEFAULT 0,
+    status           TEXT DEFAULT 'issued',  -- issued|redeemed|expired
+    issued_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at       DATETIME,
+    redeemed_at      DATETIME,
+    order_id         TEXT,
+    redeemed_revenue REAL,
+    UNIQUE(business_id, code)
+  );
+  CREATE INDEX IF NOT EXISTS idx_coupons_biz_status ON coupons(business_id, status);
 `);
 
 
@@ -871,3 +893,115 @@ function getAllEvents({ type, from, to, limit = 200 } = {}) {
 }
 
 Object.assign(module.exports, { logEvent, getEvents, getAllEvents });
+
+// ── Coupons & attribution ──────────────────────────────────────────────────────
+const insertCouponStmt = db.prepare(`
+  INSERT INTO coupons (id, business_id, code, source_type, source_id, customer_phone,
+                        discount_type, discount_value, status, expires_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?)
+`);
+const getCouponStmt = db.prepare(`SELECT * FROM coupons WHERE business_id = ? AND code = ?`);
+const redeemCouponStmt = db.prepare(`
+  UPDATE coupons SET status = 'redeemed', redeemed_at = datetime('now'), order_id = ?, redeemed_revenue = ?
+  WHERE business_id = ? AND code = ? AND status = 'issued'
+`);
+
+function generateCouponCode(sourceType) {
+  const prefixMap = {
+    ai_campaign: 'AI', offer_request: 'OFR', feedback5: 'THX', review: 'REV',
+    winback: 'WIN', birthday: 'BDAY', autopilot: 'AUTO',
+  };
+  const prefix = prefixMap[sourceType] || 'ZRD';
+  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${prefix}-${suffix}`;
+}
+
+// { businessId, sourceType, sourceId, customerPhone, discountType, discountValue, expiresInDays }
+function issueCoupon({ businessId, sourceType, sourceId, customerPhone, discountType, discountValue, expiresInDays = 14 }) {
+  const id = `cpn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  let code, attempt = 0;
+  // Retry on the rare code collision (UNIQUE(business_id, code))
+  while (true) {
+    code = generateCouponCode(sourceType);
+    const expiresAt = new Date(Date.now() + expiresInDays * 86400000).toISOString();
+    try {
+      insertCouponStmt.run(id, businessId, code, sourceType, sourceId || null,
+        customerPhone ? normalizePhone(customerPhone) : null, discountType || 'percent',
+        discountValue || 0, expiresAt);
+      break;
+    } catch (e) {
+      if (e.message && e.message.includes('UNIQUE') && attempt++ < 5) continue;
+      throw e;
+    }
+  }
+  logEvent(businessId, 'coupon.issued', {
+    customerPhone, actor: 'system',
+    metadata: { code, sourceType, sourceId: sourceId || null, discountType, discountValue },
+  });
+  return { id, code, businessId, sourceType, discountType, discountValue };
+}
+
+// Returns { valid, coupon?, reason? } — never throws; safe to call from a
+// customer-facing "apply coupon" flow.
+function validateCoupon(businessId, code) {
+  if (!code) return { valid: false, reason: 'No code provided' };
+  const coupon = getCouponStmt.get(businessId, String(code).trim().toUpperCase());
+  if (!coupon) return { valid: false, reason: 'Coupon not found' };
+  if (coupon.status === 'redeemed') return { valid: false, reason: 'Coupon already redeemed' };
+  if (coupon.status === 'expired') return { valid: false, reason: 'Coupon expired' };
+  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
+    return { valid: false, reason: 'Coupon expired' };
+  }
+  return { valid: true, coupon };
+}
+
+// Marks a coupon redeemed against a specific order. Idempotent-safe: only
+// transitions status from 'issued' -> 'redeemed' (a second call is a no-op).
+function redeemCoupon(businessId, code, orderId, orderRevenue) {
+  const check = validateCoupon(businessId, code);
+  if (!check.valid) return { success: false, reason: check.reason };
+  const result = redeemCouponStmt.run(orderId, orderRevenue || 0, businessId, String(code).trim().toUpperCase());
+  if (result.changes === 0) return { success: false, reason: 'Coupon already redeemed' };
+  logEvent(businessId, 'coupon.redeemed', {
+    customerPhone: check.coupon.customer_phone, actor: 'customer',
+    metadata: { code, orderId, revenue: orderRevenue, sourceType: check.coupon.source_type },
+  });
+  return { success: true, coupon: check.coupon, discountType: check.coupon.discount_type, discountValue: check.coupon.discount_value };
+}
+
+// Attribution rollup: per source_type (and source_id when present), how many
+// coupons were issued vs redeemed, the revenue they produced, and a simple
+// ROI = attributed revenue / (discount cost estimated from redeemed coupons).
+function getAttributionReport(businessId, { from, to } = {}) {
+  let q = `SELECT source_type, source_id, status, discount_type, discount_value, redeemed_revenue
+           FROM coupons WHERE business_id = ?`;
+  const params = [businessId];
+  if (from) { q += ' AND issued_at >= ?'; params.push(from); }
+  if (to)   { q += ' AND issued_at <= ?'; params.push(to); }
+  const rows = db.prepare(q).all(...params);
+
+  const bySource = {};
+  for (const r of rows) {
+    const key = r.source_id ? `${r.source_type}:${r.source_id}` : r.source_type;
+    if (!bySource[key]) {
+      bySource[key] = { sourceType: r.source_type, sourceId: r.source_id, issued: 0, redeemed: 0, revenue: 0, discountCost: 0 };
+    }
+    const b = bySource[key];
+    b.issued += 1;
+    if (r.status === 'redeemed') {
+      b.redeemed += 1;
+      b.revenue += r.redeemed_revenue || 0;
+      b.discountCost += r.discount_type === 'flat' ? (r.discount_value || 0)
+        : r.discount_type === 'percent' ? (r.redeemed_revenue || 0) * (r.discount_value || 0) / 100
+        : 0;
+    }
+  }
+
+  return Object.values(bySource).map(b => ({
+    ...b,
+    redemptionRate: b.issued ? Math.round((b.redeemed / b.issued) * 1000) / 10 : 0,
+    roi: b.discountCost > 0 ? Math.round((b.revenue / b.discountCost) * 100) / 100 : (b.revenue > 0 ? null : 0),
+  }));
+}
+
+Object.assign(module.exports, { issueCoupon, validateCoupon, redeemCoupon, getAttributionReport });

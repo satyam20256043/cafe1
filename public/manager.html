@@ -1183,6 +1183,13 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
     </div>
     <div class="form-group"><label class="form-label">Items <span style="color:var(--rose)">*</span></label><div id="no-items-list" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;padding:8px"><div style="padding:16px;text-align:center;color:#bbb;font-size:13px">Loading menu…</div></div></div>
     <div class="form-group"><label class="form-label">Notes (optional)</label><input class="form-input" id="no-notes" placeholder="e.g. Extra spicy, no onions…"/></div>
+    <div class="form-group">
+      <label class="form-label">Coupon Code (optional)</label>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="no-coupon" placeholder="e.g. WIN-4F2A" style="text-transform:uppercase" onblur="noValidateCoupon()"/>
+      </div>
+      <div id="no-coupon-status" style="font-size:12px;margin-top:4px"></div>
+    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--cream);border-radius:9px;margin-bottom:14px">
       <span style="font-size:13px;color:#888">Estimated Total</span>
       <span style="font-family:var(--font-display);font-size:20px;color:var(--espresso)" id="no-total">₹0</span>
@@ -2221,6 +2228,8 @@ async function openNewOrderModal() {
   document.getElementById('no-phone').value = '';
   document.getElementById('no-table').value = '';
   document.getElementById('no-notes').value = '';
+  document.getElementById('no-coupon').value = '';
+  document.getElementById('no-coupon-status').textContent = '';
   document.getElementById('no-type').value = 'dine_in';
   document.getElementById('no-payment').value = 'cash';
   document.getElementById('no-result').style.display = 'none';
@@ -2271,6 +2280,31 @@ function noUpdateTotal() {
   });
   document.getElementById('no-total').textContent = '₹' + Math.round(total*1.05);
 }
+async function noValidateCoupon() {
+  const codeEl = document.getElementById('no-coupon');
+  const statusEl = document.getElementById('no-coupon-status');
+  const code = codeEl.value.trim().toUpperCase();
+  codeEl.value = code;
+  if (!code) { statusEl.textContent = ''; return; }
+  try {
+    const tok = localStorage.getItem('cafehq_token');
+    const res = await fetch('/api/businesses/' + branchId + '/coupons/validate', {
+      method: 'POST', headers: {'Content-Type':'application/json', 'Authorization': 'Bearer ' + tok},
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if (data.valid) {
+      statusEl.style.color = '#2e7d32';
+      statusEl.textContent = '✓ Valid — ' + (data.coupon.discount_type === 'free_item' ? 'free item' : data.coupon.discount_type === 'flat' ? '₹' + data.coupon.discount_value + ' off' : data.coupon.discount_value + '% off');
+    } else {
+      statusEl.style.color = '#c0392b';
+      statusEl.textContent = '✗ ' + (data.reason || 'Invalid coupon');
+    }
+  } catch(e) {
+    statusEl.style.color = '#c0392b';
+    statusEl.textContent = 'Could not check coupon';
+  }
+}
 async function submitNewOrder() {
   const name = document.getElementById('no-name').value.trim();
   const items = Object.keys(_noCart).map(id => ({ id, qty: _noCart[id] }));
@@ -2290,6 +2324,7 @@ async function submitNewOrder() {
         orderType: document.getElementById('no-type').value,
         paymentMethod: document.getElementById('no-payment').value,
         notes: document.getElementById('no-notes').value.trim(),
+        couponCode: document.getElementById('no-coupon').value.trim() || undefined,
         items
       })
     });

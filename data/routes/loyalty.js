@@ -148,11 +148,11 @@ app.post('/api/businesses/:id/loyalty/birthday-campaign', requireAuth, requireBr
   const business = businesses.find(b => b.id === req.params.id) || {};
   const bizName  = business.name || 'Café Team';
 
-  const buildMsg = (name) =>
+  const buildMsg = (name, code) =>
     `🎂 *Happy Birthday, ${name || 'dear friend'}!*\n\n` +
     `Wishing you a beautiful day from all of us at ${bizName}! 🎉\n\n` +
     `As a token of our appreciation:\n` +
-    `🎁 *FREE Dessert* on your next visit today!\n\n` +
+    `🎁 *FREE Dessert* on your next visit today!${code ? `\n🎟 Show code *${code}* at the counter.` : ''}\n\n` +
     `Just show this message at the counter. Valid today only!\n\n` +
     `With warmth & coffee, ${bizName} ☕`;
 
@@ -167,7 +167,9 @@ app.post('/api/businesses/:id/loyalty/birthday-campaign', requireAuth, requireBr
 
   if (singlePhone) {
     // Single recipient
-    const msg = buildMsg(singleName);
+    const code = db ? db.issueCoupon({ businessId: req.params.id, sourceType: 'birthday',
+      customerPhone: singlePhone, discountType: 'free_item', discountValue: 0 }).code : null;
+    const msg = buildMsg(singleName, code);
     const sent = await sendWA(singlePhone, msg);
     if (db) db.logEvent(req.params.id, 'campaign.sent', { customerPhone: singlePhone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'birthday', sent } });
     return res.json({ success: true, sent, message: msg, note: sent ? undefined : 'WhatsApp not connected — copy message manually' });
@@ -180,7 +182,9 @@ app.post('/api/businesses/:id/loyalty/birthday-campaign', requireAuth, requireBr
 
   let sentCount = 0;
   for (const c of upcoming) {
-    const msg = buildMsg(c.name);
+    const code = db.issueCoupon({ businessId: req.params.id, sourceType: 'birthday',
+      customerPhone: c.phone, discountType: 'free_item', discountValue: 0 }).code;
+    const msg = buildMsg(c.name, code);
     const ok  = await sendWA(c.phone, msg);
     if (ok) sentCount++;
     db.logEvent(req.params.id, 'campaign.sent', { customerPhone: c.phone, actor: 'system', metadata: { source: 'birthday', sent: ok } });

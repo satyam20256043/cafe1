@@ -62,6 +62,14 @@ app.post('/api/businesses/:id/google-review/:claimId/approve', requireAuth, requ
   claims[idx].approvedAt = new Date().toISOString();
   writeBranchData(id, 'google_review_claims.json', claims);
   if (db) db.logEvent(id, 'review.verified', { customerPhone: claim.phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { claimId, pointsAwarded: 100 } });
+
+  let reviewCoupon = null;
+  if (db) {
+    const issued = db.issueCoupon({ businessId: id, sourceType: 'review', sourceId: claimId,
+      customerPhone: claim.phone, discountType: 'percent', discountValue: 15 });
+    reviewCoupon = issued.code;
+  }
+
   emitToBranch(id, 'google_review_claim_update', { branchId: id, claim: claims[idx] });
 
   // Notify customer via WhatsApp
@@ -77,7 +85,7 @@ Hi ${claim.customerName}! Your Google review has been verified by our team.
 
 🎁 *+100 Loyalty Points* have been added to your account!
 💰 New balance: *${newBal} points*
-
+${reviewCoupon ? `🎟 Coupon: *${reviewCoupon}* (15% Off your next visit)\n` : ''}
 Thank you for supporting ${business.name}! ☕`
       );
     } catch(e) { console.warn('[Review] WhatsApp notify failed:', e.message); }
@@ -231,14 +239,21 @@ app.post('/api/businesses/:id/feedback', (req, res) => {
   }
   
   const feedback = getBranchData(id, 'feedback.json');
-  
+  const feedbackId = 'f_' + Date.now();
+
   let couponCode = null;
   if (parseInt(rating) === 5) {
-    couponCode = 'THANKYOU15';
+    if (db) {
+      const issued = db.issueCoupon({ businessId: id, sourceType: 'feedback5', sourceId: feedbackId,
+        customerPhone: phone, discountType: 'percent', discountValue: 15 });
+      couponCode = issued.code;
+    } else {
+      couponCode = 'THANKYOU15'; // no DB — fall back to the old static code
+    }
   }
 
   const newFb = {
-    id: 'f_' + Date.now(),
+    id: feedbackId,
     customerName,
     rating: parseInt(rating),
     comment,
@@ -598,9 +613,17 @@ app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', re
   if (!sug) return res.status(404).json({ error: 'Suggestion not found or cache expired' });
   
   sug.status = 'approved';
-  const textToSend = customOfferText || sug.offerText;
+  let textToSend = customOfferText || sug.offerText;
+
+  let aiCampaignCoupon = null;
+  if (db) {
+    const issued = db.issueCoupon({ businessId: id, sourceType: 'ai_campaign', sourceId: suggestionId,
+      customerPhone: sug.customerPhone, discountType: 'percent', discountValue: 15 });
+    aiCampaignCoupon = issued.code;
+    textToSend += `\n\n🎟 Use code *${aiCampaignCoupon}* at checkout for 15% off!`;
+  }
   sug.offerText = textToSend;
-  
+
   // Update CRM customer profile with offer received
   const profiles = getBranchData(id, 'customer_profiles.json');
   const profile = profiles.find(p => p.phone === sug.customerPhone);
@@ -613,7 +636,7 @@ app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', re
     writeBranchData(id, 'customer_profiles.json', profiles);
     emitToBranch(id, 'crm_update', { branchId: id, profiles });
   }
-  
+
   // Broadcast simulated chat notification
   emitToBranch(id, 'inbound_chat', {
     branchId: id,
@@ -665,11 +688,18 @@ app.post('/api/businesses/:id/offers/:offerId/approve', requireAuth, requireBran
 
   offers[index].status = 'approved';
   offers[index].approvedOffer = customText;
-  writeBranchData(id, 'offer_requests.json', offers);
 
   // Send approved text to customer via WhatsApp or simulator
   const phone = offers[index].phone;
-  const msgContent = customText || `Congratulations! Your custom discount request has been approved: Flat 15% Off! 🎉`;
+  let msgContent = customText || `Congratulations! Your custom discount request has been approved: Flat 15% Off! 🎉`;
+
+  if (db) {
+    const issued = db.issueCoupon({ businessId: id, sourceType: 'offer_request', sourceId: offerId,
+      customerPhone: phone, discountType: 'percent', discountValue: 15 });
+    offers[index].couponCode = issued.code;
+    msgContent += `\n\n🎟 Use code *${issued.code}* at checkout!`;
+  }
+  writeBranchData(id, 'offer_requests.json', offers);
 
   if (whatsappClient && whatsappConnectionStatus === 'Connected') {
     const wid = phone.includes('@') ? phone : `${phone}@c.us`;

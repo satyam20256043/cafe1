@@ -19,10 +19,20 @@ module.exports = function register(ctx) {
 // POST /api/businesses/:id/orders
 app.post('/api/businesses/:id/orders', async (req, res) => {
   const businessId = req.params.id;
-  const { customerName, customerPhone, tableNo, orderType, items, notes, paymentMethod } = req.body;
+  const { customerName, customerPhone, tableNo, orderType, items, notes, paymentMethod, couponCode } = req.body;
 
   if (!customerName || !items || !items.length) {
     return res.status(400).json({ error: 'customerName and items are required' });
+  }
+
+  // Validate the coupon (if any) BEFORE building the order, so a bad code
+  // fails the request instead of silently placing a full-price order.
+  let couponCheck = null;
+  if (couponCode && db) {
+    couponCheck = db.validateCoupon(businessId, couponCode);
+    if (!couponCheck.valid) {
+      return res.status(400).json({ error: `Coupon error: ${couponCheck.reason}` });
+    }
   }
 
   try {
@@ -39,6 +49,15 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
       discount  += price * qty * (disc / 100);
       return { id: item.id, name: menuItem?.name || item.name, price, discount: disc, qty, lineTotal };
     });
+
+    // Apply the coupon's discount on top of any menu-item discounts
+    // (percent/flat only — free_item coupons are honored by staff at the
+    // counter and don't reduce the bill total here).
+    if (couponCheck && couponCheck.valid) {
+      const c = couponCheck.coupon;
+      if (c.discount_type === 'percent') discount += (subtotal - discount) * (c.discount_value / 100);
+      else if (c.discount_type === 'flat') discount += c.discount_value;
+    }
 
     const tax   = parseFloat(((subtotal - discount) * 0.05).toFixed(2));  // 5% GST
     const total = parseFloat((subtotal - discount + tax).toFixed(2));
@@ -59,14 +78,34 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
       writeBranchData(businessId, 'orders.json', orders);
     }
 
+    if (couponCheck && couponCheck.valid && db) {
+      db.redeemCoupon(businessId, couponCode, order.id, total);
+    }
+
     if (db) db.logEvent(businessId, 'order.placed',
-      { customerPhone: customerPhone, actor: 'customer', metadata: { orderId: order.id, total, itemCount: validatedItems.length, orderType: orderType || 'dine_in' } });
+      { customerPhone: customerPhone, actor: 'customer', metadata: { orderId: order.id, total, itemCount: validatedItems.length, orderType: orderType || 'dine_in', couponCode: couponCode || null } });
     emitToBranch(businessId, 'new_order', { businessId, order });
     res.status(201).json(order);
   } catch (err) {
     console.error('[orders] Failed to create order:', err.message);
     res.status(500).json({ error: 'Could not place order. Please try again or ask staff for help.' });
   }
+});
+
+// ── Validate a coupon before checkout (staff/billing UI) ─────────────────────
+// POST /api/businesses/:id/coupons/validate  { code }
+app.post('/api/businesses/:id/coupons/validate', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  const { code } = req.body;
+  res.json(db.validateCoupon(req.params.id, code));
+});
+
+// ── Attribution / campaign ROI report (staff) ────────────────────────────────
+// GET /api/businesses/:id/attribution?from&to
+app.get('/api/businesses/:id/attribution', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  const { from, to } = req.query;
+  res.json(db.getAttributionReport(req.params.id, { from, to }));
 });
 
 // ── List orders ───────────────────────────────────────────────────────────────

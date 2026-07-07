@@ -177,5 +177,41 @@
       }
     ],
     "loyaltyTier": "VIP"
+  },
+  {
+    "phone": "9991112223",
+    "name": "Coupon Test",
+    "visits": 1,
+    "tags": [
+      "gave_feedback"
+    ],
+    "lastActive": "7/7/2026, 4:59:43 PM",
+    "averageRating": 5,
+    "feedbackCount": 1,
+    "offersReceived": [
+      {
+        "offer": "Feedback Reward: Coupon THX-4MZO (15% Off)",
+        "timestamp": "2026-07-07T11:29:43.477Z"
+      }
+    ],
+    "loyaltyTier": "New Customer"
+  },
+  {
+    "phone": "9991112224",
+    "name": "Coupon Test2",
+    "visits": 1,
+    "tags": [
+      "gave_feedback"
+    ],
+    "lastActive": "7/7/2026, 5:00:18 PM",
+    "averageRating": 5,
+    "feedbackCount": 1,
+    "offersReceived": [
+      {
+        "offer": "Feedback Reward: Coupon THX-I1P7 (15% Off)",
+        "timestamp": "2026-07-07T11:30:18.265Z"
+      }
+    ],
+    "loyaltyTier": "New Customer"
   }
 ]

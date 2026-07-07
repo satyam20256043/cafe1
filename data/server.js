@@ -854,7 +854,13 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
       // Save coupon in customer profile if rating is 5
       let couponCode = null;
       if (newFb.rating === 5) {
-        couponCode = 'THANKYOU15';
+        if (db) {
+          const issued = db.issueCoupon({ businessId: branchId, sourceType: 'feedback5', sourceId: newFb.id,
+            customerPhone: fromPhone, discountType: 'percent', discountValue: 15 });
+          couponCode = issued.code;
+        } else {
+          couponCode = 'THANKYOU15'; // no DB — fall back to the old static code
+        }
         newFb.couponCode = couponCode;
         // Re-write updated feedback with couponCode
         writeBranchData(branchId, 'feedback.json', feedback);
@@ -876,11 +882,11 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
 
       if (newFb.rating === 5) {
         if (lang === 'hinglish') {
-          return `Aapka bohot bohot shukriya! ❤️ 5-star dene ke liye:\n\n🎁 *+30 Loyalty Points* aapke account mein add ho gaye!\n🎟 Coupon: *THANKYOU15* (15% Off next visit)\n\n⭐ *Google Review ka bonus!*\nHumein Google par bhi review dein aur *+100 aur points* pao!\n👉 ${business.review}\n\nReview karne ke baad yahan *Done* type karein. 😊`;
+          return `Aapka bohot bohot shukriya! ❤️ 5-star dene ke liye:\n\n🎁 *+30 Loyalty Points* aapke account mein add ho gaye!\n🎟 Coupon: *${couponCode}* (15% Off next visit)\n\n⭐ *Google Review ka bonus!*\nHumein Google par bhi review dein aur *+100 aur points* pao!\n👉 ${business.review}\n\nReview karne ke baad yahan *Done* type karein. 😊`;
         } else if (lang === 'hindi') {
-          return `बहुत-बहुत धन्यवाद! ❤️ 5-स्टार देने के लिए:\n\n🎁 *+30 Loyalty Points* आपके खाते में जुड़ गए!\n🎟 कूपन: *THANKYOU15* (अगली बार 15% छूट)\n\n⭐ *Google Review बोनस!*\nGoogle पर भी समीक्षा दें और *+100 और Points* पाएं!\n👉 ${business.review}\n\nReview करने के बाद यहाँ *Done* लिखें। 😊`;
+          return `बहुत-बहुत धन्यवाद! ❤️ 5-स्टार देने के लिए:\n\n🎁 *+30 Loyalty Points* आपके खाते में जुड़ गए!\n🎟 कूपन: *${couponCode}* (अगली बार 15% छूट)\n\n⭐ *Google Review बोनस!*\nGoogle पर भी समीक्षा दें और *+100 और Points* पाएं!\n👉 ${business.review}\n\nReview करने के बाद यहाँ *Done* लिखें। 😊`;
         } else {
-          return `Thank you so much! ❤️ For the 5-star rating:\n\n🎁 *+30 Loyalty Points* added to your account!\n🎟 Coupon: *THANKYOU15* (15% Off your next visit)\n\n⭐ *Bonus Google Review Reward!*\nLeave us a Google review and earn *+100 more Points*!\n👉 ${business.review}\n\nAfter reviewing, reply *Done* here to claim your points. 😊`;
+          return `Thank you so much! ❤️ For the 5-star rating:\n\n🎁 *+30 Loyalty Points* added to your account!\n🎟 Coupon: *${couponCode}* (15% Off your next visit)\n\n⭐ *Bonus Google Review Reward!*\nLeave us a Google review and earn *+100 more Points*!\n👉 ${business.review}\n\nAfter reviewing, reply *Done* here to claim your points. 😊`;
         }
       } else if (newFb.rating >= 4) {
         if (lang === 'hinglish') {
@@ -1362,29 +1368,36 @@ function runAutoPilotCampaign(branchId, forceDay = null) {
 
   const logs = [];
   targetCustomers.forEach(cust => {
+    let msgText = campaignText;
+    if (db) {
+      const issued = db.issueCoupon({ businessId: branchId, sourceType: 'autopilot', sourceId: today,
+        customerPhone: cust.phone, discountType: 'percent', discountValue: 15 });
+      msgText += `\n\n🎟 Use code *${issued.code}* at checkout!`;
+    }
+
     // Send message (console log + live chat simulator stream + real WhatsApp if connected)
-    const msgLog = `[Auto-Pilot Broadcast] Sent to ${cust.name || 'Customer'} (${cust.phone}): "${campaignText}"`;
+    const msgLog = `[Auto-Pilot Broadcast] Sent to ${cust.name || 'Customer'} (${cust.phone}): "${msgText}"`;
     console.log(msgLog);
     logs.push({ phone: cust.phone, name: cust.name, status: 'Sent Successfully' });
-    
+
     // Save offer in customer profile
     cust.offersReceived = cust.offersReceived || [];
     cust.offersReceived.push({
-      offer: campaignText,
+      offer: msgText,
       timestamp: new Date().toISOString()
     });
 
     // Send via WhatsApp if connected
     if (whatsappClient && whatsappConnectionStatus === 'Connected') {
       const wid = cust.phone.includes('@') ? cust.phone : `${cust.phone}@c.us`;
-      whatsappClient.sendMessage(wid, campaignText).catch(e => console.error('[WhatsApp Autopilot Error]', e));
+      whatsappClient.sendMessage(wid, msgText).catch(e => console.error('[WhatsApp Autopilot Error]', e));
     }
 
     // Emit live chat simulator log (branch staff + agency only)
     emitToBranch(branchId, 'inbound_chat', {
       branchId,
       phone: cust.phone,
-      text: `📢 *[AUTOPILOT CAMPAIGN]*: ${campaignText}`,
+      text: `📢 *[AUTOPILOT CAMPAIGN]*: ${msgText}`,
       sender: 'ai',
       timestamp: new Date().toLocaleTimeString()
     });
@@ -1717,6 +1730,13 @@ app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requir
   const { phone, name, offerText } = req.body;
   if (!phone) return res.status(400).json({ error: 'Phone required' });
 
+  let winbackCoupon = null;
+  if (db) {
+    const issued = db.issueCoupon({ businessId: id, sourceType: 'winback', customerPhone: phone,
+      discountType: 'percent', discountValue: 15 });
+    winbackCoupon = issued.code;
+  }
+
   // Try to send via WhatsApp Cloud API if configured
   const cfgFile = path.join(DATA_DIR, id, 'whatsapp_config.json');
   let sent = false;
@@ -1725,7 +1745,8 @@ app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requir
       const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf-8'));
       if (cfg.phoneNumberId && cfg.accessToken) {
         const fetch = (...a) => import('node-fetch').then(m => m.default(...a)).catch(() => null);
-        const msg = offerText || `Hi ${name || 'there'}! We miss you at our café ☕ Come back and enjoy a special 15% off on your next visit — just for you! 🎁`;
+        const msg = (offerText || `Hi ${name || 'there'}! We miss you at our café ☕ Come back and enjoy a special 15% off on your next visit — just for you! 🎁`)
+          + (winbackCoupon ? `\n\n🎟 Use code *${winbackCoupon}* at checkout!` : '');
         const body = {
           messaging_product: 'whatsapp',
           to: '91' + phone.replace(/\D/g,'').slice(-10),
