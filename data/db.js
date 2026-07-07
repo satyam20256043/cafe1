@@ -10,6 +10,14 @@ const DATA_DIR = path.join(__dirname, 'data');
 const DB_PATH  = path.join(DATA_DIR, 'cafe_hq.db');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
+// ── Shared phone normalization ────────────────────────────────────────────────
+// Canonical form used everywhere a phone number is stored or looked up: strip
+// everything but digits, keep the last 10 (drops country codes like 91/+91).
+function normalizePhone(phone) {
+  if (!phone) return '';
+  return String(phone).replace(/[^0-9]/g, '').slice(-10);
+}
+
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -373,7 +381,7 @@ function audit(businessId, staffId, staffName, action, details, ip='') {
 // Run migration on startup
 migrateFromJSON();
 
-module.exports = { db, stmts, getAnalytics, getLoyaltyTier, audit };
+module.exports = { db, stmts, getAnalytics, getLoyaltyTier, audit, normalizePhone };
 
 // ── Raw DB access (for backup.js) ────────────────────────────────────────────
 function raw() { return db; }

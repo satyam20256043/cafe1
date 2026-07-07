@@ -16,6 +16,8 @@ data/cafe_hq.db-wal
 data/backups/
 data/*.txt
 data/server_log.txt
+*.bak
+*.pre-launch.bak
 
 # OS / editor noise
 Thumbs.db

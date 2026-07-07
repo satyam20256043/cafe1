@@ -1450,6 +1450,7 @@ const routeCtx = {
   updateCustomerProfile, processCafeBotReply,
   initializeBusinessFiles,
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
+  normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   waApi, genAI, razorpay: (() => { try { return new (require('razorpay'))({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }); } catch(e){ return null; } })(),
   whatsappConnectionStatus: 'Disconnected',
   requireAuth, requireBranchAccess, requireRole,
