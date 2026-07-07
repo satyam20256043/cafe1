@@ -10,7 +10,7 @@ module.exports = function register(ctx) {
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
-    auth,
+    auth, db,
   } = ctx;
 
 // ── Safe staff.json writer (backup → write) ───────────────────────────────────
@@ -137,7 +137,18 @@ app.patch('/api/staff/:staffId', (req, res) => {
 });
 
 // ── Admin: view all staff ─────────────────────────────────────────────────────
+// This app runs staff in SQLite when db.js loaded successfully (the normal
+// case — see [Phase1] boot log), with data/staff.json as a JSON-mode
+// fallback. These two endpoints used to only ever touch the JSON file, so a
+// password "change" here silently did nothing for a real, SQLite-backed
+// account (e.g. every seeded café owner) — the UI reported success but the
+// old password kept working. Try SQLite first; fall back to JSON mode only
+// when db isn't loaded.
 app.get('/api/admin/staff', requireAuth, requireRole('agency_admin'), (req, res) => {
+  if (db) {
+    const all = businesses.flatMap(b => db.listStaff(b.id));
+    return res.json(all.map(({ password_hash, ...s }) => s));
+  }
   const staff = loadStaff();
   res.json(staff.map(({ passwordHash, ...s }) => s));
 });
@@ -147,6 +158,15 @@ app.put('/api/admin/staff/:id/password', requireAuth, requireRole('agency_admin'
   const { newPassword } = req.body;
   if (!newPassword || newPassword.length < 4)
     return res.status(400).json({ error: 'Password must be at least 4 characters' });
+
+  if (db) {
+    const member = db.getStaffById(req.params.id);
+    if (!member) return res.status(404).json({ error: 'Staff not found' });
+    const bcryptjs = require('bcryptjs');
+    db.updateStaffPassword(req.params.id, bcryptjs.hashSync(newPassword, 10));
+    return res.json({ success: true });
+  }
+
   const staff = loadStaff();
   const member = staff.find(s => s.id === req.params.id);
   if (!member) return res.status(404).json({ error: 'Staff not found' });
