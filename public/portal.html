@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Café Portal — Zordic California</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+  :root{
+    --gold:#C47F3A;--gold-d:#9A5E1E;--gold-lt:#F5E6CC;--gold-bg:#FEF9F3;
+    --ink:#1C1408;--ink-2:#5C4A30;--ink-3:#9A8870;
+    --border:#EDE5D8;--bg:#FAF7F3;--white:#FFFFFF;
+    --sage:#5A8C5E;--sage-lt:#EBF5EC;
+    --amber:#D4920C;--amber-lt:#FEF6E4;
+    --rose:#B8505A;--rose-lt:#FCEEF0;
+    --shadow:0 2px 14px rgba(60,30,8,0.07);
+    --shadow-lg:0 6px 28px rgba(60,30,8,0.11);
+    --r:16px;
+    --font-d:'DM Serif Display',Georgia,serif;
+    --font-b:'DM Sans',system-ui,sans-serif;
+    --font-display:'DM Serif Display',Georgia,serif;
+    --font-body:'DM Sans',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{font-size:14px}
+  body{font-family:var(--font-b);background:var(--bg);color:var(--ink);min-height:100vh}
+
+  /* ── Login screen ── */
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 38px);padding:24px;background:var(--bg)}
+  .login-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:36px 32px;width:100%;max-width:420px;box-shadow:var(--shadow-lg)}
+  .login-logo{text-align:center;margin-bottom:28px}
+  .login-logo .icon{font-size:36px;margin-bottom:10px}
+  .login-logo h1{font-family:var(--font-d);font-size:22px;color:var(--ink);margin-bottom:6px}
+  .login-logo p{font-size:13px;color:var(--ink-3)}
+  .login-label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:5px;margin-top:14px}
+  .login-input{width:100%;padding:10px 13px;border:1px solid var(--border);border-radius:9px;font-family:var(--font-b);font-size:13.5px;color:var(--ink);background:var(--bg);outline:none;transition:border 0.15s}
+  .login-input:focus{border-color:var(--gold)}
+  .login-btn{width:100%;margin-top:20px;padding:12px;background:var(--gold);color:#fff;border:none;border-radius:10px;font-family:var(--font-b);font-size:14px;font-weight:600;cursor:pointer;transition:background 0.15s;letter-spacing:0.2px}
+  .login-btn:hover{background:var(--gold-d)}
+  .login-btn:disabled{background:#C5AC87;cursor:not-allowed}
+  .login-error{margin-top:10px;padding:9px 12px;background:var(--rose-lt);border:1px solid rgba(184,80,90,0.2);border-radius:8px;font-size:12.5px;color:var(--rose);display:none}
+  .login-hint{margin-top:18px;text-align:center;font-size:11.5px;color:var(--ink-3)}
+
+  /* ── App shell ── */
+  #app{display:none;flex-direction:column;min-height:100vh}
+  .app-header{background:var(--white);border-bottom:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 1px 8px rgba(60,30,8,0.05)}
+  .app-header-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .app-logo{font-family:var(--font-d);font-size:17px;color:var(--ink);font-weight:400}
+  .owner-pill{display:flex;align-items:center;gap:5px;background:var(--gold-lt);color:var(--gold-d);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid rgba(196,127,58,0.2)}
+  .sub-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px}
+  .sb-active{background:var(--sage-lt);color:var(--sage)}
+  .sb-trial{background:var(--amber-lt);color:var(--amber)}
+  .sb-expired{background:var(--rose-lt);color:var(--rose)}
+  .header-actions{display:flex;align-items:center;gap:10px}
+  .logout-btn{padding:7px 16px;border:1px solid var(--border);border-radius:8px;background:transparent;font-family:var(--font-b);font-size:12.5px;color:var(--ink-3);cursor:pointer;transition:all 0.12s}
+  .logout-btn:hover{background:var(--rose-lt);border-color:rgba(184,80,90,0.3);color:var(--rose)}
+
+  /* ── Subscription banners ── */
+  #sub-banner{display:none;padding:10px 28px;font-size:13px;line-height:1.4}
+  #sub-banner.trial{background:var(--amber-lt);border-bottom:1px solid rgba(212,146,12,0.2);color:var(--gold-d)}
+  #sub-banner.expired{background:var(--rose-lt);border-bottom:1px solid rgba(184,80,90,0.2);color:var(--rose)}
+  #sub-banner a{color:var(--gold);font-weight:600;cursor:pointer;text-decoration:underline}
+
+  /* ── Dash content ── */
+  .dash-content{padding:28px;flex:1}
+
+  /* ── Branch hero card ── */
+  .branch-hero{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:24px 28px;margin-bottom:24px;box-shadow:var(--shadow)}
+  .branch-hero-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:20px}
+  .branch-name-big{font-family:var(--font-d);font-size:26px;color:var(--ink);margin-bottom:4px}
+  .branch-loc{font-size:13px;color:var(--ink-3);margin-bottom:6px}
+  .branch-id{font-size:11px;font-family:monospace;background:var(--bg);border:1px solid var(--border);padding:2px 8px;border-radius:6px;color:var(--ink-3)}
+
+  /* ── KPI strip ── */
+  .kpi-strip{display:flex;gap:10px;flex-wrap:wrap}
+  .kpi-chip{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px 18px;flex:1;min-width:120px;text-align:center}
+  .kpi-chip-val{font-family:var(--font-d);font-size:22px;color:var(--gold);line-height:1;margin-bottom:4px}
+  .kpi-chip-lbl{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:0.6px;font-weight:600}
+
+  /* ── Quick-action cards ── */
+  .quick-actions{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:8px}
+  .qa-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:18px 18px 16px;text-decoration:none;display:block;transition:all 0.15s;cursor:pointer}
+  .qa-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:rgba(196,127,58,0.3)}
+  .qa-icon{font-size:26px;margin-bottom:10px}
+  .qa-title{font-weight:700;font-size:13.5px;color:var(--ink);margin-bottom:4px}
+  .qa-desc{font-size:12px;color:var(--ink-3);line-height:1.4}
+
+  /* ── Franchise hub ── */
+  .franchise-heading{font-family:var(--font-d);font-size:20px;color:var(--ink);margin-bottom:4px}
+  .franchise-sub{font-size:13px;color:var(--ink-3);margin-bottom:18px}
+  .franchise-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+  .franchise-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);transition:transform 0.15s,box-shadow 0.15s}
+  .franchise-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+  .fc-header{display:flex;align-items:flex-start;gap:12px;padding:16px}
+  .fc-dot{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .fc-name{font-weight:700;font-size:13.5px;color:var(--ink);margin-bottom:2px}
+  .fc-loc{font-size:11.5px;color:var(--ink-3)}
+  .fc-stats{display:flex;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .fc-stat{flex:1;padding:10px 8px;text-align:center}
+  .fc-stat+.fc-stat{border-left:1px solid var(--border)}
+  .fc-stat-val{font-size:15px;font-weight:700;color:var(--ink)}
+  .fc-stat-lbl{font-size:10px;color:var(--ink-3);margin-top:2px}
+  .fc-actions{display:flex;gap:6px;padding:10px 12px;flex-wrap:wrap}
+  .fc-btn{padding:5px 11px;border-radius:7px;font-size:11.5px;font-weight:500;text-decoration:none;border:1px solid var(--border);color:var(--ink-2);background:var(--bg);transition:all 0.12s;display:inline-block;cursor:pointer}
+  .fc-btn:hover{background:var(--gold-lt);border-color:rgba(196,127,58,0.4);color:var(--gold-d)}
+  .fc-btn.primary{background:var(--gold-lt);border-color:rgba(196,127,58,0.4);color:var(--gold-d)}
+
+  /* ── Chat History Panel ── */
+  .chat-overlay{position:fixed;inset:0;background:rgba(28,20,8,0.45);z-index:1000;opacity:0;visibility:hidden;transition:opacity 0.25s,visibility 0.25s}
+  .chat-overlay.open{opacity:1;visibility:visible}
+  .chat-panel{position:fixed;top:0;right:0;bottom:0;width:460px;max-width:100vw;background:var(--white);display:flex;flex-direction:column;z-index:1001;transform:translateX(100%);transition:transform 0.28s cubic-bezier(.4,0,.2,1);box-shadow:-4px 0 32px rgba(60,30,8,0.15)}
+  .chat-panel.open{transform:translateX(0)}
+  .chat-panel-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--white);flex-shrink:0}
+  .chat-panel-title{font-family:var(--font-d);font-size:17px;color:var(--ink);flex:1}
+  .chat-icon-btn{width:32px;height:32px;border:none;border-radius:8px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:background 0.12s;flex-shrink:0}
+  .chat-close-btn{background:var(--bg);color:var(--ink-3)}
+  .chat-close-btn:hover{background:var(--rose-lt);color:var(--rose)}
+  .chat-back-btn{background:var(--bg);color:var(--ink-2);display:none}
+  .chat-back-btn:hover{background:var(--gold-lt);color:var(--gold-d)}
+  .chat-search-wrap{padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+  .chat-search{width:100%;padding:8px 12px 8px 34px;border:1px solid var(--border);border-radius:9px;font-family:var(--font-b);font-size:13px;background:var(--bg);color:var(--ink);outline:none;transition:border 0.12s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239A8870' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:11px center}
+  .chat-search:focus{border-color:var(--gold)}
+  .chat-body{flex:1;overflow-y:auto;padding:4px 0}
+  .convo-item{display:flex;align-items:flex-start;gap:11px;padding:12px 16px;cursor:pointer;border-bottom:1px solid rgba(237,229,216,0.5);transition:background 0.1s;position:relative}
+  .convo-item:hover{background:var(--gold-bg)}
+  .convo-avatar{width:42px;height:42px;border-radius:50%;background:var(--gold-lt);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:1.5px solid rgba(196,127,58,0.2)}
+  .convo-info{flex:1;min-width:0}
+  .convo-name{font-weight:600;font-size:13px;color:var(--ink);margin-bottom:1px}
+  .convo-phone{font-size:11px;color:var(--ink-3);font-family:monospace;margin-bottom:3px}
+  .convo-preview{font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .convo-meta{text-align:right;flex-shrink:0;padding-top:1px}
+  .convo-time{font-size:10.5px;color:var(--ink-3);margin-bottom:5px;white-space:nowrap}
+  .convo-count{background:var(--gold);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;display:inline-block}
+  .chat-thread-bar{padding:11px 16px;border-bottom:1px solid var(--border);background:var(--gold-bg);flex-shrink:0;display:none}
+  .chat-thread-name{font-weight:700;font-size:13.5px;color:var(--ink)}
+  .chat-thread-phone{font-size:11.5px;color:var(--ink-3);font-family:monospace;margin-top:1px}
+  .msgs-wrap{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:8px}
+  .msg-row{display:flex}
+  .msg-row.out{justify-content:flex-end}
+  .msg-row.in{justify-content:flex-start}
+  .msg-bubble{max-width:78%;padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.48;word-break:break-word}
+  .msg-bubble.in{background:var(--gold-lt);color:var(--ink);border-bottom-left-radius:4px}
+  .msg-bubble.out{background:var(--gold);color:#fff;border-bottom-right-radius:4px}
+  .msg-time{font-size:10px;opacity:0.6;margin-top:4px;text-align:right}
+  .msg-row.in .msg-time{text-align:left}
+  .chat-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:48px 28px;text-align:center;color:var(--ink-3)}
+  .chat-empty-icon{font-size:42px;margin-bottom:14px;opacity:0.7}
+  .chat-empty-title{font-size:14px;color:var(--ink-2);font-weight:600;margin-bottom:5px}
+  .chat-empty-sub{font-size:12px;line-height:1.5}
+  .chat-loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-3);font-size:13px;gap:8px}
+  .new-msg-toast{position:fixed;bottom:24px;right:24px;background:var(--gold);color:#fff;padding:9px 18px;border-radius:22px;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:var(--shadow-lg);z-index:1002;display:none;animation:slideUp 0.3s ease}
+  @keyframes slideUp{from{transform:translateY(16px);opacity:0}to{transform:translateY(0);opacity:1}}
+  </style>
+</head>
+<body>
+
+<!-- System Nav Bar -->
+<div style="background:#FFFFFF;border-bottom:1px solid #EDE5D8;padding:6px 20px;display:flex;align-items:center;justify-content:space-between;font-size:11.5px;flex-wrap:wrap;gap:6px;position:relative;z-index:999">
+  <div style="display:flex;align-items:center;gap:14px">
+    <a href="/" style="text-decoration:none;display:flex;align-items:center"><img src="/logo.svg" alt="Zordic California" style="height:24px;width:auto;opacity:.92"></a>
+    <span style="color:#EDE5D8">|</span>
+    <a href="/hq" style="color:#9A8870;text-decoration:none;white-space:nowrap" title="Agency Admin HQ">🏢 Admin HQ</a>
+    <a id="__snav_portal" href="/portal" style="color:#9A8870;text-decoration:none;white-space:nowrap">🔑 Owner Portal</a>
+    <a id="__snav_mgr" href="#" style="color:#9A8870;text-decoration:none;white-space:nowrap">📊 Manager</a>
+    <a id="__snav_kit" href="#" style="color:#9A8870;text-decoration:none;white-space:nowrap">🍳 Kitchen</a>
+    <a id="__snav_caf" href="#" style="color:#9A8870;text-decoration:none;white-space:nowrap;display:none">🌐 Café Site</a>
+  </div>
+  <div style="color:#9A8870;font-size:10.5px" id="__snav_bc">System</div>
+</div>
+<script>
+(function(){
+  var p=location.pathname.split("/").filter(Boolean);
+  var bid=new URLSearchParams(location.search).get("branch")||new URLSearchParams(location.search).get("id")||(["manager","portal","kitchen","cafe","order"].includes(p[0])?p[1]:null)||localStorage.getItem("cafehq_businessId")||"";
+  if(bid){
+    document.getElementById("__snav_mgr").href="/manager/"+bid;
+    document.getElementById("__snav_kit").href="/kitchen.html?branch="+bid;
+    document.getElementById("__snav_portal").href="/portal/"+bid;
+    document.getElementById("__snav_caf").href="/cafe/"+bid;
+    document.getElementById("__snav_caf").style.display="inline";
+    document.getElementById("__snav_bc").textContent="Branch: "+bid;
+  }
+})();
+</script>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">☕</div>
+      <h1>Zordic California</h1>
+      <p>Owner Portal — Sign in to your dashboard</p>
+    </div>
+
+    <label class="login-label">Your Café</label>
+    <select class="login-input" id="login-branch">
+      <option value="">Select your café…</option>
+    </select>
+
+    <label class="login-label">Username</label>
+    <input class="login-input" type="text" id="login-user" placeholder="e.g. owner_yourcafe" autocomplete="username"/>
+
+    <label class="login-label">Password</label>
+    <input class="login-input" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"/>
+
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In →</button>
+    <div class="login-error" id="login-err"></div>
+    <div class="login-hint">Managed by Zordic California · Contact your agency for access</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="app-header">
+    <div class="app-header-left">
+      <div class="app-logo">Zordic California</div>
+      <div class="owner-pill">👤 <span id="owner-name">—</span></div>
+      <span class="sub-badge" id="sub-badge">—</span>
+    </div>
+    <div class="header-actions">
+      <span id="header-cafe-name" style="font-size:13px;color:var(--ink-3)"></span>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div id="sub-banner"></div>
+
+  <div class="dash-content" id="dash-content">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- Chat History Panel -->
+<div class="chat-overlay" id="chat-overlay" onclick="closeChatHistory()"></div>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-panel-header">
+    <button class="chat-icon-btn chat-back-btn" id="chat-back-btn" onclick="backToConvoList()" title="Back">&#8592;</button>
+    <div class="chat-panel-title" id="chat-panel-title">💬 Chat History</div>
+    <button class="chat-icon-btn chat-close-btn" onclick="closeChatHistory()" title="Close">&#10005;</button>
+  </div>
+  <div class="chat-search-wrap" id="chat-search-wrap">
+    <input class="chat-search" id="chat-search" placeholder="Search by name, phone, or message…" oninput="filterConvos()" autocomplete="off"/>
+  </div>
+  <div class="chat-thread-bar" id="chat-thread-bar">
+    <div class="chat-thread-name" id="chat-thread-name"></div>
+    <div class="chat-thread-phone" id="chat-thread-phone"></div>
+  </div>
+  <div id="chat-panel-body" class="chat-body">
+    <!-- Populated by JS -->
+  </div>
+</div>
+<div class="new-msg-toast" id="new-msg-toast" onclick="refreshChatPanel()">🔔 New message — tap to refresh</div>
+
+<script>
+let authToken = null, bizId = null, staffInfo = null, allMyBranches = [];
+
+async function loadBranchList() {
+  try {
+    const data = await fetch('/api/businesses').then(r => r.json());
+    const sel  = document.getElementById('login-branch');
+    sel.innerHTML = '<option value="">Select your café…</option>' +
+      data.map(b => `<option value="${b.id}">${b.name}${b.location?' — '+b.location:''}</option>`).join('');
+    const urlId = location.pathname.split('/').filter(Boolean)[1];
+    if (urlId) {
+      const match = data.find(b => b.id === urlId);
+      if (match) {
+        sel.value = urlId;
+        document.getElementById('login-user').placeholder = 'owner_' + urlId.split('_')[0];
+      }
+    }
+  } catch(e) {}
+}
+loadBranchList();
+
+document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+async function doLogin() {
+  const businessId = document.getElementById('login-branch').value;
+  const username   = document.getElementById('login-user').value.trim();
+  const password   = document.getElementById('login-pass').value;
+  const err        = document.getElementById('login-err');
+  err.style.display = 'none';
+  if (!businessId || !username || !password) {
+    err.textContent = 'Please fill all fields.'; err.style.display = 'block'; return;
+  }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const res  = await fetch('/api/auth/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ businessId, username, password })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.token) {
+      err.textContent = data.error || 'Login failed. Check your credentials.';
+      err.style.display = 'block'; return;
+    }
+    if (!['owner','manager','agency_admin'].includes(data.staff?.role)) {
+      err.textContent = 'This portal is for café owners and managers only.';
+      err.style.display = 'block'; return;
+    }
+    authToken = data.token; bizId = data.staff.businessId; staffInfo = data.staff;
+    sessionStorage.setItem('portal_token', authToken);
+    sessionStorage.setItem('portal_biz',   bizId);
+    sessionStorage.setItem('portal_staff', JSON.stringify(staffInfo));
+    showApp();
+  } catch(e) {
+    err.textContent = 'Connection error. Is the server running?'; err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In →';
+  }
+}
+
+(function restoreSession() {
+  const t = sessionStorage.getItem('portal_token');
+  const b = sessionStorage.getItem('portal_biz');
+  const s = JSON.parse(sessionStorage.getItem('portal_staff') || 'null');
+  if (t && b && s) { authToken = t; bizId = b; staffInfo = s; showApp(); }
+})();
+
+async function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('owner-name').textContent = staffInfo?.name || 'Owner';
+  try {
+    const all = await fetch('/api/businesses').then(r => r.json());
+    const myBiz = all.find(b => b.id === bizId);
+    if (!myBiz) { doLogout(); return; }
+    showSubscriptionBanner(myBiz);
+    const phone = myBiz.ownerPhone || myBiz.contact || '';
+    const fgId  = myBiz.franchiseGroupId || '';
+    allMyBranches = all.filter(b =>
+      b.id === bizId ||
+      (fgId && b.franchiseGroupId === fgId) ||
+      (phone && phone.length >= 8 && (b.ownerPhone === phone || b.contact === phone))
+    );
+    allMyBranches = [...new Map(allMyBranches.map(b => [b.id, b])).values()];
+    document.getElementById('header-cafe-name').textContent =
+      allMyBranches.length > 1 ? `${allMyBranches.length} branches` : myBiz.name;
+    if (allMyBranches.length > 1) {
+      renderFranchiseHub(allMyBranches, myBiz);
+    } else {
+      renderSingleBranch(myBiz);
+    }
+  } catch(e) {
+    document.getElementById('dash-content').innerHTML =
+      `<div style="text-align:center;padding:60px;color:var(--ink-3)">Error loading data: ${e.message}</div>`;
+  }
+}
+
+function showSubscriptionBanner(biz) {
+  const status = biz.subscriptionStatus || 'active';
+  const badge  = document.getElementById('sub-badge');
+  const banner = document.getElementById('sub-banner');
+  if (status === 'trial') {
+    const daysLeft = (biz.subscriptionEnd || biz.trialEndsAt)
+      ? Math.max(0, Math.ceil((new Date(biz.subscriptionEnd || biz.trialEndsAt) - Date.now()) / 86400000))
+      : 14;
+    badge.className = 'sub-badge sb-trial';
+    badge.textContent = 'Trial';
+    banner.className = 'trial'; banner.style.display = 'block';
+    const urgency = daysLeft <= 3 ? '🚨' : daysLeft <= 7 ? '⚠️' : '⏳';
+    banner.innerHTML = `${urgency} Trial ends in <strong>${daysLeft} day${daysLeft===1?'':'s'}</strong> — <a onclick="openBillingModal('${biz.id}')">Upgrade to Pro →</a>`;
+  } else if (status === 'active') {
+    badge.className = 'sub-badge sb-active';
+    badge.textContent = 'Active';
+  } else {
+    badge.className = 'sub-badge sb-expired';
+    badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    banner.className = 'expired'; banner.style.display = 'block';
+    banner.innerHTML = `❌ Your subscription is <strong>${status}</strong>. Contact your agency to reactivate.`;
+  }
+}
+
+async function renderSingleBranch(biz) {
+  let orders = 0, revenue = 0;
+  try {
+    const stats = await fetch('/api/businesses/' + biz.id + '/analytics-v2').then(r => r.ok ? r.json() : null);
+    if (stats) { orders = stats.todayOrders || 0; revenue = stats.todayRevenue || 0; }
+  } catch(e) {}
+  document.getElementById('dash-content').innerHTML = `
+    <div class="branch-hero">
+      <div class="branch-hero-top">
+        <div>
+          <div class="branch-name-big">${biz.name}</div>
+          <div class="branch-loc">📍 ${biz.location || 'Location not set'}</div>
+          <span class="branch-id">${biz.id}</span>
+        </div>
+      </div>
+      <div class="kpi-strip">
+        <div class="kpi-chip"><div class="kpi-chip-val">${orders}</div><div class="kpi-chip-lbl">Today's Orders</div></div>
+        <div class="kpi-chip"><div class="kpi-chip-val">₹${Math.round(revenue).toLocaleString('en-IN')}</div><div class="kpi-chip-lbl">Today's Revenue</div></div>
+        <div class="kpi-chip"><div class="kpi-chip-val">${biz.timings||'—'}</div><div class="kpi-chip-lbl">Timings</div></div>
+        <div class="kpi-chip"><div class="kpi-chip-val">${biz.subscriptionStatus==='trial'?daysLeftText(biz):'✓ Active'}</div><div class="kpi-chip-lbl">Subscription</div></div>
+      </div>
+    </div>
+    <div style="font-family:var(--font-d);font-size:17px;color:var(--ink-2);margin-bottom:14px">Quick Access</div>
+    <div class="quick-actions">
+      <a class="qa-card" href="/manager/${biz.id}" target="_blank">
+        <div class="qa-icon">📊</div>
+        <div class="qa-title">Manager Dashboard</div>
+        <div class="qa-desc">Orders, CRM, menu, campaigns, loyalty</div>
+      </a>
+      <a class="qa-card" href="/kitchen.html?branch=${biz.id}" target="_blank">
+        <div class="qa-icon">👨‍🍳</div>
+        <div class="qa-title">Kitchen Display</div>
+        <div class="qa-desc">Live order tickets for your cook</div>
+      </a>
+      <a class="qa-card" href="/table-order.html?branch=${biz.id}&table=1" target="_blank">
+        <div class="qa-icon">📱</div>
+        <div class="qa-title">Table Ordering</div>
+        <div class="qa-desc">Customer-facing QR order page</div>
+      </a>
+      <a class="qa-card" href="/cafe/${biz.id}" target="_blank">
+        <div class="qa-icon">🤖</div>
+        <div class="qa-title">Customer Chat Bot</div>
+        <div class="qa-desc">WhatsApp-style chat portal</div>
+      </a>
+      <div class="qa-card" onclick="openChatHistory('${biz.id}')">
+        <div class="qa-icon">💬</div>
+        <div class="qa-title">Chat History</div>
+        <div class="qa-desc">All customer conversations — WhatsApp &amp; chat bot</div>
+      </div>
+      <div class="qa-card" onclick="openMenuEditor('${biz.id}')">
+        <div class="qa-icon">🍽️</div>
+        <div class="qa-title">Menu Editor</div>
+        <div class="qa-desc">Add, edit, or remove menu items &amp; prices</div>
+      </div>
+      <a class="qa-card" href="/manager/${biz.id}" target="_blank">
+        <div class="qa-icon">🔲</div>
+        <div class="qa-title">Table QR Codes</div>
+        <div class="qa-desc">Print QR codes for your tables</div>
+      </a>
+      <a class="qa-card" onclick="openBillingModal('${biz.id}')">
+        <div class="qa-icon">💳</div>
+        <div class="qa-title">Subscription</div>
+        <div class="qa-desc">${biz.subscriptionStatus==='trial'?'Trial · '+daysLeftText(biz)+' remaining':'Active plan'}</div>
+      </a>
+    </div>`;
+}
+
+async function renderFranchiseHub(branches, primaryBiz) {
+  const statsMap = {};
+  await Promise.all(branches.map(async b => {
+    try {
+      const s = await fetch('/api/businesses/' + b.id + '/analytics-v2').then(r => r.ok ? r.json() : null);
+      if (s) statsMap[b.id] = s;
+    } catch(e) {}
+  }));
+  const totalOrders  = branches.reduce((s,b) => s + (statsMap[b.id]?.todayOrders||0), 0);
+  const totalRevenue = branches.reduce((s,b) => s + (statsMap[b.id]?.todayRevenue||0), 0);
+  const EMOJI = ['☕','🏠','🍵','🧁','🍰','🥐','🍮','🫖'];
+  const SC = {active:'var(--sage)',trial:'var(--gold)',paused:'#aaa',offline:'var(--rose)'};
+  const SL = {active:'Active',trial:'Trial',paused:'Paused',offline:'Offline'};
+
+  document.getElementById('dash-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:28px">
+      <div class="kpi-chip"><div class="kpi-chip-val">${branches.length}</div><div class="kpi-chip-lbl">Total Branches</div></div>
+      <div class="kpi-chip"><div class="kpi-chip-val">${totalOrders}</div><div class="kpi-chip-lbl">Orders Today</div></div>
+      <div class="kpi-chip"><div class="kpi-chip-val">₹${Math.round(totalRevenue).toLocaleString('en-IN')}</div><div class="kpi-chip-lbl">Revenue Today</div></div>
+      <div class="kpi-chip"><div class="kpi-chip-val">${branches.filter(b=>(b.subscriptionStatus||'active')==='active').length}</div><div class="kpi-chip-lbl">Active</div></div>
+    </div>
+    <div class="franchise-heading">Your Branches</div>
+    <div class="franchise-sub">All locations in your franchise — click a branch to manage it</div>
+    <div class="franchise-grid">
+      ${branches.map((b, idx) => {
+        const st = statsMap[b.id] || {};
+        const status = b.subscriptionStatus || 'active';
+        const color  = b.brandColor || '#c47f3a';
+        const emoji  = EMOJI[idx % EMOJI.length];
+        const isCurrent = b.id === bizId;
+        return `<div class="franchise-card" style="${isCurrent?'border-color:rgba(196,127,58,0.4)':''}">
+          <div class="fc-header">
+            <div class="fc-dot" style="background:${color}22;border:1.5px solid ${color}44">${emoji}</div>
+            <div style="flex:1;min-width:0">
+              <div class="fc-name">${b.name}${isCurrent?' <span style="font-size:9px;color:var(--gold-d)">(current)</span>':''}</div>
+              <div class="fc-loc">${b.location||b.id}</div>
+            </div>
+            <span style="background:${SC[status]||'#aaa'}22;color:${SC[status]||'#aaa'};font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;flex-shrink:0;border:1px solid ${SC[status]||'#aaa'}44">${SL[status]||status}</span>
+          </div>
+          <div class="fc-stats">
+            <div class="fc-stat"><div class="fc-stat-val">${st.todayOrders||0}</div><div class="fc-stat-lbl">Today</div></div>
+            <div class="fc-stat"><div class="fc-stat-val">₹${Math.round((st.todayRevenue||0)/1000*10)/10}k</div><div class="fc-stat-lbl">Revenue</div></div>
+            <div class="fc-stat"><div class="fc-stat-val">${st.totalCustomers||'—'}</div><div class="fc-stat-lbl">Customers</div></div>
+          </div>
+          <div class="fc-actions">
+            <a class="fc-btn primary" href="/manager/${b.id}" target="_blank">📊 Dashboard</a>
+            <a class="fc-btn" href="/kitchen.html?branch=${b.id}" target="_blank">🍳 Kitchen</a>
+            <a class="fc-btn" href="/table-order.html?branch=${b.id}&table=1" target="_blank">📱 Order</a>
+            <span class="fc-btn" onclick="openChatHistory('${b.id}')">💬 Chats</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function daysLeftText(biz) {
+  if (!biz.subscriptionEnd && !biz.trialEndsAt) return '—';
+  const d = Math.max(0, Math.ceil((new Date(biz.subscriptionEnd || biz.trialEndsAt) - Date.now()) / 86400000));
+  return d + 'd';
+}
+
+function doLogout() {
+  sessionStorage.clear();
+  authToken = null; bizId = null; staffInfo = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-pass').value = '';
+}
+async function openBillingModal(bizId){let plans=[];try{const r=await fetch('/api/plans');const d=await r.json();plans=Array.isArray(d)?d:(d.plans||[]);}catch(e){}let modal=document.getElementById('billing-modal-overlay');if(!modal){modal=document.createElement('div');modal.id='billing-modal-overlay';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center';document.body.appendChild(modal);}modal.innerHTML=`<div style="background:var(--white);border-radius:var(--r);padding:28px 24px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,0.2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div style="font-family:var(--font-d);font-size:20px;color:var(--ink)">Upgrade Plan</div><button onclick="document.getElementById('billing-modal-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-3)">✕</button></div><div style="display:grid;gap:10px;margin-bottom:20px">${plans.map(p=>'<div style="padding:14px 16px;border:1.5px solid '+(p.badge?'var(--gold)':'var(--border)')+';border-radius:10px;cursor:pointer" onclick="doSubscriptionPay(\''+bizId+'\',\''+p.id+'\')"><div style="display:flex;align-items:center;justify-content:space-between"><div><strong>'+p.name+'</strong>'+(p.badge?' <span style="font-size:10px;background:#fff8e8;color:var(--gold-d);padding:2px 8px;border-radius:10px;font-weight:700">'+p.badge+'</span>':'')+'</div><div style="font-size:18px;font-weight:700;color:var(--gold-d)">₹'+p.price+'</div></div><div style="font-size:12px;color:var(--ink-3);margin-top:4px">'+p.duration_days+' days'+(p.features?' · '+p.features.join(', '):'')+' </div></div>').join('')||'<div style="color:var(--ink-3);text-align:center;padding:20px">No plans available</div>'}</div><div style="text-align:center;font-size:12px;color:var(--ink-3)">Secure payment via Razorpay</div></div>`;modal.style.display='flex';}
+async function doSubscriptionPay(bizId,planId){try{const r=await fetch('/api/businesses/'+bizId+'/billing/create-order',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({planId})});const d=await r.json();if(d.error){alert('Error: '+d.error);return;}const options={key:d.keyId,amount:d.amount,currency:d.currency,name:'CaféGrow',description:d.plan.name+' Plan',order_id:d.orderId,handler:async function(response){try{const v=await fetch('/api/businesses/'+bizId+'/billing/verify-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({...response,planId})}).then(r=>r.json());if(v.success){document.getElementById('billing-modal-overlay')?.remove();alert('✅ Subscription activated! Plan: '+v.plan);loadDashboard();}else{alert('Payment verification failed.');}}catch(e){alert('Verification error: '+e.message);}},prefill:{name:staffInfo?.name||'',email:''},theme:{color:'#c47f3a'}};const rzp=new window.Razorpay(options);rzp.on('payment.failed',e=>alert('Payment failed: '+e.error.description));document.getElementById('billing-modal-overlay')?.remove();rzp.open();}catch(e){alert('Error: '+e.message);}}
+// ─── Menu Editor ───────────────────────────────────────────────────────────
+let _menuBizId = null, _menuItems = [];
+async function openMenuEditor(bid) {
+  _menuBizId = bid;
+  let modal = document.getElementById('menu-editor-overlay');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'menu-editor-overlay';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div style="background:var(--white);border-radius:var(--r);padding:24px;max-width:640px;width:94%;max-height:86vh;overflow:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-family:var(--font-d);font-size:20px;color:var(--ink)">🍽️ Menu Editor</div>
+      <button onclick="document.getElementById('menu-editor-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-3)">✕</button>
+    </div>
+    <div id="menu-editor-body"><div style="text-align:center;padding:30px;color:var(--ink-3)">⏳ Loading menu…</div></div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button onclick="addMenuItem()" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--white);cursor:pointer;font-weight:600">+ Add Item</button>
+      <button onclick="saveMenuItems()" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--gold);color:#fff;cursor:pointer;font-weight:600">💾 Save Menu</button>
+    </div>
+    <div id="menu-editor-msg" style="margin-top:10px;font-size:13px;text-align:center"></div>
+  </div>`;
+  modal.style.display = 'flex';
+  try {
+    const r = await fetch('/api/businesses/' + bid + '/menu');
+    _menuItems = await r.json();
+    if (!Array.isArray(_menuItems)) _menuItems = [];
+  } catch(e) { _menuItems = []; }
+  renderMenuEditor();
+}
+
+function renderMenuEditor() {
+  const body = document.getElementById('menu-editor-body');
+  if (!body) return;
+  if (!_menuItems.length) {
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--ink-3)">No menu items yet. Click "+ Add Item" to create one.</div>';
+    return;
+  }
+  body.innerHTML = _menuItems.map((item, i) => `
+    <div style="display:grid;grid-template-columns:1.6fr 1fr 0.8fr 0.7fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <input value="${escHtml(item.name||'')}" placeholder="Name" oninput="updateMenuItem(${i},'name',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+      <input value="${escHtml(item.category||'')}" placeholder="Category" oninput="updateMenuItem(${i},'category',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+      <input type="number" value="${item.price||0}" placeholder="Price" oninput="updateMenuItem(${i},'price',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+      <input type="number" value="${item.discount||0}" placeholder="Disc%" oninput="updateMenuItem(${i},'discount',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+      <button onclick="removeMenuItem(${i})" title="Remove" style="background:none;border:none;color:#c0392b;font-size:16px;cursor:pointer">🗑</button>
+    </div>
+    <input value="${escHtml(item.description||'')}" placeholder="Description" oninput="updateMenuItem(${i},'description',this.value)" style="width:100%;padding:6px 8px;margin-bottom:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--ink-3)">
+  `).join('');
+}
+
+function updateMenuItem(i, field, val) {
+  if (field === 'price' || field === 'discount') val = Number(val) || 0;
+  _menuItems[i][field] = val;
+}
+
+function addMenuItem() {
+  const maxId = _menuItems.reduce((m,it)=>Math.max(m, parseInt(it.id)||0), 0);
+  _menuItems.push({ id: String(maxId+1), name: '', category: '', price: 0, discount: 0, description: '' });
+  renderMenuEditor();
+}
+
+function removeMenuItem(i) {
+  _menuItems.splice(i, 1);
+  renderMenuEditor();
+}
+
+async function saveMenuItems() {
+  const msg = document.getElementById('menu-editor-msg');
+  msg.textContent = 'Saving…'; msg.style.color = 'var(--ink-3)';
+  try {
+    const r = await fetch('/api/businesses/' + _menuBizId + '/menu', {
+      method: 'POST', headers: {'Content-Type':'application/json','Authorization':'Bearer '+authToken},
+      body: JSON.stringify(_menuItems)
+    });
+    if (!r.ok) throw new Error('Save failed');
+    msg.textContent = '✅ Menu saved successfully'; msg.style.color = '#2e7d32';
+  } catch(e) {
+    msg.textContent = '⚠️ ' + e.message; msg.style.color = '#c0392b';
+  }
+}
+</script>
+
+<!-- Socket.io client (served by the same Express+Socket.io server) -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+// ─── Chat History Panel ───────────────────────────────────────────────────────
+let _chatBizId = null, _convos = [], _chatPhone = null, _chatName = null, _chatSocket = null;
+
+function openChatHistory(bid) {
+  _chatBizId = bid || bizId;
+  _chatPhone = null;
+  _chatName = null;
+  document.getElementById('chat-search').value = '';
+  document.getElementById('chat-overlay').classList.add('open');
+  document.getElementById('chat-panel').classList.add('open');
+  document.getElementById('chat-panel-title').textContent = '💬 Chat History';
+  document.getElementById('chat-back-btn').style.display = 'none';
+  document.getElementById('chat-search-wrap').style.display = '';
+  document.getElementById('chat-thread-bar').style.display = 'none';
+  document.getElementById('chat-panel-body').className = 'chat-body';
+  loadConversations();
+  initChatSocket();
+}
+
+function closeChatHistory() {
+  document.getElementById('chat-overlay').classList.remove('open');
+  document.getElementById('chat-panel').classList.remove('open');
+  document.getElementById('new-msg-toast').style.display = 'none';
+}
+
+async function loadConversations() {
+  const body = document.getElementById('chat-panel-body');
+  body.innerHTML = '<div class="chat-loading">⏳ Loading conversations…</div>';
+  try {
+    const res = await fetch('/api/businesses/' + _chatBizId + '/chat-history', {
+      headers: { 'Authorization': 'Bearer ' + authToken }
+    });
+    _convos = res.ok ? await res.json() : [];
+    renderConvoList(_convos);
+  } catch(e) {
+    body.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">⚠️</div><div class="chat-empty-title">Could not load</div><div class="chat-empty-sub">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+function renderConvoList(list) {
+  const body = document.getElementById('chat-panel-body');
+  body.className = 'chat-body';
+  if (!list || !list.length) {
+    body.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">💬</div><div class="chat-empty-title">No conversations yet</div><div class="chat-empty-sub">Customer chats via WhatsApp or the chat portal will appear here in real time</div></div>';
+    return;
+  }
+  body.innerHTML = list.map(c => {
+    const phone  = c.phone || '';
+    const name   = c.customer_name || '';
+    const masked = phone.length >= 4 ? '•••• ' + phone.slice(-4) : phone;
+    const preview = escHtml((c.last_message || '').slice(0, 90));
+    const arrow  = c.last_direction === 'out' ? '↗ ' : '↙ ';
+    const ch     = c.channel === 'simulator' ? '🖥' : '📱';
+    const time   = fmtTime(c.created_at);
+    const safePh = phone.replace(/'/g, "\\'");
+    const safeNm = name.replace(/'/g, "\\'");
+    return `<div class="convo-item" onclick="openThread('${safePh}','${safeNm}')">
+      <div class="convo-avatar">${ch}</div>
+      <div class="convo-info">
+        <div class="convo-name">${name ? escHtml(name) : 'Customer'}</div>
+        <div class="convo-phone">${masked}</div>
+        <div class="convo-preview">${arrow}${preview}</div>
+      </div>
+      <div class="convo-meta">
+        <div class="convo-time">${time}</div>
+        <div class="convo-count">${c.message_count || 1}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterConvos() {
+  const q = (document.getElementById('chat-search').value || '').toLowerCase().trim();
+  if (!q) { renderConvoList(_convos); return; }
+  renderConvoList(_convos.filter(c =>
+    (c.phone||'').toLowerCase().includes(q) ||
+    (c.customer_name||'').toLowerCase().includes(q) ||
+    (c.last_message||'').toLowerCase().includes(q)
+  ));
+}
+
+async function openThread(phone, name) {
+  _chatPhone = phone;
+  _chatName  = name;
+  document.getElementById('chat-back-btn').style.display = 'flex';
+  document.getElementById('chat-search-wrap').style.display = 'none';
+  document.getElementById('chat-panel-title').textContent = name || 'Conversation';
+  document.getElementById('chat-thread-bar').style.display = 'block';
+  document.getElementById('chat-thread-name').textContent = name || 'Customer';
+  document.getElementById('chat-thread-phone').textContent = phone;
+  const body = document.getElementById('chat-panel-body');
+  body.className = 'msgs-wrap';
+  body.innerHTML = '<div class="chat-loading" style="height:auto;padding:30px">⏳ Loading messages…</div>';
+  try {
+    const res = await fetch(
+      '/api/businesses/' + _chatBizId + '/chat-history?phone=' + encodeURIComponent(phone) + '&limit=300',
+      { headers: { 'Authorization': 'Bearer ' + authToken } }
+    );
+    const msgs = res.ok ? await res.json() : [];
+    renderThread(msgs);
+  } catch(e) {
+    body.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">⚠️</div><div class="chat-empty-title">Error loading messages</div><div class="chat-empty-sub">' + escHtml(e.message) + '</div></div>';
+  }
+}
+
+function renderThread(msgs) {
+  const body = document.getElementById('chat-panel-body');
+  body.className = 'msgs-wrap';
+  if (!msgs || !msgs.length) {
+    body.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">💬</div><div class="chat-empty-title">No messages</div></div>';
+    return;
+  }
+  body.innerHTML = '';
+  msgs.forEach(m => appendMsgBubble(m.direction === 'out' ? 'out' : 'in', m.message || '', m.created_at));
+  body.scrollTop = body.scrollHeight;
+}
+
+function appendMsgBubble(dir, text, ts) {
+  const body  = document.getElementById('chat-panel-body');
+  const row   = document.createElement('div');
+  row.className = 'msg-row ' + dir;
+  row.innerHTML = `<div class="msg-bubble ${dir}">${escHtml(text)}<div class="msg-time">${fmtTime(ts)}</div></div>`;
+  body.appendChild(row);
+}
+
+function backToConvoList() {
+  _chatPhone = null; _chatName = null;
+  document.getElementById('chat-back-btn').style.display = 'none';
+  document.getElementById('chat-search-wrap').style.display = '';
+  document.getElementById('chat-thread-bar').style.display = 'none';
+  document.getElementById('chat-panel-title').textContent = '💬 Chat History';
+  renderConvoList(_convos);
+}
+
+function refreshChatPanel() {
+  document.getElementById('new-msg-toast').style.display = 'none';
+  if (_chatPhone) openThread(_chatPhone, _chatName);
+  else loadConversations();
+}
+
+function initChatSocket() {
+  if (_chatSocket) return;
+  try {
+    _chatSocket = io();
+    _chatSocket.on('connect', () => {
+      _chatSocket.emit('join_business', { businessId: _chatBizId, token: localStorage.getItem('cafehq_token') });
+    });
+    _chatSocket.on('inbound_chat', data => {
+      const panel = document.getElementById('chat-panel');
+      if (!panel.classList.contains('open')) return;
+      if (data.businessId && data.businessId !== _chatBizId) return;
+      if (_chatPhone && (data.from === _chatPhone || data.phone === _chatPhone)) {
+        const body = document.getElementById('chat-panel-body');
+        if (body.classList.contains('msgs-wrap')) {
+          appendMsgBubble('in', data.message || data.text || '', null);
+          body.scrollTop = body.scrollHeight;
+        }
+      } else {
+        const toast = document.getElementById('new-msg-toast');
+        toast.style.display = 'block';
+      }
+    });
+  } catch(e) {}
+}
+
+function fmtTime(dt) {
+  if (!dt) return 'just now';
+  const s   = String(dt);
+  const d   = new Date(s.includes('T') || s.includes('Z') ? s : s.replace(' ', 'T'));
+  if (isNaN(d)) return '';
+  const now  = Date.now();
+  const diff = now - d.getTime();
+  if (diff < 55000)      return 'just now';
+  if (diff < 3600000)    return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000)   return d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+  if (diff < 604800000)  return d.toLocaleDateString('en-IN', {weekday:'short', hour:'2-digit', minute:'2-digit'});
+  return d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

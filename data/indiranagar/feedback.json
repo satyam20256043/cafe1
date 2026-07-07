@@ -1,0 +1,59 @@
+[
+  {
+    "id": "f1",
+    "customerName": "Rohan Mehta",
+    "rating": 5,
+    "comment": "Bhai, cold coffee ekdum lajawab thi! Aur staff bhi bohot friendly hai. Will visit again! ☕😊",
+    "timestamp": "Friday 9:00 PM",
+    "managerReply": "Thank you Rohan! Glad you loved the cold coffee.",
+    "replyTimestamp": "24/5/2026, 8:12:23 pm"
+  },
+  {
+    "id": "f2",
+    "customerName": "Sneha Sen",
+    "rating": 3,
+    "comment": "Alfredo Pasta was a bit dry, but the burger and mojito were great! Nice vibe.",
+    "timestamp": "Saturday 7:30 PM"
+  },
+  {
+    "id": "f_1779633743314",
+    "customerName": "Gamified Reviewer",
+    "rating": 5,
+    "comment": "Absolutely spectacular vibes and coffee!",
+    "timestamp": "24/5/2026, 8:12:23 pm",
+    "source": "web",
+    "couponCode": "THANKYOU15"
+  },
+  {
+    "id": "f_1779633743568",
+    "customerName": "Chatbot reviewer",
+    "rating": 5,
+    "comment": "Awesome experience!",
+    "timestamp": "24/5/2026, 8:12:23 pm",
+    "couponCode": "THANKYOU15"
+  },
+  {
+    "id": "g1",
+    "customerName": "Aditya Sen",
+    "rating": 5,
+    "comment": "Best cold coffee in Indiranagar! The seating is cozy and WiFi is very fast. 5/5 stars from Google My Business! ⭐",
+    "timestamp": "24/5/2026, 8:12:23 pm",
+    "source": "google"
+  },
+  {
+    "id": "g2",
+    "customerName": "Meera Kapoor",
+    "rating": 4,
+    "comment": "Lovely ambiance. Perfect place to sit with a laptop. Peri Peri fries were delicious! Google Local Guide review.",
+    "timestamp": "24/5/2026, 8:12:23 pm",
+    "source": "google"
+  },
+  {
+    "id": "g3",
+    "customerName": "Kabir Dev",
+    "rating": 5,
+    "comment": "Staff is extremely polite. They helped us reserve a group table. Highly recommended! Sync review from GBP.",
+    "timestamp": "24/5/2026, 8:12:23 pm",
+    "source": "google"
+  }
+]

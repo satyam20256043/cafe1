@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CaféGrow — AI Growth System for Cafés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --cream:#faf6f1;--ink:#1a1612;--espresso:#2c1a0e;--coffee:#6b3a1f;
+  --caramel:#c47f3a;--foam:#f0e6d3;--sage:#7a9e7e;--sage-light:#e8f2e9;
+  --rose:#c4616a;--sky:#4a90c4;--sky-light:#e8f4fb;
+  --border:rgba(44,26,14,0.1);--border-strong:rgba(44,26,14,0.18);
+  --shadow:0 1px 3px rgba(44,26,14,0.08),0 8px 24px rgba(44,26,14,0.06);
+  --font-display:'DM Serif Display',Georgia,serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--cream);color:var(--ink);line-height:1.6}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(250,246,241,0.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 40px}
+.nav-logo{font-family:var(--font-display);font-size:20px;color:var(--espresso)}
+.nav-logo span{color:var(--caramel)}
+.nav-links{display:flex;align-items:center;gap:28px;font-size:14px}
+.nav-links a{color:#888;transition:color 0.15s}
+.nav-links a:hover{color:var(--espresso)}
+.nav-cta{padding:8px 20px;background:var(--espresso);color:#fff;border-radius:9px;font-size:14px;font-weight:500;transition:background 0.15s;cursor:pointer;border:none;font-family:var(--font-body)}
+.nav-cta:hover{background:var(--coffee)}
+
+/* ── HERO ── */
+.hero{padding:140px 40px 100px;max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--foam);border:1px solid var(--border-strong);padding:6px 14px;border-radius:30px;font-size:12px;font-weight:600;color:var(--coffee);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:22px}
+.hero-eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--sage)}
+.hero h1{font-family:var(--font-display);font-size:52px;line-height:1.1;color:var(--espresso);margin-bottom:22px;letter-spacing:-0.5px}
+.hero h1 em{font-style:italic;color:var(--caramel)}
+.hero p{font-size:17px;color:#666;line-height:1.75;margin-bottom:34px;max-width:480px}
+.hero-btns{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.btn-primary{padding:13px 28px;background:var(--espresso);color:#fff;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;border:none;font-family:var(--font-body);transition:background 0.15s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary:hover{background:var(--coffee)}
+.btn-outline{padding:13px 28px;background:transparent;color:var(--espresso);border:1px solid var(--border-strong);border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;font-family:var(--font-body);transition:all 0.15s}
+.btn-outline:hover{background:var(--foam)}
+.hero-trust{display:flex;align-items:center;gap:10px;margin-top:22px;font-size:13px;color:#aaa}
+.trust-avatars{display:flex}
+.trust-avatars span{width:30px;height:30px;border-radius:50%;background:var(--foam);border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px;margin-left:-8px}
+.trust-avatars span:first-child{margin-left:0}
+
+/* ── PHONE MOCKUP ── */
+.phone-wrap{position:relative;display:flex;justify-content:center;align-items:center}
+.phone{width:280px;background:#fff;border-radius:36px;box-shadow:0 24px 60px rgba(44,26,14,0.18);border:8px solid var(--espresso);overflow:hidden;position:relative}
+.phone-bar{background:var(--espresso);padding:14px 16px 10px;display:flex;align-items:center;gap:10px}
+.phone-bar .avatar{width:36px;height:36px;border-radius:50%;background:var(--caramel);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.phone-bar-info .name{font-size:13px;font-weight:600;color:#fff}
+.phone-bar-info .online{font-size:10px;color:var(--sage);display:flex;align-items:center;gap:4px}
+.phone-bar-info .online::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--sage);display:inline-block}
+.phone-msgs{padding:14px 12px;background:#ece5dd;display:flex;flex-direction:column;gap:10px;min-height:360px}
+.msg{max-width:80%;padding:8px 12px;border-radius:12px;font-size:12.5px;line-height:1.5;position:relative}
+.msg.bot{background:#fff;border-bottom-left-radius:2px;align-self:flex-start;box-shadow:0 1px 2px rgba(0,0,0,0.1)}
+.msg.user{background:#dcf8c6;border-bottom-right-radius:2px;align-self:flex-end;box-shadow:0 1px 2px rgba(0,0,0,0.1)}
+.msg-time{font-size:9px;color:#aaa;text-align:right;margin-top:2px}
+.phone-input{background:#f0f0f0;padding:10px 12px;display:flex;align-items:center;gap:8px;font-size:12px;color:#aaa}
+.phone-input-bar{flex:1;background:#fff;border-radius:20px;padding:6px 12px}
+.phone-send{width:34px;height:34px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;font-size:15px}
+.float-badge{position:absolute;top:-10px;right:-14px;background:var(--caramel);color:#fff;font-size:11px;font-weight:600;padding:5px 12px;border-radius:20px;box-shadow:0 4px 12px rgba(196,127,58,0.4)}
+
+/* ── LOGOS STRIP ── */
+.logos-strip{background:var(--foam);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:22px 40px;text-align:center}
+.logos-strip p{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:#bbb;font-weight:600;margin-bottom:18px}
+.logos-row{display:flex;align-items:center;justify-content:center;gap:40px;flex-wrap:wrap}
+.logo-pill{font-size:15px;font-weight:600;color:#ccc;letter-spacing:-0.3px;font-family:var(--font-display)}
+
+/* ── SECTION BASE ── */
+section{padding:90px 40px}
+.section-wrap{max-width:1100px;margin:0 auto}
+.section-tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--caramel);margin-bottom:14px}
+.section-title{font-family:var(--font-display);font-size:40px;color:var(--espresso);line-height:1.15;margin-bottom:16px}
+.section-sub{font-size:16px;color:#777;max-width:560px;line-height:1.7}
+
+/* ── PROBLEM ── */
+.problem-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:50px}
+.problem-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:26px;position:relative;overflow:hidden}
+.problem-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--rose)}
+.problem-icon{font-size:28px;margin-bottom:14px}
+.problem-card h3{font-size:15px;font-weight:600;color:var(--espresso);margin-bottom:8px}
+.problem-card p{font-size:13.5px;color:#888;line-height:1.65}
+
+/* ── HOW IT WORKS ── */
+.how-bg{background:var(--espresso)}
+.how-bg .section-tag{color:var(--caramel)}
+.how-bg .section-title{color:#fff}
+.how-bg .section-sub{color:rgba(255,255,255,0.5)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:50px;position:relative}
+.steps::before{content:'';position:absolute;top:28px;left:10%;right:10%;height:1px;background:rgba(255,255,255,0.1)}
+.step{text-align:center;position:relative}
+.step-num{width:56px;height:56px;border-radius:50%;background:rgba(196,127,58,0.15);border:1px solid rgba(196,127,58,0.3);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:22px;color:var(--caramel);margin:0 auto 18px}
+.step h3{font-size:14.5px;font-weight:600;color:#fff;margin-bottom:8px}
+.step p{font-size:13px;color:rgba(255,255,255,0.45);line-height:1.65}
+
+/* ── FEATURES ── */
+.features-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:50px}
+.feat{background:#fff;border:1px solid var(--border);border-radius:16px;padding:28px;display:flex;gap:18px;align-items:flex-start;transition:box-shadow 0.2s}
+.feat:hover{box-shadow:var(--shadow)}
+.feat-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.feat-icon.green{background:var(--sage-light)}
+.feat-icon.amber{background:#fff3e0}
+.feat-icon.sky{background:var(--sky-light)}
+.feat-icon.rose{background:#faeaeb}
+.feat-icon.purple{background:#f3f0ff}
+.feat-icon.teal{background:#e0f7f4}
+.feat h3{font-size:15px;font-weight:600;color:var(--espresso);margin-bottom:6px}
+.feat p{font-size:13.5px;color:#888;line-height:1.65}
+
+/* ── DEMO ── */
+.demo-wrap{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:50px}
+.demo-chat{background:#fff;border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}
+.demo-chat-head{background:var(--espresso);padding:16px 20px;display:flex;align-items:center;gap:12px}
+.demo-chat-head .avatar{width:38px;height:38px;border-radius:50%;background:var(--caramel);display:flex;align-items:center;justify-content:center;font-size:18px}
+.demo-chat-head-info .name{font-size:14px;font-weight:600;color:#fff}
+.demo-chat-head-info .sub{font-size:11px;color:rgba(255,255,255,0.45)}
+.demo-msgs{background:#ece5dd;padding:20px;display:flex;flex-direction:column;gap:12px;min-height:320px}
+.dmsg{max-width:85%;padding:10px 14px;border-radius:14px;font-size:13.5px;line-height:1.55}
+.dmsg.bot{background:#fff;align-self:flex-start;border-bottom-left-radius:3px}
+.dmsg.user{background:#dcf8c6;align-self:flex-end;border-bottom-right-radius:3px}
+.demo-points{display:flex;flex-direction:column;gap:20px}
+.demo-point{display:flex;gap:14px;align-items:flex-start}
+.demo-point-icon{width:40px;height:40px;border-radius:10px;background:var(--foam);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;margin-top:2px}
+.demo-point h4{font-size:15px;font-weight:600;color:var(--espresso);margin-bottom:4px}
+.demo-point p{font-size:13.5px;color:#888;line-height:1.6}
+
+/* ── PRICING ── */
+.pricing-bg{background:var(--foam)}
+.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:50px}
+.plan{background:#fff;border:1px solid var(--border);border-radius:20px;padding:32px;position:relative;transition:box-shadow 0.2s}
+.plan:hover{box-shadow:var(--shadow)}
+.plan.popular{border-color:var(--caramel);box-shadow:0 0 0 3px rgba(196,127,58,0.12)}
+.plan-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--caramel);color:#fff;font-size:11px;font-weight:600;padding:4px 16px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap}
+.plan-name{font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--caramel);margin-bottom:10px}
+.plan-price{font-family:var(--font-display);font-size:42px;color:var(--espresso);line-height:1;margin-bottom:4px}
+.plan-price span{font-size:17px;font-weight:400;font-family:var(--font-body)}
+.plan-period{font-size:12px;color:#bbb;margin-bottom:22px}
+.plan-divider{border:none;border-top:1px solid var(--border);margin:20px 0}
+.plan-features{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.plan-feat{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;color:#555}
+.plan-feat::before{content:'✓';color:var(--sage);font-weight:700;flex-shrink:0;margin-top:1px}
+.plan-feat.no{color:#ccc}
+.plan-feat.no::before{content:'×';color:#ddd}
+.btn-plan{width:100%;padding:12px;background:var(--espresso);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;font-family:var(--font-body);transition:background 0.15s}
+.btn-plan:hover{background:var(--coffee)}
+.btn-plan.outline{background:transparent;color:var(--espresso);border:1px solid var(--border-strong)}
+.btn-plan.outline:hover{background:var(--foam)}
+
+/* ── TESTIMONIALS ── */
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:50px}
+.testi{background:#fff;border:1px solid var(--border);border-radius:16px;padding:26px}
+.testi-stars{color:var(--caramel);font-size:14px;letter-spacing:2px;margin-bottom:14px}
+.testi-text{font-size:14px;color:#555;line-height:1.7;margin-bottom:18px;font-style:italic}
+.testi-author{display:flex;align-items:center;gap:12px}
+.testi-avatar{width:38px;height:38px;border-radius:50%;background:var(--foam);display:flex;align-items:center;justify-content:center;font-size:17px}
+.testi-name{font-size:13.5px;font-weight:600;color:var(--espresso)}
+.testi-role{font-size:12px;color:#bbb}
+
+/* ── CTA SECTION ── */
+.cta-section{background:var(--espresso);text-align:center;padding:100px 40px}
+.cta-section h2{font-family:var(--font-display);font-size:44px;color:#fff;margin-bottom:16px;line-height:1.15}
+.cta-section p{font-size:16px;color:rgba(255,255,255,0.5);margin-bottom:36px;max-width:480px;margin-left:auto;margin-right:auto}
+.cta-btns{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+.btn-cream{padding:13px 28px;background:var(--cream);color:var(--espresso);border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;border:none;font-family:var(--font-body);transition:background 0.15s}
+.btn-cream:hover{background:var(--foam)}
+.btn-outline-light{padding:13px 28px;background:transparent;color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.2);border-radius:10px;font-size:15px;cursor:pointer;font-family:var(--font-body);transition:all 0.15s}
+.btn-outline-light:hover{border-color:rgba(255,255,255,0.5);color:#fff}
+
+/* ── CONTACT FORM ── */
+.contact-wrap{display:grid;grid-template-columns:1fr 1fr;gap:60px;margin-top:50px;align-items:start}
+.contact-info h3{font-family:var(--font-display);font-size:28px;color:var(--espresso);margin-bottom:14px}
+.contact-info p{font-size:14px;color:#777;line-height:1.75;margin-bottom:28px}
+.contact-detail{display:flex;align-items:center;gap:12px;margin-bottom:16px;font-size:14px;color:#555}
+.contact-detail-icon{width:38px;height:38px;border-radius:10px;background:var(--foam);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.form-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:32px;box-shadow:var(--shadow)}
+.form-group{margin-bottom:18px}
+.form-label{display:block;font-size:12px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:#999;margin-bottom:6px}
+.form-input{width:100%;padding:11px 14px;border:1px solid var(--border-strong);border-radius:9px;font-size:14px;font-family:var(--font-body);background:var(--cream);color:var(--ink);outline:none;transition:border 0.15s}
+.form-input:focus{border-color:var(--caramel);background:#fff}
+textarea.form-input{resize:vertical;min-height:110px;line-height:1.6}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.btn-submit{width:100%;padding:13px;background:var(--espresso);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;margin-top:4px}
+.btn-submit:hover{background:var(--coffee)}
+.form-success{display:none;text-align:center;padding:20px;color:var(--sage);font-weight:600;font-size:15px}
+
+/* ── FOOTER ── */
+footer{background:var(--espresso);padding:50px 40px 30px}
+.footer-wrap{max-width:1100px;margin:0 auto}
+.footer-top{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px}
+.footer-brand .logo{font-family:var(--font-display);font-size:21px;color:#fff;margin-bottom:10px}
+.footer-brand .logo span{color:var(--caramel)}
+.footer-brand p{font-size:13px;color:rgba(255,255,255,0.35);line-height:1.7;max-width:240px}
+.footer-col h4{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.3);font-weight:600;margin-bottom:14px}
+.footer-col a{display:block;font-size:13.5px;color:rgba(255,255,255,0.45);margin-bottom:9px;transition:color 0.15s;cursor:pointer}
+.footer-col a:hover{color:rgba(255,255,255,0.8)}
+.footer-bottom{border-top:1px solid rgba(255,255,255,0.07);padding-top:22px;display:flex;align-items:center;justify-content:space-between;font-size:12.5px;color:rgba(255,255,255,0.25)}
+.footer-bottom a{color:rgba(255,255,255,0.35)}
+
+/* ── WHATSAPP FLOAT ── */
+.wa-float{position:fixed;bottom:28px;right:28px;z-index:300;width:56px;height:56px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 4px 20px rgba(37,211,102,0.4);cursor:pointer;transition:transform 0.2s}
+.wa-float:hover{transform:scale(1.08)}
+
+/* ── STATS BAR ── */
+.stats-bar{background:var(--caramel);padding:18px 40px}
+.stats-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.stat-item{text-align:center}
+.stat-num{font-family:var(--font-display);font-size:32px;color:#fff;line-height:1}
+.stat-label{font-size:12px;color:rgba(255,255,255,0.7);margin-top:4px;font-weight:500}
+
+/* ── ANIMATIONS ── */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.phone-wrap .phone{animation:float 4s ease-in-out infinite}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg,.dmsg{animation:msgIn 0.3s ease both}
+
+/* ── RESPONSIVE ── */
+@media(max-width:920px){
+  .hero{grid-template-columns:1fr;padding-top:110px}
+  .phone-wrap{justify-content:flex-start}
+  .problem-grid,.features-grid,.pricing-grid,.testi-grid{grid-template-columns:1fr 1fr}
+  .steps{grid-template-columns:1fr 1fr}
+  .steps::before{display:none}
+  .demo-wrap,.contact-wrap,.footer-top{grid-template-columns:1fr}
+  nav{padding:0 20px}
+  .nav-links{display:none}
+}
+@media(max-width:600px){
+  .problem-grid,.features-grid,.pricing-grid,.testi-grid{grid-template-columns:1fr}
+  .hero h1{font-size:36px}
+  .section-title{font-size:30px}
+  section{padding:60px 20px}
+  .stats-inner{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Café<span>Grow</span></div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how">How It Works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <button class="nav-cta" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">Get Free Demo</button>
+</nav>
+
+<!-- HERO -->
+<section style="padding-top:0;padding-bottom:0">
+  <div class="hero">
+    <div>
+      <div class="hero-eyebrow"><span class="dot"></span>AI-Powered Café Growth System</div>
+      <h1>Grow Your Café with <em>Zero Extra Staff</em></h1>
+      <p>We automate your customer conversations, boost your reviews, fill your tables, and bring customers back — all on WhatsApp. While you make great coffee, we handle the rest.</p>
+      <div class="hero-btns">
+        <button class="btn-primary" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">☕ Book Free Demo</button>
+        <button class="btn-outline" onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">See How It Works</button>
+      </div>
+      <div class="hero-trust">
+        <div class="trust-avatars">
+          <span>☕</span><span>🍵</span><span>🥐</span><span>🧁</span>
+        </div>
+        <span>Trusted by café owners across India</span>
+      </div>
+    </div>
+    <div class="phone-wrap">
+      <div style="position:relative">
+        <div class="float-badge">✨ AI Reply in &lt;1 sec</div>
+        <div class="phone">
+          <div class="phone-bar">
+            <div class="avatar">☕</div>
+            <div class="phone-bar-info">
+              <div class="name">The Roasted Bean</div>
+              <div class="online">Online now</div>
+            </div>
+          </div>
+          <div class="phone-msgs">
+            <div class="msg bot">Hey! 👋 Welcome to The Roasted Bean. How can I help you today?<div class="msg-time">9:01 AM</div></div>
+            <div class="msg user" style="animation-delay:0.3s">menu dikhao<div class="msg-time">9:02 AM</div></div>
+            <div class="msg bot" style="animation-delay:0.6s">Yeh raha humara menu! 😋<br/>• Cold Coffee: ₹149<br/>• Peri Peri Fries: ₹107 🔥 (10% OFF)<br/>• Alfredo Pasta: ₹229<br/>• Veg Burger: ₹143 (20% OFF)<br/><br/>Cold Coffee + Burger Combo sirf ₹299 mein! ☕🍔<div class="msg-time">9:02 AM</div></div>
+            <div class="msg user" style="animation-delay:0.9s">table book karna hai 4 log<div class="msg-time">9:03 AM</div></div>
+            <div class="msg bot" style="animation-delay:1.2s">Bilkul! 😊 Kripya share karein:<br/>1. Aapka Naam<div class="msg-time">9:03 AM</div></div>
+          </div>
+          <div class="phone-input">
+            <div class="phone-input-bar">Type a message…</div>
+            <div class="phone-send">➤</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-item"><div class="stat-num">3 sec</div><div class="stat-label">Average Reply Time</div></div>
+    <div class="stat-item"><div class="stat-num">3 Lang</div><div class="stat-label">Hindi · Hinglish · English</div></div>
+    <div class="stat-item"><div class="stat-num">24/7</div><div class="stat-label">Always Online</div></div>
+    <div class="stat-item"><div class="stat-num">90%</div><div class="stat-label">Staff Time Saved</div></div>
+  </div>
+</div>
+
+<!-- LOGOS -->
+<div class="logos-strip">
+  <p>Powered by</p>
+  <div class="logos-row">
+    <span class="logo-pill">Google Gemini AI</span>
+    <span class="logo-pill">WhatsApp Business</span>
+    <span class="logo-pill">Node.js</span>
+    <span class="logo-pill">Socket.io</span>
+    <span class="logo-pill">Real-time CRM</span>
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<section>
+  <div class="section-wrap">
+    <div class="section-tag">The Problem</div>
+    <h2 class="section-title">Most cafés lose customers<br/>before they even walk in</h2>
+    <p class="section-sub">In today's world, customers decide whether to visit based on your online presence, response speed, and reviews — before they ever taste your coffee.</p>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="problem-icon">😴</div>
+        <h3>Slow Replies = Lost Customers</h3>
+        <p>Customers who don't get a reply within 5 minutes will go to a competitor. Manual WhatsApp replies simply cannot keep up.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-icon">📉</div>
+        <h3>Weak Online Presence</h3>
+        <p>Low Google ratings, few reviews, and poor social media mean customers choose other cafés when searching "best café near me."</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-icon">🚶</div>
+        <h3>No Repeat Customers</h3>
+        <p>Without a loyalty system or retention strategy, 70% of first-time visitors never return — even if they loved the experience.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-icon">📅</div>
+        <h3>Empty Tables on Weekdays</h3>
+        <p>Most cafés are packed on weekends but struggle on weekdays. There's no system to fill those slow hours with targeted campaigns.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-icon">👥</div>
+        <h3>Staff Doing Robot Work</h3>
+        <p>Your staff spends hours answering "what's your timing?" and "do you have parking?" instead of serving customers at the counter.</p>
+      </div>
+      <div class="problem-card">
+        <div class="problem-icon">📊</div>
+        <h3>No Data, No Decisions</h3>
+        <p>Without knowing peak hours, popular items, or loyal customers, owners make expensive decisions based on gut feeling alone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="how-bg">
+  <div class="section-wrap">
+    <div class="section-tag">The Process</div>
+    <h2 class="section-title">Up and running in 7 days</h2>
+    <p class="section-sub">We handle everything — setup, configuration, training. You just approve and we launch.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Free Audit Call</h3>
+        <p>We analyse your café's current online presence, WhatsApp setup, and customer journey — for free.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Custom Setup</h3>
+        <p>We configure the AI with your menu, timings, offers, and café personality. No generic bot — your brand's voice.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Go Live</h3>
+        <p>We connect your WhatsApp, launch the AI, and set up the manager dashboard. Your team gets a 30-minute training.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Grow & Optimise</h3>
+        <p>Monthly reports, campaign tweaks, review monitoring, and ongoing optimisation — we stay with you.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="section-wrap">
+    <div class="section-tag">What You Get</div>
+    <h2 class="section-title">Everything your café needs<br/>to grow on autopilot</h2>
+    <p class="section-sub">One system that handles customer communication, retention, and growth — so you focus on the coffee.</p>
+    <div class="features-grid">
+      <div class="feat">
+        <div class="feat-icon green">🤖</div>
+        <div>
+          <h3>WhatsApp AI Chatbot</h3>
+          <p>Replies instantly in Hindi, Hinglish, and English — 24/7. Handles menu, bookings, offers, WiFi, location, complaints, and more. Powered by Google Gemini AI.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon amber">📅</div>
+        <div>
+          <h3>Smart Table Reservations</h3>
+          <p>Customers book tables via WhatsApp in a natural conversation. Manager gets real-time notifications and can approve or reject with one tap.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon sky">📊</div>
+        <div>
+          <h3>Built-in CRM & Loyalty</h3>
+          <p>Every customer is tracked automatically — visits, preferences, loyalty tier (New → Regular → VIP → Elite). Personalised greetings for returning guests.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon rose">⭐</div>
+        <div>
+          <h3>Review & Reputation System</h3>
+          <p>After every visit, customers are prompted for feedback. 5-star reviewers get a coupon. Google reviews are synced to the dashboard automatically.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon purple">📢</div>
+        <div>
+          <h3>Auto-Pilot Campaigns</h3>
+          <p>Slow Tuesday? The system automatically sends targeted offers to coffee lovers. Weekday traffic up 15–25% in the first month for most clients.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="feat-icon teal">💹</div>
+        <div>
+          <h3>Revenue Optimisation</h3>
+          <p>Dynamic combo suggestions, upselling in conversations, discount control via the manager panel. Increases average order value without extra staff.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO -->
+<section style="background:var(--foam)">
+  <div class="section-wrap">
+    <div class="section-tag">Live Demo</div>
+    <h2 class="section-title">See it handle real conversations</h2>
+    <p class="section-sub">The AI automatically detects the language and responds naturally — no scripts, no delays.</p>
+    <div class="demo-wrap">
+      <div class="demo-chat">
+        <div class="demo-chat-head">
+          <div class="avatar">☕</div>
+          <div class="demo-chat-head-info">
+            <div class="name">Mocha & Co. — AI Assistant</div>
+            <div class="sub">Typically replies instantly</div>
+          </div>
+        </div>
+        <div class="demo-msgs">
+          <div class="dmsg bot">Welcome to Mocha & Co.! ☕ How can I help you today?</div>
+          <div class="dmsg user">kya offer chal raha hai aaj?</div>
+          <div class="dmsg bot">Aaj ke liye special offers: 😊<br/><br/>🎓 Students ko 10% off — valid ID ke saath<br/>☕ Buy 5 coffees, get 1 FREE!<br/>🔥 <strong>Aaj ka special:</strong> Alfredo Pasta Buy 1 Get 1 at 50% off!<br/><br/>Koi order karna hai? 😄</div>
+          <div class="dmsg user">I want to leave a review</div>
+          <div class="dmsg bot">Sure! 😊 Your feedback is highly valuable to us.<br/>Please rate your experience from 1 to 5 stars:<br/><br/>⭐ 1 = Worst &nbsp;&nbsp; ⭐⭐⭐⭐⭐ 5 = Best</div>
+          <div class="dmsg user">5</div>
+          <div class="dmsg bot">Thank you so much! ❤️ Here's your reward: <strong>THANKYOU15</strong> — 15% off on your next visit! 🎁<br/><br/>Please leave us a Google review too — it helps us grow! ⭐</div>
+        </div>
+      </div>
+      <div class="demo-points">
+        <div class="demo-point">
+          <div class="demo-point-icon">🌐</div>
+          <div>
+            <h4>3-Language Auto Detection</h4>
+            <p>Detects Hindi script, Hinglish words, and English automatically. Responds in the exact style the customer wrote in — no switching needed.</p>
+          </div>
+        </div>
+        <div class="demo-point">
+          <div class="demo-point-icon">🧠</div>
+          <div>
+            <h4>Context-Aware AI</h4>
+            <p>Remembers the customer's name, tier, and conversation history. Elite members get premium greetings. The bot knows your full menu, prices, and offers in real-time.</p>
+          </div>
+        </div>
+        <div class="demo-point">
+          <div class="demo-point-icon">💎</div>
+          <div>
+            <h4>Automated Loyalty Rewards</h4>
+            <p>5-star reviews automatically generate coupon codes. Customers feel valued, you get more reviews, and they come back to redeem the coupon.</p>
+          </div>
+        </div>
+        <div class="demo-point">
+          <div class="demo-point-icon">📋</div>
+          <div>
+            <h4>Manager Dashboard</h4>
+            <p>Every conversation, booking, offer request, and CRM update appears live on your manager portal. Full control — from any device, anywhere.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" class="pricing-bg">
+  <div class="section-wrap">
+    <div class="section-tag">Pricing</div>
+    <h2 class="section-title">Simple, honest pricing</h2>
+    <p class="section-sub">No setup fees. No long-term contracts. Cancel anytime. Start seeing results in week one.</p>
+    <div class="pricing-grid">
+      <div class="plan">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">₹5,000<span>/mo</span></div>
+        <div class="plan-period">Perfect to get started</div>
+        <hr class="plan-divider"/>
+        <div class="plan-features">
+          <div class="plan-feat">WhatsApp AI Chatbot (24/7)</div>
+          <div class="plan-feat">Hindi + Hinglish + English</div>
+          <div class="plan-feat">Table Reservation System</div>
+          <div class="plan-feat">Basic CRM (up to 200 customers)</div>
+          <div class="plan-feat">Google Maps Optimisation</div>
+          <div class="plan-feat">Review Request System</div>
+          <div class="plan-feat no">Auto-Pilot Campaigns</div>
+          <div class="plan-feat no">AI Campaign Suggestions</div>
+          <div class="plan-feat no">Analytics Dashboard</div>
+        </div>
+        <button class="btn-plan outline" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">Get Started</button>
+      </div>
+      <div class="plan popular">
+        <div class="plan-badge">⭐ Most Popular</div>
+        <div class="plan-name">Growth</div>
+        <div class="plan-price">₹15,000<span>/mo</span></div>
+        <div class="plan-period">For cafés serious about growth</div>
+        <hr class="plan-divider"/>
+        <div class="plan-features">
+          <div class="plan-feat">Everything in Starter</div>
+          <div class="plan-feat">Auto-Pilot Day Campaigns</div>
+          <div class="plan-feat">AI Campaign Suggestions</div>
+          <div class="plan-feat">Full CRM (unlimited customers)</div>
+          <div class="plan-feat">Loyalty Tiers + Coupon Rewards</div>
+          <div class="plan-feat">Analytics Dashboard</div>
+          <div class="plan-feat">Offer Request Manager</div>
+          <div class="plan-feat">Weekly Performance Report</div>
+          <div class="plan-feat no">Influencer Marketing</div>
+        </div>
+        <button class="btn-plan" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">Get Started</button>
+      </div>
+      <div class="plan">
+        <div class="plan-name">Premium</div>
+        <div class="plan-price">₹40,000<span>/mo</span></div>
+        <div class="plan-period">Full-service growth partner</div>
+        <hr class="plan-divider"/>
+        <div class="plan-features">
+          <div class="plan-feat">Everything in Growth</div>
+          <div class="plan-feat">Instagram Reels & Content</div>
+          <div class="plan-feat">Influencer Collaborations</div>
+          <div class="plan-feat">Multi-Branch Management</div>
+          <div class="plan-feat">Custom AI Persona & Branding</div>
+          <div class="plan-feat">Dedicated Account Manager</div>
+          <div class="plan-feat">Monthly Strategy Call</div>
+          <div class="plan-feat">Priority WhatsApp Support</div>
+          <div class="plan-feat">Revenue Optimisation Consulting</div>
+        </div>
+        <button class="btn-plan outline" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">Get Started</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section>
+  <div class="section-wrap">
+    <div class="section-tag">Testimonials</div>
+    <h2 class="section-title">What café owners are saying</h2>
+    <p class="section-sub">Real results from real café owners who made the switch to AI-powered growth.</p>
+    <div class="testi-grid">
+      <div class="testi">
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">"Pehle mera staff WhatsApp pe ghante lagaata tha. Ab AI sab handle karta hai — menu, bookings, sab kuch. Table bookings mein 3x ka growth hua sirf pehle mahine mein!"</div>
+        <div class="testi-author">
+          <div class="testi-avatar">☕</div>
+          <div><div class="testi-name">Arjun Sharma</div><div class="testi-role">The Roasted Bean, Indiranagar</div></div>
+        </div>
+      </div>
+      <div class="testi">
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">"Our Google rating went from 3.8 to 4.6 in two months. The auto review system is genius — customers actually leave reviews because the bot follows up so naturally."</div>
+        <div class="testi-author">
+          <div class="testi-avatar">🍵</div>
+          <div><div class="testi-name">Priya Mehta</div><div class="testi-role">Mocha & Co., Koramangala</div></div>
+        </div>
+      </div>
+      <div class="testi">
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">"Tuesday was our worst day. Now the auto-pilot sends offers every Tuesday morning and we're packed by afternoon. The ROI on this system is insane — 10x what we pay."</div>
+        <div class="testi-author">
+          <div class="testi-avatar">🧁</div>
+          <div><div class="testi-name">Kabir Nair</div><div class="testi-role">Brew House, FC Road Pune</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<section class="cta-section">
+  <h2>Ready to grow your café<br/>on autopilot?</h2>
+  <p>Book a free 30-minute demo call. We'll show you the live system working for a real café — no sales pitch, just results.</p>
+  <div class="cta-btns">
+    <button class="btn-cream" onclick="document.getElementById('contact').scrollIntoView({behavior:'smooth'})">☕ Book Free Demo</button>
+    <a href="https://wa.me/919999999999?text=Hi! I want to see a demo of CaféGrow for my café." class="btn-outline-light" target="_blank">💬 WhatsApp Us</a>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="section-wrap">
+    <div class="section-tag">Get in Touch</div>
+    <h2 class="section-title">Let's talk about your café</h2>
+    <p class="section-sub">Fill in the form and we'll reach out within 2 hours with a personalised growth plan for your café.</p>
+    <div class="contact-wrap">
+      <div class="contact-info">
+        <h3>We'd love to hear from you</h3>
+        <p>Whether you're a single café or a multi-branch chain, we have a system that fits your scale and budget. No obligation — just an honest conversation.</p>
+        <div class="contact-detail">
+          <div class="contact-detail-icon">📞</div>
+          <div><div style="font-weight:600;color:var(--espresso)">Call / WhatsApp</div><div>+91 99999 99999</div></div>
+        </div>
+        <div class="contact-detail">
+          <div class="contact-detail-icon">📧</div>
+          <div><div style="font-weight:600;color:var(--espresso)">Email</div><div>hello@cafegrow.in</div></div>
+        </div>
+        <div class="contact-detail">
+          <div class="contact-detail-icon">📍</div>
+          <div><div style="font-weight:600;color:var(--espresso)">Serving</div><div>All cities across India</div></div>
+        </div>
+        <div style="margin-top:30px;padding:22px;background:var(--foam);border-radius:14px;border:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;color:var(--espresso);margin-bottom:8px">✅ What happens after you submit?</div>
+          <div style="font-size:13px;color:#777;line-height:1.75">
+            1. We review your café's online presence<br/>
+            2. We call you within 2 hours<br/>
+            3. Free 30-min demo — live system, real results<br/>
+            4. Custom plan + pricing sent same day
+          </div>
+        </div>
+      </div>
+      <div class="form-card">
+        <div id="form-success" class="form-success">✅ Thanks! We'll reach out within 2 hours ☕</div>
+        <form id="contact-form" onsubmit="submitForm(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Your Name</label>
+              <input class="form-input" type="text" placeholder="Arjun Sharma" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone / WhatsApp</label>
+              <input class="form-input" type="tel" placeholder="+91 98765 43210" required/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Café Name</label>
+            <input class="form-input" type="text" placeholder="The Roasted Bean" required/>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">City</label>
+              <input class="form-input" type="text" placeholder="Bengaluru"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Package Interest</label>
+              <select class="form-input">
+                <option>Starter — ₹5,000/mo</option>
+                <option selected>Growth — ₹15,000/mo</option>
+                <option>Premium — ₹40,000/mo</option>
+                <option>Not sure yet</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Biggest Challenge Right Now</label>
+            <textarea class="form-input" placeholder="e.g. Low weekday traffic, slow WhatsApp replies, bad Google reviews…"></textarea>
+          </div>
+          <button type="submit" class="btn-submit">Send & Book Free Demo ☕</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-wrap">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="logo">Café<span>Grow</span></div>
+        <p>AI-powered growth systems for cafés — WhatsApp automation, customer retention, and revenue optimisation.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <a onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">Features</a>
+        <a onclick="document.getElementById('how').scrollIntoView({behavior:'smooth'})">How It Works</a>
+        <a onclick="document.getElementById('pricing').scrollIntoView({behavior:'smooth'})">Pricing</a>
+        <a href="/manager/indiranagar" target="_blank">Manager Demo</a>
+        <a href="/cafe/indiranagar" target="_blank">Customer Demo</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="#">About Us</a>
+        <a href="#">Case Studies</a>
+        <a href="#">Blog</a>
+        <a href="#">Careers</a>
+      </div>
+      <div class="footer-col">
+        <h4>Contact</h4>
+        <a href="https://wa.me/919999999999" target="_blank">WhatsApp</a>
+        <a href="mailto:hello@cafegrow.in">Email Us</a>
+        <a href="#">Instagram</a>
+        <a href="#">LinkedIn</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 CaféGrow. All rights reserved.</span>
+      <span><a href="#">Privacy Policy</a> · <a href="#">Terms of Service</a></span>
+    </div>
+  </div>
+</footer>
+
+<!-- WhatsApp Float -->
+<a class="wa-float" href="https://wa.me/919999999999?text=Hi! I want to know more about CaféGrow." target="_blank" title="Chat on WhatsApp">💬</a>
+
+<script>
+// Smooth nav active state
+const navLinks = document.querySelectorAll('.nav-links a');
+window.addEventListener('scroll', () => {
+  const scrollY = window.scrollY;
+  navLinks.forEach(a => {
+    const href = a.getAttribute('href');
+    if(href && href.startsWith('#')){
+      const section = document.querySelector(href);
+      if(section){
+        const top = section.offsetTop - 80;
+        const bottom = top + section.offsetHeight;
+        a.style.color = scrollY >= top && scrollY < bottom ? 'var(--caramel)' : '';
+      }
+    }
+  });
+});
+
+// Contact form
+async function submitForm(e) {
+  e.preventDefault();
+  const form = document.getElementById('contact-form');
+  const success = document.getElementById('form-success');
+  const btn = form.querySelector('.btn-submit');
+
+  const inputs = form.querySelectorAll('input, select, textarea');
+  const data = {
+    name:      inputs[0].value.trim(),
+    phone:     inputs[1].value.trim(),
+    cafe:      inputs[2].value.trim(),
+    city:      inputs[3].value.trim(),
+    branches:  inputs[4].value,
+    challenge: inputs[5].value.trim(),
+    submittedAt: new Date().toISOString()
+  };
+
+  btn.textContent = 'Sending\u2026';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Server error');
+    form.style.display = 'none';
+    success.style.display = 'block';
+  } catch (err) {
+    btn.textContent = 'Send & Book Free Demo \u2615';
+    btn.disabled = false;
+    alert('Could not submit \u2014 please WhatsApp us directly!');
+  }
+}
+
+// Animate elements on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if(e.isIntersecting){
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.12 });
+
+document.querySelectorAll('.problem-card,.feat,.plan,.testi,.step').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(20px)';
+  el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+  observer.observe(el);
+});
+</script>
+</body>
+</html>

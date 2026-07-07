@@ -1,0 +1,55 @@
+[
+  {
+    "id": "staff_admin_001",
+    "name": "Satyam",
+    "username": "admin",
+    "passwordHash": "$2b$10$NL9Y1b4tuScVVCpteEZ/AeTgzniHxivwR8iCVatE8Aa1.me22KU96",
+    "role": "agency_admin",
+    "email": "satyam20256043@students.iisertirupati.ac.in"
+  },
+  {
+    "id": "staff_mgr_001",
+    "businessId": "indiranagar",
+    "name": "Arjun Mehta",
+    "username": "manager",
+    "passwordHash": "$2b$10$CUDWkg3P4w5W7Eo8MZxHxu1Vq0QMD0Y8oaiOJow0TTdqE2hWxnJ1O",
+    "role": "manager",
+    "email": "arjun@roastedbean.in"
+  },
+  {
+    "id": "staff_kitchen_001",
+    "businessId": "indiranagar",
+    "name": "Chef Ravi",
+    "username": "kitchen",
+    "passwordHash": "$2b$10$RebcNGydNdcBKnk1.DdPqOivmFGRf1idORX.sSmZ7M9wigbmMIugu",
+    "role": "kitchen",
+    "email": ""
+  },
+  {
+    "id": "staff_owner_001",
+    "businessId": "indiranagar",
+    "name": "Arjun Mehta (Owner)",
+    "username": "owner",
+    "passwordHash": "$2b$10$QbQ1eW/XOA6Zw4XrK1ur/./yd9lEgPj1NvlbcbLK9BLE5OC47fCMC",
+    "role": "owner",
+    "email": "arjun@roastedbean.in"
+  },
+  {
+    "id": "staff_mgr_002",
+    "businessId": "koramangala",
+    "name": "Priya Sharma",
+    "username": "manager",
+    "passwordHash": "$2b$10$CUDWkg3P4w5W7Eo8MZxHxu1Vq0QMD0Y8oaiOJow0TTdqE2hWxnJ1O",
+    "role": "manager",
+    "email": "priya@mochaandco.in"
+  },
+  {
+    "id": "staff_launch_caf_mq6hey7r_mgr",
+    "username": "launch",
+    "passwordHash": "$2b$10$/9swdHeLStRAeG1OH6TRse4ntoh8rM.2giZ3xgudO7h/cVlG1sxye",
+    "role": "manager",
+    "businessId": "launch_caf_mq6hey7r",
+    "name": "Demo Owner",
+    "createdAt": "2026-06-09T10:13:19.290Z"
+  }
+]

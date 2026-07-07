@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Owner Portal — Zordic California</title>
+<style>
+  :root {
+    --brand: #C9A84C;
+    --brand-dark: #a07830;
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --border: #e8e3db;
+    --text: #1a1a1a;
+    --muted: #888;
+    --green: #27ae60;
+    --red: #e74c3c;
+    --blue: #2980b9;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%);
+  }
+  .login-box {
+    background: var(--surface); border-radius: 20px; padding: 48px 40px; width: 100%; max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .login-logo { text-align: center; margin-bottom: 32px; }
+  .login-logo .icon { font-size: 48px; }
+  .login-logo h1 { font-size: 22px; font-weight: 700; color: var(--text); margin-top: 8px; }
+  .login-logo p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .login-field { margin-bottom: 16px; }
+  .login-field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .login-field input, .login-field select {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 14px; outline: none; transition: border-color .2s;
+  }
+  .login-field input:focus, .login-field select:focus { border-color: var(--brand); }
+  .btn-login {
+    width: 100%; padding: 14px; background: var(--brand); color: #fff; border: none;
+    border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px;
+    transition: background .2s;
+  }
+  .btn-login:hover { background: var(--brand-dark); }
+  .login-error { background: #fde; color: var(--red); padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; }
+
+  /* ── APP SHELL ── */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+
+  /* Header */
+  .header {
+    background: #1a1a1a; color: #fff; padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between; height: 56px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-left .logo { font-size: 18px; font-weight: 700; color: var(--brand); }
+  .header-left .branch-badge {
+    background: rgba(201,168,76,.15); color: var(--brand); border: 1px solid rgba(201,168,76,.3);
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .owner-name { font-size: 13px; color: #ccc; }
+  .btn-logout { background: rgba(255,255,255,.1); color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .btn-logout:hover { background: rgba(255,255,255,.2); }
+
+  /* Nav */
+  .nav-bar {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; gap: 4px; padding: 0 24px; overflow-x: auto;
+  }
+  .nav-item {
+    padding: 14px 18px; font-size: 13px; font-weight: 500; color: var(--muted);
+    border: none; background: none; cursor: pointer; white-space: nowrap;
+    border-bottom: 2px solid transparent; transition: all .2s;
+  }
+  .nav-item:hover { color: var(--text); }
+  .nav-item.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 600; }
+
+  /* Content */
+  .content { padding: 24px; max-width: 1100px; margin: 0 auto; width: 100%; flex: 1; }
+
+  /* Cards / KPIs */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; text-align: center;
+  }
+  .kpi-card .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 8px; }
+  .kpi-card .kpi-value { font-size: 26px; font-weight: 700; color: var(--text); }
+  .kpi-card .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .kpi-card.highlight { border-color: var(--brand); background: #fdf8ee; }
+  .kpi-card.highlight .kpi-value { color: var(--brand-dark); }
+
+  .section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .section-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { background: #f9f7f3; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: #fafaf8; }
+
+  /* Charts */
+  .chart-wrap { height: 180px; display: flex; align-items: flex-end; gap: 4px; padding: 8px 0; overflow: hidden; }
+  .chart-bar { flex: 1; background: var(--brand); border-radius: 4px 4px 0 0; min-width: 8px; opacity: .8; cursor: default; transition: opacity .2s; position: relative; }
+  .chart-bar:hover { opacity: 1; }
+  .chart-bar .bar-tip { position: absolute; top: -28px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; white-space: nowrap; opacity: 0; transition: opacity .2s; }
+  .chart-bar:hover .bar-tip { opacity: 1; }
+
+  /* Controls */
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .input { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; }
+  .input:focus { border-color: var(--brand); }
+  .btn { padding: 8px 18px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .2s; }
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.primary:hover { background: var(--brand-dark); }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.green { background: #e6f9ee; color: var(--green); }
+  .badge.red { background: #fde; color: var(--red); }
+  .badge.blue { background: #e8f4fd; color: var(--blue); }
+  .badge.gold { background: #fdf3d0; color: #a07830; }
+
+  /* P&L table */
+  .pl-row-income td:first-child { color: var(--green); font-weight: 600; }
+  .pl-row-expense td:first-child { color: var(--red); font-weight: 600; }
+  .pl-total td { font-weight: 700; border-top: 2px solid var(--border) !important; }
+  .profit-card { padding: 20px; border-radius: var(--radius); text-align: center; margin-top: 16px; }
+  .profit-card.profit { background: #e6f9ee; border: 2px solid var(--green); }
+  .profit-card.loss { background: #fde; border: 2px solid var(--red); }
+  .profit-card .amount { font-size: 32px; font-weight: 800; }
+  .profit-card .label { font-size: 13px; margin-top: 4px; }
+
+  /* Customer segment colors */
+  .seg-new { color: #3498db; }
+  .seg-returning { color: #8e44ad; }
+  .seg-regular { color: var(--green); }
+  .seg-loyal { color: var(--brand-dark); }
+  .seg-at_risk { color: #e67e22; }
+  .seg-lost { color: var(--red); }
+
+  /* Loader */
+  .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #eee; border-top-color: var(--brand); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-row { text-align: center; padding: 24px; color: var(--muted); }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a1a; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; opacity: 0; transform: translateY(10px); transition: all .3s; pointer-events: none; z-index: 999; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .content { padding: 16px; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .nav-item { padding: 12px 12px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">☕</div>
+      <h1>Owner Portal</h1>
+      <p id="login-branch-hint" style="margin-top:6px"><img src="/logo.svg" alt="Zordic California" style="height:26px;width:auto"></p>
+    </div>
+    <div class="login-field">
+      <label>Branch</label>
+      <select id="login-branch" class="input" style="width:100%">
+        <option value="">Loading branches…</option>
+      </select>
+    </div>
+    <div class="login-field">
+      <label>Username</label>
+      <input type="text" id="login-username" placeholder="owner_yourcafe" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Sign In as Owner →</button>
+    <div style="text-align:center;margin-top:14px;font-size:12px;color:#bbb">
+      Manager? <a href="/login" style="color:var(--brand);text-decoration:none;font-weight:600">Use the main login →</a>
+    </div>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ APP ═══════════════ -->
+<div id="app">
+  <div class="header">
+    <div class="header-left">
+      <span class="logo">☕ Zordic</span>
+      <span class="branch-badge" id="header-branch">—</span>
+    </div>
+    <div class="header-right">
+      <span class="owner-name" id="header-owner">Owner</span>
+      <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <button class="nav-item active" onclick="showTab('dashboard',this)">📊 Dashboard</button>
+    <button class="nav-item" onclick="showTab('revenue',this)">💰 Revenue</button>
+    <button class="nav-item" onclick="showTab('pl',this)">📈 P&amp;L</button>
+    <button class="nav-item" onclick="showTab('gst',this)">🧾 GST</button>
+    <button class="nav-item" onclick="showTab('customers',this)">👥 Customers</button>
+    <button class="nav-item" onclick="showTab('expenses',this)">💸 Expenses</button>
+    <button class="nav-item" onclick="showTab('account',this)">🔑 My Account</button>
+  </div>
+
+  <div class="content">
+
+    <!-- ── DASHBOARD ── -->
+    <div id="tab-dashboard">
+      <div class="kpi-grid" id="dash-kpis">
+        <div class="kpi-card highlight">
+          <div class="kpi-label">Today's Revenue</div>
+          <div class="kpi-value" id="d-today">—</div>
+          <div class="kpi-sub" id="d-today-orders">— orders</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">This Week</div>
+          <div class="kpi-value" id="d-week">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">This Month</div>
+          <div class="kpi-value" id="d-month">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">All Time</div>
+          <div class="kpi-value" id="d-total">—</div>
+          <div class="kpi-sub" id="d-total-orders">— total orders</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Avg Order Value</div>
+          <div class="kpi-value" id="d-aov">—</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">At-Risk Customers</div>
+          <div class="kpi-value" id="d-atrisk">—</div>
+          <div class="kpi-sub">need re-engagement</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="section">
+          <div class="section-title">📦 Top Selling Items</div>
+          <div id="dash-top-items"><div class="loading-row"><span class="spinner"></span></div></div>
+        </div>
+        <div class="section">
+          <div class="section-title">🏆 Top Customers</div>
+          <div id="dash-top-customers"><div class="loading-row"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">📅 Revenue Last 14 Days</div>
+        <div class="chart-wrap" id="dash-chart"></div>
+      </div>
+    </div>
+
+    <!-- ── REVENUE ── -->
+    <div id="tab-revenue" style="display:none">
+      <div class="section">
+        <div class="section-title">💰 Revenue Breakdown</div>
+        <div class="kpi-grid">
+          <div class="kpi-card highlight">
+            <div class="kpi-label">Today</div>
+            <div class="kpi-value" id="rev-today">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Yesterday</div>
+            <div class="kpi-value" id="rev-yesterday">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">This Week</div>
+            <div class="kpi-value" id="rev-week">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">This Month</div>
+            <div class="kpi-value" id="rev-month">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">All Time</div>
+            <div class="kpi-value" id="rev-total">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Orders</div>
+            <div class="kpi-value" id="rev-orders">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="section">
+          <div class="section-title">🏷️ Top Menu Items</div>
+          <table class="data-table">
+            <thead><tr><th>Item</th><th>Qty Sold</th><th>Revenue</th></tr></thead>
+            <tbody id="rev-top-items-table"></tbody>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-title">📅 Daily Revenue (14 days)</div>
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Orders</th><th>Revenue</th></tr></thead>
+            <tbody id="rev-daily-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── P&L ── -->
+    <div id="tab-pl" style="display:none">
+      <div class="section">
+        <div class="section-title">📈 Profit &amp; Loss Report</div>
+        <div class="row">
+          <div class="field">
+            <label>From</label>
+            <input type="date" id="pl-from" class="input">
+          </div>
+          <div class="field">
+            <label>To</label>
+            <input type="date" id="pl-to" class="input">
+          </div>
+          <button class="btn primary" onclick="loadPL()">Load P&amp;L</button>
+        </div>
+        <div id="pl-result"></div>
+      </div>
+    </div>
+
+    <!-- ── GST ── -->
+    <div id="tab-gst" style="display:none">
+      <div class="section">
+        <div class="section-title">🧾 GST Report (GSTR-1 Style)</div>
+        <div class="row">
+          <div class="field">
+            <label>Month</label>
+            <select id="gst-month" class="input">
+              <option value="1">January</option><option value="2">February</option>
+              <option value="3">March</option><option value="4">April</option>
+              <option value="5">May</option><option value="6">June</option>
+              <option value="7">July</option><option value="8">August</option>
+              <option value="9">September</option><option value="10">October</option>
+              <option value="11">November</option><option value="12">December</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Year</label>
+            <input type="number" id="gst-year" class="input" style="width:90px" min="2024" max="2030">
+          </div>
+          <button class="btn primary" onclick="loadGST()">Load GST</button>
+        </div>
+        <div id="gst-result"></div>
+      </div>
+    </div>
+
+    <!-- ── CUSTOMERS ── -->
+    <div id="tab-customers" style="display:none">
+      <div class="section" style="margin-bottom:16px">
+        <div class="section-title">🔍 Customer Lookup</div>
+        <div class="row">
+          <div class="field" style="flex:1">
+            <label>Phone Number</label>
+            <input type="tel" id="cust-phone" class="input" placeholder="9876543210" style="width:100%">
+          </div>
+          <button class="btn primary" onclick="lookupCustomer()">Look Up</button>
+        </div>
+        <div id="cust-profile"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">⚠️ At-Risk Customers <span id="atrisk-count" class="badge red" style="font-size:12px"></span></div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Customers who haven't visited in 14+ days</p>
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Phone</th><th>Last Visit</th><th>Days Away</th><th>Visits</th><th>Total Spend</th></tr></thead>
+          <tbody id="atrisk-table"><tr><td colspan="6" class="loading-row"><span class="spinner"></span></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── EXPENSES ── -->
+    <div id="tab-expenses" style="display:none">
+      <div class="section">
+        <div class="section-title">💸 Expense Log <span style="font-size:12px;font-weight:400;color:var(--muted)">(read-only — add expenses via manager portal)</span></div>
+        <div class="row">
+          <div class="field">
+            <label>Month</label>
+            <input type="month" id="exp-month" class="input" onchange="loadExpenses()">
+          </div>
+          <div class="field">
+            <label>Category</label>
+            <select id="exp-cat" class="input" onchange="loadExpenses()">
+              <option value="">All Categories</option>
+              <option>ingredients</option><option>salaries</option><option>rent</option>
+              <option>electricity</option><option>gas</option><option>marketing</option>
+              <option>maintenance</option><option>equipment</option><option>misc</option>
+            </select>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Vendor</th><th>Amount</th><th>GST</th></tr></thead>
+          <tbody id="exp-table"><tr><td colspan="6" class="loading-row"><span class="spinner"></span></td></tr></tbody>
+        </table>
+        <div id="exp-summary" style="padding:12px;background:#fafaf8;border-top:1px solid var(--border);font-size:13px;display:none"></div>
+      </div>
+    </div>
+
+    <div id="tab-account" style="display:none">
+      <div class="section" style="max-width:480px">
+        <div class="section-title">🔑 Change Password</div>
+        <div style="margin-top:18px">
+          <div class="field" style="margin-bottom:14px">
+            <label>Current Password</label>
+            <input type="password" id="cp-cur" class="input" placeholder="Enter current password">
+          </div>
+          <div class="field" style="margin-bottom:14px">
+            <label>New Password</label>
+            <input type="password" id="cp-new" class="input" placeholder="Min 6 characters">
+          </div>
+          <div class="field" style="margin-bottom:18px">
+            <label>Confirm New Password</label>
+            <input type="password" id="cp-conf" class="input" placeholder="Repeat new password">
+          </div>
+          <div id="cp-msg" style="font-size:13px;margin-bottom:12px;padding:10px;border-radius:8px;display:none"></div>
+          <button class="btn-primary" onclick="changePassword()" style="width:100%;padding:12px;font-size:15px">Update Password</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let authToken = null;
+let bizId     = null;
+let ownerInfo = null;
+
+const fmt = n => '₹' + Math.round(n||0).toLocaleString('en-IN');
+const fmtDate = s => s ? new Date(s).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'2-digit'}) : '—';
+
+function showToast(msg, isErr=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isErr ? '#c0392b' : '#1a1a1a';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── Load branches on page load ───────────────────────────────────────────────
+async function loadBranches() {
+  try {
+    const r = await fetch('/api/businesses');
+    if (!r.ok) return;
+    const branches = await r.json();
+    const sel = document.getElementById('login-branch');
+    sel.innerHTML = branches.map(b => `<option value="${b.id}">${b.name} — ${b.location||b.id}</option>`).join('');
+
+    // Pre-select branch from URL: /owner/:bizId
+    const urlBizId = window.location.pathname.split('/').filter(Boolean)[1];
+    if (urlBizId) {
+      const match = branches.find(b => b.id === urlBizId);
+      if (match) {
+        sel.value = urlBizId;
+        // Pre-fill username hint
+        const uInput = document.getElementById('login-username');
+        if (uInput && !uInput.value) {
+          const lastPart = urlBizId.split('_').pop();
+          uInput.placeholder = 'e.g. owner_' + lastPart;
+        }
+        // Show branch name prominently on login card
+        const hint = document.getElementById('login-branch-hint');
+        if (hint) hint.textContent = '🏠 ' + match.name;
+      }
+    }
+  } catch(e) {}
+}
+loadBranches();
+
+// ── LOGIN ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const businessId = document.getElementById('login-branch').value;
+  const username   = document.getElementById('login-username').value.trim();
+  const password   = document.getElementById('login-password').value;
+  const errEl      = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!businessId || !username || !password) {
+    errEl.textContent = 'Please fill all fields.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, username, password })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.token) {
+      errEl.textContent = data.error || 'Login failed. Check your credentials.';
+      errEl.style.display = 'block';
+      return;
+    }
+    const staff = data.staff || {};
+    if (staff.role !== 'owner') {
+      errEl.textContent = 'This portal is for café owners only. Managers use /manager.html';
+      errEl.style.display = 'block';
+      return;
+    }
+    authToken = data.token;
+    bizId     = staff.businessId;
+    ownerInfo = data;
+    sessionStorage.setItem('owner_token', authToken);
+    sessionStorage.setItem('owner_biz', bizId);
+    sessionStorage.setItem('owner_name', staff.name || username);
+    showApp();
+  } catch(e) {
+    errEl.textContent = 'Connection error. Please try again.';
+    errEl.style.display = 'block';
+  }
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+function doLogout() {
+  sessionStorage.removeItem('owner_token');
+  sessionStorage.removeItem('owner_biz');
+  sessionStorage.removeItem('owner_name');
+  authToken = null; bizId = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+// ── Auto-login from session or localStorage (from login.html redirect) ─────────
+(function() {
+  // 1. Try sessionStorage (page refresh within owner portal)
+  const t = sessionStorage.getItem('owner_token');
+  const b = sessionStorage.getItem('owner_biz');
+  if (t && b) { authToken = t; bizId = b; showApp(); return; }
+
+  // 2. Try localStorage (set by login.html after successful login)
+  const lt = localStorage.getItem('cafehq_token');
+  const ls = JSON.parse(localStorage.getItem('cafehq_staff') || 'null');
+  if (lt && ls && ls.role === 'owner') {
+    authToken = lt;
+    bizId = ls.businessId;
+    // Mirror into sessionStorage so refreshes work
+    sessionStorage.setItem('owner_token', lt);
+    sessionStorage.setItem('owner_biz', ls.businessId);
+    sessionStorage.setItem('owner_name', ls.name || 'Owner');
+    showApp();
+  }
+})();
+
+// ── Show App ─────────────────────────────────────────────────────────────────
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.style.display = 'flex';
+
+  // Set header info
+  const name = sessionStorage.getItem('owner_name') || 'Owner';
+  document.getElementById('header-owner').textContent = name;
+
+  // Get branch name
+  fetch('/api/businesses').then(r=>r.json()).then(branches => {
+    const b = branches.find(x => x.id === bizId);
+    document.getElementById('header-branch').textContent = b ? b.name : bizId;
+  }).catch(()=>{});
+
+  // Load dashboard data
+  loadDashboard();
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).style.display = '';
+  if (btn) btn.classList.add('active');
+
+  if (name === 'revenue')   loadRevenue();
+  if (name === 'pl')        initPLDates();
+  if (name === 'gst')       initGSTDefaults();
+  if (name === 'customers') loadAtRisk();
+  if (name === 'expenses')  { initExpMonth(); loadExpenses(); }
+}
+
+// ── Auth headers ─────────────────────────────────────────────────────────────
+function authHeaders() {
+  return { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' };
+}
+
+// ── DASHBOARD ────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const [revRes, atRiskRes, topCustRes] = await Promise.all([
+      fetch(`/api/businesses/${bizId}/revenue`, { headers: authHeaders() }),
+      fetch(`/api/businesses/${bizId}/at-risk-customers`, { headers: authHeaders() }),
+      fetch(`/api/businesses/${bizId}/customers`, { headers: authHeaders() }).catch(()=>null)
+    ]);
+
+    if (!revRes.ok) {
+      // Token may have expired
+      showToast('Session expired. Please log in again.', true);
+      doLogout(); return;
+    }
+    const rev = await revRes.json();
+
+    if (rev.adminOnly) {
+      showToast('Could not load revenue — check owner login.', true);
+      return;
+    }
+
+    const s = rev.stats || {};
+    document.getElementById('d-today').textContent       = fmt(s.today_revenue);
+    document.getElementById('d-today-orders').textContent = (s.today_orders||0) + ' orders today';
+    document.getElementById('d-week').textContent        = fmt(s.week_revenue);
+    document.getElementById('d-month').textContent       = fmt(s.month_revenue);
+    document.getElementById('d-total').textContent       = fmt(s.total_revenue);
+    document.getElementById('d-total-orders').textContent = (s.total_orders||0) + ' total orders';
+    const aov = s.total_orders ? Math.round((s.total_revenue||0) / s.total_orders) : 0;
+    document.getElementById('d-aov').textContent         = fmt(aov);
+
+    // At-risk count
+    if (atRiskRes && atRiskRes.ok) {
+      const ar = await atRiskRes.json();
+      document.getElementById('d-atrisk').textContent = Array.isArray(ar) ? ar.length : '—';
+    }
+
+    // Top items
+    const topItemsEl = document.getElementById('dash-top-items');
+    if (rev.topItems && rev.topItems.length) {
+      topItemsEl.innerHTML = rev.topItems.map((item, i) =>
+        `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span>${i+1}. ${item.name || item.item_name || '—'}</span>
+          <span style="color:var(--muted)">${item.qty || item.total_qty || 0} sold</span>
+        </div>`
+      ).join('');
+    } else {
+      topItemsEl.innerHTML = '<div class="loading-row">No sales data yet</div>';
+    }
+
+    // 14-day chart
+    const chartEl = document.getElementById('dash-chart');
+    if (rev.daily && rev.daily.length) {
+      const maxRev = Math.max(...rev.daily.map(d => d.revenue||d.total||0), 1);
+      chartEl.innerHTML = rev.daily.map(d => {
+        const val = d.revenue || d.total || 0;
+        const h   = Math.max(4, Math.round((val / maxRev) * 160));
+        const lbl = d.date ? new Date(d.date).toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) : d.date;
+        return `<div class="chart-bar" style="height:${h}px" title="${lbl}: ${fmt(val)}">
+          <div class="bar-tip">${lbl}<br>${fmt(val)}</div>
+        </div>`;
+      }).join('');
+    } else {
+      chartEl.innerHTML = '<div class="loading-row" style="width:100%">No revenue data yet</div>';
+    }
+
+    // Top customers from at-risk (placeholder until dedicated endpoint)
+    const topCustEl = document.getElementById('dash-top-customers');
+    topCustEl.innerHTML = '<div class="loading-row" style="font-size:12px;color:var(--muted)">Visit the Customers tab for full analytics</div>';
+
+  } catch(e) {
+    console.error('[Dashboard]', e);
+    showToast('Error loading dashboard', true);
+  }
+}
+
+// ── REVENUE ──────────────────────────────────────────────────────────────────
+async function loadRevenue() {
+  try {
+    const r = await fetch(`/api/businesses/${bizId}/revenue`, { headers: authHeaders() });
+    if (!r.ok) return;
+    const rev = await r.json();
+    if (rev.adminOnly) { showToast('Revenue data unavailable', true); return; }
+
+    const s = rev.stats || {};
+    document.getElementById('rev-today').textContent     = fmt(s.today_revenue);
+    document.getElementById('rev-yesterday').textContent = fmt(s.yesterday_revenue);
+    document.getElementById('rev-week').textContent      = fmt(s.week_revenue);
+    document.getElementById('rev-month').textContent     = fmt(s.month_revenue);
+    document.getElementById('rev-total').textContent     = fmt(s.total_revenue);
+    document.getElementById('rev-orders').textContent    = (s.total_orders||0);
+
+    const tb = document.getElementById('rev-top-items-table');
+    tb.innerHTML = (rev.topItems||[]).map(it =>
+      `<tr><td>${it.name||it.item_name}</td><td>${it.qty||it.total_qty||0}</td><td>${fmt(it.revenue||it.total_revenue||0)}</td></tr>`
+    ).join('') || '<tr><td colspan="3" class="loading-row">No data</td></tr>';
+
+    const db = document.getElementById('rev-daily-table');
+    db.innerHTML = (rev.daily||[]).slice().reverse().map(d =>
+      `<tr><td>${fmtDate(d.date)}</td><td>${d.orders||d.order_count||0}</td><td>${fmt(d.revenue||d.total||0)}</td></tr>`
+    ).join('') || '<tr><td colspan="3" class="loading-row">No data</td></tr>';
+
+  } catch(e) { showToast('Error loading revenue', true); }
+}
+
+// ── P&L ──────────────────────────────────────────────────────────────────────
+function initPLDates() {
+  const now   = new Date();
+  const from  = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('pl-from').value = from.toISOString().slice(0,10);
+  document.getElementById('pl-to').value   = now.toISOString().slice(0,10);
+}
+
+async function loadPL() {
+  const from = document.getElementById('pl-from').value;
+  const to   = document.getElementById('pl-to').value;
+  const el   = document.getElementById('pl-result');
+  el.innerHTML = '<div class="loading-row"><span class="spinner"></span> Loading P&L…</div>';
+
+  try {
+    const r = await fetch(`/api/businesses/${bizId}/accounting/pl?from=${from}&to=${to}`, { headers: authHeaders() });
+    if (!r.ok) { el.innerHTML = `<div class="loading-row" style="color:var(--red)">${(await r.json()).error||'Failed to load'}</div>`; return; }
+    const pl = await r.json();
+
+    const rev  = pl.revenue || {};
+    const exp  = pl.expenses || {};
+    const summ = pl.summary  || {};
+    const cats = exp.byCategory || {};
+
+    el.innerHTML = `
+      <table class="data-table" style="margin-top:12px">
+        <thead><tr><th>Category</th><th style="text-align:right">Amount (₹)</th></tr></thead>
+        <tbody>
+          <tr class="pl-row-income"><td>📦 Gross Revenue (incl. GST)</td><td style="text-align:right">${fmt(rev.grossRevenue)}</td></tr>
+          <tr><td style="padding-left:24px;color:var(--muted)">• Taxable (before GST)</td><td style="text-align:right">${fmt(rev.subtotal)}</td></tr>
+          <tr><td style="padding-left:24px;color:var(--muted)">• GST Collected</td><td style="text-align:right">${fmt(rev.gstCollected)}</td></tr>
+          <tr><td style="padding-left:24px;color:var(--muted)">• Orders</td><td style="text-align:right">${rev.orderCount||0} orders</td></tr>
+          ${Object.entries(cats).map(([cat, amt]) =>
+            `<tr class="pl-row-expense"><td>💸 Expense — ${cat}</td><td style="text-align:right">− ${fmt(amt)}</td></tr>`
+          ).join('')}
+          <tr class="pl-total"><td>Net Expenses</td><td style="text-align:right">− ${fmt(exp.total)}</td></tr>
+        </tbody>
+      </table>
+      <div class="profit-card ${summ.isProfit ? 'profit' : 'loss'}">
+        <div class="amount" style="color:${summ.isProfit ? 'var(--green)' : 'var(--red)'}">
+          ${summ.isProfit ? '+' : '−'} ${fmt(Math.abs(summ.netProfit||0))}
+        </div>
+        <div class="label">
+          ${summ.isProfit ? '✅ Net Profit' : '❌ Net Loss'} 
+          (${Math.abs(summ.profitMargin||0).toFixed(1)}% margin)
+          &nbsp;|&nbsp; ${pl.period?.from || from} to ${pl.period?.to || to}
+        </div>
+      </div>`;
+  } catch(e) { el.innerHTML = '<div class="loading-row" style="color:var(--red)">Error loading P&L</div>'; }
+}
+
+// ── GST ───────────────────────────────────────────────────────────────────────
+function initGSTDefaults() {
+  const now = new Date();
+  document.getElementById('gst-month').value = now.getMonth() + 1;
+  document.getElementById('gst-year').value  = now.getFullYear();
+}
+
+async function loadGST() {
+  const month = document.getElementById('gst-month').value;
+  const year  = document.getElementById('gst-year').value;
+  const el    = document.getElementById('gst-result');
+  el.innerHTML = '<div class="loading-row"><span class="spinner"></span> Loading GST report…</div>';
+
+  try {
+    const r = await fetch(`/api/businesses/${bizId}/accounting/gst?month=${month}&year=${year}`, { headers: authHeaders() });
+    if (!r.ok) { el.innerHTML = `<div class="loading-row" style="color:var(--red)">${(await r.json()).error||'Failed'}</div>`; return; }
+    const gst = await r.json();
+    const os  = gst.outwardSupplies || {};
+    const itc = gst.inputTaxCredit  || {};
+
+    el.innerHTML = `
+      <table class="data-table" style="margin-top:12px">
+        <thead><tr><th>Description</th><th style="text-align:right">Amount (₹)</th></tr></thead>
+        <tbody>
+          <tr><td><b>Outward Supplies (Sales)</b></td><td></td></tr>
+          <tr><td style="padding-left:20px">Invoices / Orders</td><td style="text-align:right">${os.invoiceCount||0}</td></tr>
+          <tr><td style="padding-left:20px">Taxable Value</td><td style="text-align:right">${fmt(os.taxableValue)}</td></tr>
+          <tr><td style="padding-left:20px">CGST (9%)</td><td style="text-align:right">${fmt(os.cgst)}</td></tr>
+          <tr><td style="padding-left:20px">SGST (9%)</td><td style="text-align:right">${fmt(os.sgst)}</td></tr>
+          <tr><td style="padding-left:20px"><b>Total GST Collected</b></td><td style="text-align:right"><b>${fmt(os.totalGst)}</b></td></tr>
+          <tr><td><b>Input Tax Credit (Purchases)</b></td><td></td></tr>
+          <tr><td style="padding-left:20px">GST Paid on Expenses</td><td style="text-align:right">${fmt(itc.totalITC)}</td></tr>
+          <tr class="pl-total"><td>Net GST Payable</td><td style="text-align:right;color:${(gst.netGstPayable||0)>0?'var(--red)':'var(--green)'}"><b>${fmt(gst.netGstPayable)}</b></td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin-top:12px">
+        Period: ${gst.period?.month || month}/${gst.period?.year || year} &nbsp;|&nbsp;
+        GST Rate: ${gst.gstRate||18}% (CGST ${(gst.gstRate||18)/2}% + SGST ${(gst.gstRate||18)/2}%)
+      </p>`;
+  } catch(e) { el.innerHTML = '<div class="loading-row" style="color:var(--red)">Error loading GST report</div>'; }
+}
+
+// ── CUSTOMERS ─────────────────────────────────────────────────────────────────
+async function loadAtRisk() {
+  const tb = document.getElementById('atrisk-table');
+  try {
+    const r = await fetch(`/api/businesses/${bizId}/at-risk-customers`, { headers: authHeaders() });
+    if (!r.ok) { tb.innerHTML = '<tr><td colspan="6" class="loading-row">Error loading</td></tr>'; return; }
+    const list = await r.json();
+    document.getElementById('atrisk-count').textContent = list.length;
+    document.getElementById('d-atrisk').textContent = list.length;
+
+    if (!list.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="loading-row" style="color:var(--green)">✅ No at-risk customers right now!</td></tr>';
+      return;
+    }
+    tb.innerHTML = list.map(c => `
+      <tr>
+        <td>${c.name || '—'}</td>
+        <td>${c.phone}</td>
+        <td>${fmtDate(c.last_visit || c.lastVisit)}</td>
+        <td><span class="badge red">${c.days_away || c.daysSinceLastVisit || '—'}d</span></td>
+        <td>${c.total_visits || c.totalVisits || 0}</td>
+        <td>${fmt(c.total_spend || c.totalSpend || 0)}</td>
+      </tr>`).join('');
+  } catch(e) { tb.innerHTML = '<tr><td colspan="6" class="loading-row">Error loading customers</td></tr>'; }
+}
+
+async function lookupCustomer() {
+  const phone = document.getElementById('cust-phone').value.replace(/\D/g,'').slice(-10);
+  if (!phone || phone.length < 10) { showToast('Enter a valid 10-digit phone number', true); return; }
+  const el = document.getElementById('cust-profile');
+  el.innerHTML = '<div class="loading-row"><span class="spinner"></span></div>';
+
+  try {
+    const r = await fetch(`/api/businesses/${bizId}/customers/${phone}/insights`, { headers: authHeaders() });
+    if (!r.ok) { el.innerHTML = '<div class="loading-row">No data found for this number</div>'; return; }
+    const p = await r.json();
+
+    const segClass = 'seg-' + (p.segment || 'new');
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:16px">
+        <div class="kpi-card"><div class="kpi-label">Name</div><div style="font-weight:700">${p.name||'—'}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Total Visits</div><div class="kpi-value" style="font-size:22px">${p.totalVisits||0}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Total Spend</div><div class="kpi-value" style="font-size:22px">${fmt(p.totalSpend)}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Avg Spend</div><div class="kpi-value" style="font-size:22px">${fmt(p.avgSpend)}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Last Visit</div><div style="font-weight:600">${fmtDate(p.lastVisit)}</div><div style="font-size:12px;color:var(--muted)">${p.daysSinceLastVisit||0}d ago</div></div>
+        <div class="kpi-card"><div class="kpi-label">Segment</div><div class="kpi-value" style="font-size:16px;text-transform:capitalize" class="${segClass}">${p.segment||'—'}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Favourite Items</div><div style="font-size:13px">${(p.favourites||[]).slice(0,3).map(f=>f.name).join(', ')||'—'}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Peak Day/Hour</div><div style="font-size:13px">${p.peakDay||'—'}, ${p.peakHour!==undefined ? p.peakHour+':00' : '—'}</div></div>
+      </div>`;
+  } catch(e) { el.innerHTML = '<div class="loading-row">Error looking up customer</div>'; }
+}
+
+// ── EXPENSES ──────────────────────────────────────────────────────────────────
+function initExpMonth() {
+  const now = new Date();
+  const m = now.toISOString().slice(0,7);
+  if (!document.getElementById('exp-month').value) document.getElementById('exp-month').value = m;
+}
+
+async function loadExpenses() {
+  const month = document.getElementById('exp-month').value;
+  const cat   = document.getElementById('exp-cat').value;
+  const tb    = document.getElementById('exp-table');
+  const sum   = document.getElementById('exp-summary');
+  tb.innerHTML = '<tr><td colspan="6" class="loading-row"><span class="spinner"></span></td></tr>';
+  sum.style.display = 'none';
+
+  let url = `/api/businesses/${bizId}/accounting/expenses`;
+  const params = [];
+  if (month) { params.push(`from=${month}-01`); const [y,m2] = month.split('-'); const last = new Date(y,m2,0).getDate(); params.push(`to=${month}-${last}`); }
+  if (cat)   params.push(`category=${cat}`);
+  if (params.length) url += '?' + params.join('&');
+
+  try {
+    const r = await fetch(url, { headers: authHeaders() });
+    if (!r.ok) { tb.innerHTML = '<tr><td colspan="6" class="loading-row">Error loading expenses</td></tr>'; return; }
+    const exps = await r.json();
+
+    if (!exps.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="loading-row">No expenses found for this period</td></tr>';
+      return;
+    }
+
+    tb.innerHTML = exps.map(e => `
+      <tr>
+        <td>${fmtDate(e.expense_date||e.expenseDate)}</td>
+        <td><span class="badge blue">${e.category}</span></td>
+        <td>${e.description||'—'}</td>
+        <td>${e.vendor||'—'}</td>
+        <td><strong>${fmt(e.amount)}</strong></td>
+        <td>${e.gst_amount||e.gstAmount ? fmt(e.gst_amount||e.gstAmount) : '—'}</td>
+      </tr>`).join('');
+
+    const total = exps.reduce((a,e) => a + (e.amount||0), 0);
+    const totalGst = exps.reduce((a,e) => a + (e.gst_amount||e.gstAmount||0), 0);
+    sum.innerHTML = `<strong>${exps.length} expenses</strong> &nbsp;|&nbsp; Total: <strong>${fmt(total)}</strong> &nbsp;|&nbsp; GST paid: <strong>${fmt(totalGst)}</strong>`;
+    sum.style.display = 'block';
+  } catch(e) { tb.innerHTML = '<tr><td colspan="6" class="loading-row">Error loading expenses</td></tr>'; }
+}
+
+// ── Change Password ───────────────────────────────────────────────────────────
+async function changePassword() {
+  const cur  = document.getElementById('cp-cur').value.trim();
+  const nw   = document.getElementById('cp-new').value.trim();
+  const conf = document.getElementById('cp-conf').value.trim();
+  const msg  = document.getElementById('cp-msg');
+  msg.style.display = 'none';
+
+  if (!cur || !nw || !conf) { msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc'; msg.textContent='All fields are required.'; return; }
+  if (nw !== conf) { msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc'; msg.textContent='New passwords do not match.'; return; }
+  if (nw.length < 6) { msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc'; msg.textContent='Password must be at least 6 characters.'; return; }
+
+  try {
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ currentPassword: cur, newPassword: nw })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc';
+      msg.textContent = data.error || 'Failed to change password.';
+    } else {
+      msg.style.cssText='display:block;background:#f0fdf4;color:#2a7;border:1px solid #aed';
+      msg.textContent = '✓ Password changed successfully!';
+      document.getElementById('cp-cur').value='';
+      document.getElementById('cp-new').value='';
+      document.getElementById('cp-conf').value='';
+    }
+  } catch(e) {
+    msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc';
+    msg.textContent = 'Network error.';
+  }
+}
+
+// ── Real-time sync via Socket.io ──────────────────────────────────────────────
+(function initOwnerSocket() {
+  try {
+    if (typeof io === 'undefined') return;
+    const socket = io({ transports: ['websocket','polling'] });
+    socket.on('connect', function() {
+      socket.emit('join_business', { businessId: bizId, token: localStorage.getItem('cafehq_token') });
+    });
+
+    // New order placed at the café → refresh dashboard KPIs live
+    socket.on('new_order', function(data) {
+      if (bizId && data && data.businessId === bizId) {
+        loadDashboard();
+      }
+    });
+
+    // Order status changed → refresh dashboard
+    socket.on('order_status_update', function(data) {
+      if (bizId && data && data.businessId === bizId) {
+        loadDashboard();
+      }
+    });
+
+    socket.on('connect_error', function() { /* silent — offline fallback */ });
+  } catch(e) { /* socket.io not available */ }
+})();
+
+</script>
+</body>
+</html>

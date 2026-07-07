@@ -1,0 +1,23 @@
+# Secrets — never commit
+.env
+data/CREDENTIALS.txt
+
+# Dependencies
+node_modules/
+
+# WhatsApp Web session data (contains live login session!)
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Runtime data — tenant databases and backups
+data/cafe_hq.db
+data/cafe_hq.db-shm
+data/cafe_hq.db-wal
+data/backups/
+data/*.txt
+data/server_log.txt
+
+# OS / editor noise
+Thumbs.db
+.DS_Store
+*.log

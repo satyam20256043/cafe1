@@ -1,0 +1,16 @@
+[
+  {
+    "id": "r1",
+    "name": "Rahul Sharma",
+    "guests": 4,
+    "datetime": "Friday 7:30 PM",
+    "status": "approved"
+  },
+  {
+    "id": "r2",
+    "name": "Priya Patel",
+    "guests": 2,
+    "datetime": "Saturday 8:00 PM",
+    "status": "pending"
+  }
+]

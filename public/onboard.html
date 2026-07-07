@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Get Your Café Online — Zordic California</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#C9A84C;--gold-light:#E8C96A;--espresso:#0D0705;
+  --espresso-mid:#1A1008;--cream:#FAF3E0;--warm-gray:#2A1F0F;
+  --border:rgba(201,168,76,0.25);--radius:14px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Nunito Sans',sans-serif;background:var(--espresso);color:var(--cream);min-height:100vh;}
+.hero{background:linear-gradient(160deg,#0D0705 0%,#1A1008 40%,#0D0705 100%);text-align:center;padding:60px 24px 50px;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 0%,rgba(201,168,76,.12) 0%,transparent 70%);pointer-events:none;}
+.hero-badge{display:inline-block;background:rgba(201,168,76,.12);border:1px solid var(--border);color:var(--gold);font-family:'Cinzel',serif;font-size:.7rem;letter-spacing:.15em;padding:6px 18px;border-radius:100px;margin-bottom:20px;}
+.hero h1{font-family:'Cinzel',serif;font-size:clamp(2rem,5vw,3.2rem);font-weight:700;color:var(--cream);line-height:1.15;margin-bottom:14px;}
+.hero h1 span{color:var(--gold)}
+.hero p{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(1rem,2.5vw,1.3rem);color:rgba(250,243,224,.65);max-width:480px;margin:0 auto 32px;}
+.hero-pills{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;}
+.pill{background:rgba(201,168,76,.1);border:1px solid var(--border);color:var(--cream);font-size:.78rem;padding:7px 16px;border-radius:100px;}
+.pill span{color:var(--gold);margin-right:5px}
+.main{max-width:920px;margin:0 auto;padding:52px 20px 80px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;}
+@media(max-width:680px){.two-col{grid-template-columns:1fr;}}
+.card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--radius);padding:32px 28px;}
+.card-title{font-family:'Cinzel',serif;font-size:1rem;font-weight:700;color:var(--gold);letter-spacing:.06em;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.form-group{margin-bottom:18px}
+label{display:block;font-size:.78rem;font-weight:600;color:rgba(250,243,224,.6);letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px;}
+label .req{color:var(--gold)}
+input,select{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:9px;color:var(--cream);font-family:'Nunito Sans',sans-serif;font-size:.95rem;padding:11px 15px;outline:none;transition:border .2s,background .2s;}
+input::placeholder{color:rgba(250,243,224,.3)}
+input:focus,select:focus{border-color:var(--gold);background:rgba(201,168,76,.06);}
+select option{background:#1A1008;color:var(--cream);}
+.theme-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:4px;}
+.theme-card{border:2px solid transparent;border-radius:12px;padding:10px 8px 8px;cursor:pointer;transition:border .18s,transform .15s,box-shadow .18s;text-align:center;}
+.theme-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.theme-card.active{border-color:white;box-shadow:0 0 0 3px rgba(255,255,255,.3);}
+.theme-dot{width:28px;height:28px;border-radius:50%;margin:0 auto 5px;border:2px solid rgba(255,255,255,.25);}
+.theme-label{font-size:.62rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;opacity:.85;}
+.btn-submit{width:100%;padding:15px;margin-top:8px;background:linear-gradient(135deg,var(--gold),var(--gold-light));border:none;border-radius:10px;font-family:'Cinzel',serif;font-size:1rem;font-weight:700;color:var(--espresso);letter-spacing:.06em;cursor:pointer;transition:opacity .2s,transform .15s;position:relative;overflow:hidden;}
+.btn-submit:hover:not(:disabled){opacity:.9;transform:translateY(-1px);}
+.btn-submit:disabled{opacity:.6;cursor:not-allowed;}
+.btn-submit .spinner{display:none;width:18px;height:18px;border:2.5px solid rgba(13,7,5,.3);border-top-color:var(--espresso);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px;}
+.btn-submit.loading .spinner{display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#success-card{display:none;}
+.success-icon{font-size:3rem;text-align:center;margin-bottom:16px;}
+.success-title{font-family:'Cinzel',serif;font-size:1.2rem;color:var(--gold);text-align:center;margin-bottom:8px;}
+.success-sub{font-family:'Cormorant Garamond',serif;font-style:italic;color:rgba(250,243,224,.6);text-align:center;font-size:1rem;margin-bottom:24px;}
+.cred-box{background:rgba(201,168,76,.08);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:14px;}
+.cred-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(201,168,76,.1);font-size:.88rem;gap:8px;}
+.cred-row:last-child{border-bottom:none;}
+.cred-label{color:rgba(250,243,224,.5);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;flex-shrink:0;}
+.cred-value{color:var(--cream);font-weight:600;word-break:break-all;text-align:right;}
+.cred-value a{color:var(--gold);text-decoration:none;}
+.cred-value a:hover{text-decoration:underline;}
+.copy-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--gold);font-size:.7rem;padding:3px 10px;cursor:pointer;transition:background .15s;white-space:nowrap;margin-left:8px;flex-shrink:0;}
+.copy-btn:hover{background:rgba(201,168,76,.1);}
+.warn-box{background:rgba(255,180,0,.07);border:1px solid rgba(255,180,0,.25);border-radius:9px;padding:12px 16px;font-size:.82rem;color:rgba(250,243,224,.7);margin-bottom:14px;line-height:1.5;}
+.warn-box strong{color:#FFD166;}
+.btn-go{display:block;width:100%;padding:13px;text-align:center;background:linear-gradient(135deg,var(--gold),var(--gold-light));border-radius:10px;font-family:'Cinzel',serif;font-size:.95rem;font-weight:700;color:var(--espresso);text-decoration:none;letter-spacing:.05em;margin-top:8px;transition:opacity .2s;}
+.btn-go:hover{opacity:.88;}
+.btn-go-sec{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.3);}
+.features{display:flex;flex-direction:column;gap:14px;}
+.feat{display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:16px;}
+.feat-icon{font-size:1.5rem;flex-shrink:0;line-height:1;}
+.feat-title{font-family:'Cinzel',serif;font-size:.83rem;color:var(--gold);margin-bottom:4px;}
+.feat-desc{font-size:.8rem;color:rgba(250,243,224,.55);line-height:1.5;}
+.trial-badge{text-align:center;margin-top:20px;font-size:.8rem;color:rgba(250,243,224,.4);}
+.trial-badge strong{color:var(--gold);}
+footer{text-align:center;padding:24px;border-top:1px solid var(--border);font-size:.78rem;color:rgba(250,243,224,.3);}
+footer a{color:var(--gold);text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-badge" style="display:flex;align-items:center;justify-content:center;padding:0"><img src="/logo.svg" alt="Zordic California" style="height:34px;width:auto"></div>
+  <h1>Get Your Café<br><span>Online in 60 Seconds</span></h1>
+  <p>WhatsApp AI, digital loyalty cards, live order tracking — all in one dashboard.</p>
+  <div class="hero-pills">
+    <div class="pill"><span>✓</span>WhatsApp AI Chatbot</div>
+    <div class="pill"><span>✓</span>Digital Stamp Cards</div>
+    <div class="pill"><span>✓</span>Live Order Dashboard</div>
+    <div class="pill"><span>✓</span>30-Day Free Trial</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="two-col">
+
+    <div>
+      <div class="card" id="form-card">
+        <div class="card-title">✦ Register Your Café</div>
+        <form id="onboard-form" autocomplete="off">
+          <div class="form-group">
+            <label>Café / Business Name <span class="req">*</span></label>
+            <input type="text" id="businessName" placeholder="e.g. The Roasted Bean" required>
+          </div>
+          <div class="form-group">
+            <label>Your Name <span class="req">*</span></label>
+            <input type="text" id="ownerName" placeholder="Owner / Manager name" required>
+          </div>
+          <div class="form-group">
+            <label>WhatsApp Number <span class="req">*</span></label>
+            <input type="tel" id="ownerPhone" placeholder="+91 98765 43210" required>
+          </div>
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="ownerEmail" placeholder="you@example.com">
+          </div>
+          <div class="form-group">
+            <label>Branch Address</label>
+            <input type="text" id="location" placeholder="12th Main, Indiranagar, Bengaluru">
+          </div>
+          <div class="form-group">
+            <label>Operating Hours</label>
+            <input type="text" id="timings" placeholder="9:00 AM – 10:00 PM">
+          </div>
+          <div class="form-group">
+            <label>Café Theme</label>
+            <div class="theme-grid">
+              <div class="theme-card active" data-theme="espresso" style="background:#1A0E04;">
+                <div class="theme-dot" style="background:#C9A84C;"></div>
+                <div class="theme-label" style="color:#C9A84C;">Espresso</div>
+              </div>
+              <div class="theme-card" data-theme="ocean" style="background:#0C1A35;">
+                <div class="theme-dot" style="background:#3B82F6;"></div>
+                <div class="theme-label" style="color:#93C5FD;">Ocean</div>
+              </div>
+              <div class="theme-card" data-theme="forest" style="background:#071A0E;">
+                <div class="theme-dot" style="background:#16A34A;"></div>
+                <div class="theme-label" style="color:#4ADE80;">Forest</div>
+              </div>
+              <div class="theme-card" data-theme="cherry" style="background:#1A0510;">
+                <div class="theme-dot" style="background:#E11D48;"></div>
+                <div class="theme-label" style="color:#FB7185;">Cherry</div>
+              </div>
+              <div class="theme-card" data-theme="lavender" style="background:#120826;">
+                <div class="theme-dot" style="background:#9333EA;"></div>
+                <div class="theme-label" style="color:#C084FC;">Lavender</div>
+              </div>
+              <div class="theme-card" data-theme="terracotta" style="background:#1C0A03;">
+                <div class="theme-dot" style="background:#C2410C;"></div>
+                <div class="theme-label" style="color:#EA580C;">Terracotta</div>
+              </div>
+              <div class="theme-card" data-theme="emerald" style="background:#022C22;">
+                <div class="theme-dot" style="background:#059669;"></div>
+                <div class="theme-label" style="color:#34D399;">Emerald</div>
+              </div>
+              <div class="theme-card" data-theme="midnight" style="background:#0F172A;">
+                <div class="theme-dot" style="background:#94A3B8;"></div>
+                <div class="theme-label" style="color:#CBD5E1;">Midnight</div>
+              </div>
+            </div>
+            <input type="hidden" id="themeInput" value="espresso">
+            <div class="form-group" style="margin-top:18px">
+              <label>Franchise Group ID <span style="font-size:.75rem;opacity:.55;font-weight:400">(optional — link multiple branches together)</span></label>
+              <input type="text" id="franchiseGroupId" placeholder="e.g. roasted_bean_group (leave blank for standalone café)"/>
+            </div>
+          </div>
+          <button type="submit" class="btn-submit" id="submit-btn">
+            <span class="spinner"></span>Launch My Café ☕
+          </button>
+        </form>
+      </div>
+
+      <div class="card" id="success-card">
+        <div class="success-icon">🎉</div>
+        <div class="success-title">Your Café is Live!</div>
+        <div class="success-sub">Here are your login credentials — save them now.</div>
+        <div class="warn-box"><strong>⚠ Save your password now.</strong> This is the only time it will be shown. Change it from your manager dashboard after first login.</div>
+        <div class="cred-box" id="creds-box"></div>
+        <a href="#" id="go-cafe" class="btn-go" target="_blank">Open My Café Page →</a>
+        <a href="/hq" class="btn-go btn-go-sec" style="margin-top:10px;" target="_blank">Open Manager Dashboard</a>
+      </div>
+    </div>
+
+    <div>
+      <div class="features">
+        <div class="feat"><div class="feat-icon">🤖</div><div><div class="feat-title">WhatsApp AI Chatbot</div><div class="feat-desc">Customers chat on WhatsApp — your AI replies instantly with menu, orders, reservations, and loyalty balances. In their language.</div></div></div>
+        <div class="feat"><div class="feat-icon">🎟</div><div><div class="feat-title">Digital Stamp Cards</div><div class="feat-desc">Every 10th visit earns a free item. Points rack up automatically. Customers check their balance via WhatsApp anytime.</div></div></div>
+        <div class="feat"><div class="feat-icon">📋</div><div><div class="feat-title">Live Order Dashboard</div><div class="feat-desc">Orders come in from WhatsApp or your café's website. Tap to update status — customers get a WhatsApp notification instantly.</div></div></div>
+        <div class="feat"><div class="feat-icon">🎂</div><div><div class="feat-title">Birthday Campaigns</div><div class="feat-desc">Auto-detects customer birthdays and sends personalised WhatsApp greetings with a special offer. Zero effort from you.</div></div></div>
+        <div class="feat"><div class="feat-icon">📊</div><div><div class="feat-title">Revenue Analytics</div><div class="feat-desc">Daily, weekly, monthly revenue. Top-selling items. Most loyal customers. All in a beautiful real-time dashboard.</div></div></div>
+        <div class="feat"><div class="feat-icon">📱</div><div><div class="feat-title">Installable PWA</div><div class="feat-desc">Customers install your café page on their phone like an app — works offline, push notifications for order updates.</div></div></div>
+      </div>
+      <div class="trial-badge"><strong>30 days free.</strong> No credit card. Cancel anytime.</div>
+    </div>
+
+  </div>
+</div>
+
+<footer>&copy; 2025 Zordic California &nbsp;·&nbsp;<a href="/">Agency Home</a> &nbsp;·&nbsp;<a href="/manager.html">Manager Login</a></footer>
+
+<script>
+const themeCards = document.querySelectorAll('.theme-card');
+const themeInput = document.getElementById('themeInput');
+
+themeCards.forEach(card => {
+  card.addEventListener('click', () => {
+    themeCards.forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+    themeInput.value = card.dataset.theme;
+  });
+});
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = orig, 1800);
+  });
+}
+
+document.getElementById('onboard-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.querySelector('.spinner').nextSibling.textContent = 'Launching…';
+
+  const payload = {
+    businessName: document.getElementById('businessName').value.trim(),
+    ownerName:    document.getElementById('ownerName').value.trim(),
+    ownerPhone:   document.getElementById('ownerPhone').value.trim(),
+    ownerEmail:   document.getElementById('ownerEmail').value.trim(),
+    location:     document.getElementById('location').value.trim(),
+    timings:      document.getElementById('timings').value.trim(),
+    theme:           document.getElementById('themeInput').value,
+    franchiseGroupId: document.getElementById('franchiseGroupId')?.value.trim() || ''
+  };
+
+  try {
+    const res  = await fetch('/api/onboard', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    showSuccess(payload, data);
+  } catch(err) {
+    alert('Error: ' + err.message);
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.querySelector('.spinner').nextSibling.textContent = 'Launch My Café ☕';
+  }
+});
+
+function showSuccess(payload, data) {
+  document.getElementById('form-card').style.display = 'none';
+  document.getElementById('success-card').style.display = 'block';
+
+  const cafeUrl    = window.location.origin + data.cafeUrl;
+  const managerUrl = window.location.origin + (data.managerUrl || '/manager/' + data.businessId);
+  const username   = data.staff ? data.staff.username : 'N/A';
+  const password   = data.staff ? data.staff.tempPassword : '—';
+
+  const rows = [
+    { label:'Café Page URL', html:`<a href="${cafeUrl}" target="_blank">${cafeUrl}</a>`, copy:cafeUrl },
+    { label:'Manager URL',   html:`<a href="${managerUrl}" target="_blank">${managerUrl}</a>`, copy:managerUrl },
+    { label:'Owner Portal',  html:`<a href="${window.location.origin+'/portal/'+data.businessId}" target="_blank">${window.location.origin+'/portal/'+data.businessId}</a>`, copy:window.location.origin+'/portal/'+(data.businessId||'') },
+    { label:'Username',      html:username,  copy:username },
+    { label:'Temp Password', html:`<strong style="color:var(--gold-light)">${password}</strong>`, copy:password },
+    { label:'Trial Ends',    html: data.trialEndsAt || '30 days from today', copy:null },
+  ];
+
+  document.getElementById('creds-box').innerHTML = rows.map(r =>
+    `<div class="cred-row">
+      <span class="cred-label">${r.label}</span>
+      <span class="cred-value">${r.html}${r.copy ? `<button class="copy-btn" onclick="copyText('${r.copy}',this)">Copy</button>` : ''}</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('go-cafe').href = cafeUrl;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

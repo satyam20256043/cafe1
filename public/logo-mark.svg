@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" fill="none">
+  <!-- signal ripple mark — warm gold, origin at (44,64) -->
+  <path d="M34 64 A10 10 0 0 1 54 64" stroke="#D49018" stroke-width="4"   fill="none" stroke-linecap="round"/>
+  <path d="M24 64 A20 20 0 0 1 64 64" stroke="#D49018" stroke-width="3"   fill="none" stroke-linecap="round"/>
+  <path d="M14 64 A30 30 0 0 1 74 64" stroke="#D49018" stroke-width="2"   fill="none" stroke-linecap="round"/>
+  <path d="M4  64 A40 40 0 0 1 84 64" stroke="#D49018" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.55"/>
+  <circle cx="44" cy="64" r="3.5" fill="#D49018"/>
+</svg>

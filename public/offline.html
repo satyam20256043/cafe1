@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Zordic California — Offline</title>
+  <link rel="manifest" href="/manifest.json">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0D0705;color:#fff;font-family:'Georgia',serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center}
+    .cup{font-size:80px;margin-bottom:24px;animation:steam 2s ease-in-out infinite alternate}
+    @keyframes steam{0%{transform:translateY(0) rotate(-3deg)}100%{transform:translateY(-10px) rotate(3deg)}}
+    h1{font-size:28px;color:#C9A84C;margin-bottom:12px;letter-spacing:2px}
+    p{color:rgba(255,255,255,0.55);font-size:15px;line-height:1.7;max-width:320px;margin-bottom:32px}
+    .btn{display:inline-block;padding:14px 32px;background:#C9A84C;color:#0D0705;font-family:'Georgia',serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;border:none;cursor:pointer;border-radius:2px}
+    .status{margin-top:24px;font-size:12px;color:rgba(255,255,255,0.3);letter-spacing:1px}
+  </style>
+</head>
+<body>
+  <div class="cup">☕</div>
+  <h1>You're Offline</h1>
+  <p>It seems you've lost your connection. Our café is still here — please reconnect to continue browsing the menu and placing orders.</p>
+  <button class="btn" onclick="window.location.reload()">Try Again</button>
+  <div class="status" id="status">Waiting for connection…</div>
+  <script>
+    window.addEventListener('online', () => { document.getElementById('status').textContent = '✓ Connected! Reloading…'; setTimeout(() => window.location.reload(), 800); });
+    window.addEventListener('offline', () => { document.getElementById('status').textContent = 'Still offline…'; });
+    if (navigator.onLine) window.location.reload();
+  </script>
+</body>
+</html>

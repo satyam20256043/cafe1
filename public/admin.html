@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zordic California — Franchise Platform</title>
+  <meta name="description" content="Multi-tenant AI bot & CRM for café franchises. Manage reservations, campaigns, and customer profiles from one dashboard.">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..700;1,14..32,300..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Super Admin Main Layout Container -->
+  <div class="app-container">
+
+    <!-- Primary SaaS Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">☕</div>
+        <div class="brand-text">
+          <h1>Zordic</h1>
+          <span>Franchise Platform</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <ul>
+          <li class="active" id="nav-hq" onclick="switchTab('hq')">
+            <span class="nav-icon">📊</span> Global HQ
+          </li>
+          <li id="nav-franchises" onclick="switchTab('franchises')">
+            <span class="nav-icon">🏢</span> Manage Franchises
+          </li>
+          <li id="nav-global-marketing" onclick="switchTab('marketing')">
+            <span class="nav-icon">📢</span> HQ Campaign Hub
+          </li>
+          <li id="nav-billing" onclick="switchTab('billing')">
+            <span class="nav-icon">💰</span> Billing & Revenue
+          </li>
+          <li id="nav-settings" onclick="switchTab('settings')">
+            <span class="nav-icon">⚙️</span> System Settings
+          </li>
+          <li id="nav-staff" onclick="switchTab('staff')">
+            <span class="nav-icon">🔑</span> Staff &amp; Logins
+          </li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div style="padding: 0 0 14px 0; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border);">
+          <span style="font-size: 12px; font-weight: 500; color: var(--text-secondary);">Light mode</span>
+          <label class="switch small">
+            <input type="checkbox" id="theme-mode-toggle" onchange="toggleThemeMode()">
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="active-profile">
+          <div class="profile-avatar">SA</div>
+          <div class="profile-info">
+            <h4>Super Admin</h4>
+            <span>hq@cafecommand.com</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace Content -->
+    <main class="main-content">
+
+      <!-- ==================== TAB: GLOBAL HQ ==================== -->
+      <section id="tab-hq" class="tab-pane active">
+        <header class="content-header">
+          <div>
+            <h2>Global Overview</h2>
+            <p>Aggregated multi-branch intelligence and crowd analytics</p>
+          </div>
+          <button class="btn btn-primary" onclick="switchTab('franchises')">🏢 Register New Franchise</button>
+        </header>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>TOTAL LINKED CAFES</span>
+              <span class="kpi-icon">🏢</span>
+            </div>
+            <h3 id="kpi-total-cafes">2</h3>
+            <span class="kpi-trend green">↑ 100% Growth</span>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>TOTAL COMBINED RESERVATIONS</span>
+              <span class="kpi-icon">📅</span>
+            </div>
+            <h3 id="kpi-total-bookings">0</h3>
+            <span class="kpi-trend green">↑ 12 This Week</span>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>ACTIVE BOT LINES</span>
+              <span class="kpi-icon">💬</span>
+            </div>
+            <h3 id="kpi-active-bots">1</h3>
+            <span class="kpi-trend green">Online & Automated</span>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
+              <span>LOW-TRAFFIC ALERTS</span>
+              <span class="kpi-icon">⚠️</span>
+            </div>
+            <h3 id="kpi-alerts">Mon & Tue</h3>
+            <span class="kpi-trend amber">Suggesting Campaigns</span>
+          </div>
+        </div>
+
+        <!-- SaaS Double Panel -->
+        <div class="dashboard-grid">
+          
+          <!-- Combined Franchise Chart -->
+          <div class="dashboard-card chart-container">
+            <div class="card-header">
+              <h4>Branch Performance Comparison</h4>
+              <span>Reservation counts by location</span>
+            </div>
+            <div class="card-body">
+              <div class="bar-chart" id="hq-branch-chart">
+                <!-- Reactively populated via client.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Action Marketing Wizard -->
+          <div class="dashboard-card">
+            <div class="card-header">
+              <h4>Smart Low-Traffic Assistant</h4>
+              <span>HQ Recommendation Engine</span>
+            </div>
+            <div class="card-body recommendation-body">
+              <div class="alert-box alert-info">
+                <strong>💡 Opportunity Detected:</strong> Mondays and Tuesdays represent the lowest reservation periods across 80% of branches.
+              </div>
+              <p>Launch a midweek campaign specifically targeting your "Offer Seeker" customer tag to boost bookings by up to 35%.</p>
+              <div class="rec-actions">
+                <button class="btn btn-secondary" onclick="openHqCampaign('Monday')">Schedule Monday BOGO Campaign</button>
+                <button class="btn btn-secondary" onclick="openHqCampaign('Tuesday')">Schedule Tuesday Discount Campaign</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Consolidated Global Heatmap -->
+        <div class="dashboard-card full-width mt-24">
+          <div class="card-header">
+            <h4>Global Weekly Traffic Heatmap</h4>
+            <span>Consolidated hourly message patterns across all linked locations</span>
+          </div>
+          <div class="card-body">
+            <div class="heatmap-wrapper">
+              <div class="heatmap-hours">
+                <div>9-11 AM</div>
+                <div>11 AM-1 PM</div>
+                <div>1-3 PM</div>
+                <div>3-5 PM</div>
+                <div>5-7 PM</div>
+                <div>7-9 PM</div>
+                <div>9-11 PM</div>
+                <div>11 PM-1 AM</div>
+              </div>
+              <div class="heatmap-grid" id="hq-heatmap-grid">
+                <!-- Dynamic cells in client.js -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: MANAGE FRANCHISES ==================== -->
+      <section id="tab-franchises" class="tab-pane">
+        <header class="content-header">
+          <div>
+            <h2>Franchise Registry</h2>
+            <p>Centrally monitor individual branches or deep dive to edit their operations</p>
+          </div>
+          <button class="btn btn-primary" onclick="openAddBusinessModal()">＋ Register New Franchise</button>
+        </header>
+
+        <div class="franchise-list-grid" id="franchises-grid">
+          <!-- Dynamically populated franchises -->
+        </div>
+      </section>
+
+      <!-- ==================== TAB: BRANCH DEEP DIVE WORKSPACE ==================== -->
+      <section id="tab-branch-deepdive" class="tab-pane">
+        <header class="content-header branch-header">
+          <div class="branch-meta-hq">
+            <button class="btn-back" onclick="exitBranchDeepdive()">← Back to Global HQ</button>
+            <h2 id="deepdive-branch-title">The Roasted Bean (Indiranagar)</h2>
+            <p id="deepdive-branch-subtitle">Branch Management Workspace</p>
+          </div>
+          <div class="header-badges-container" style="display: flex; gap: 8px;">
+            <div class="branch-status-badge outline" id="deepdive-ai-badge">
+              <span class="pulse yellow"></span> LOCAL AI ACTIVE
+            </div>
+            <div class="branch-status-badge outline" id="deepdive-whatsapp-badge">
+              <span class="pulse red"></span> Disconnected
+            </div>
+          </div>
+        </header>
+
+        <!-- Dynamic Branch Dashboard Grid Layout -->
+        <div class="branch-workspace-grid">
+          
+          <!-- LEFT SIDEBAR: Config & Campaigns -->
+          <div class="workspace-column left-col">
+            
+            <!-- WhatsApp Device Connector -->
+            <div class="dashboard-card mb-24">
+              <div class="card-header">
+                <h4>WhatsApp Device Linker</h4>
+                <span>Scan QR code to link this branch's chatbot</span>
+              </div>
+              <div class="card-body text-center qr-connection-card">
+                <!-- QR Code View -->
+                <div id="wa-qr-container" class="qr-placeholder">
+                  <div class="qr-loading-spinner" style="display:none;"></div>
+                  <div id="qr-instructions">
+                    <p>Start connection to generate linking QR code</p>
+                  </div>
+                  <img id="wa-qr-img" src="" alt="WhatsApp Link QR" style="display:none;" />
+                </div>
+                
+                <div id="wa-status-text" class="status-indicator-text mt-12 text-center">
+                  Status: <strong>Disconnected</strong>
+                </div>
+                
+                <div class="qr-actions mt-12">
+                  <button id="btn-start-wa" class="btn btn-success w-100" onclick="startWhatsAppInstance()">🔌 Connect WhatsApp Line</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Business Profile Panel -->
+            <div class="dashboard-card mb-24" id="business-profile-card">
+              <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 16px;">
+                <h4>🏢 Active Business Profile</h4>
+                <span>Public profile details and Google reviews link</span>
+              </div>
+              <div class="card-body">
+                <div style="text-align: center; margin-bottom: 20px;">
+                  <div style="font-size: 40px; margin-bottom: 8px;">☕</div>
+                  <h3 id="profile-display-name" style="font-family: var(--font-heading); font-size: 22px; color: var(--accent-coffee); margin-bottom: 4px; font-weight:600;">The Roasted Bean</h3>
+                  <p id="profile-display-location" class="small text-muted" style="margin-top: 4px;">12th Main Road, Indiranagar, Bengaluru</p>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 16px;">⏰</span>
+                    <div><strong>Timings:</strong> <span id="profile-display-timings">9:00 AM - 11:00 PM</span></div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 16px;">📞</span>
+                    <div><strong>Contact:</strong> <span id="profile-display-contact">+91 98765 43210</span></div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 16px;">📶</span>
+                    <div><strong>Guest WiFi:</strong> <span id="profile-display-wifi">RoastedBean_Guest / Coffee123</span></div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 16px;">📍</span>
+                    <div><strong>Map Direction:</strong> <a id="profile-display-map" href="#" target="_blank" style="color: var(--accent-coffee); text-decoration: underline; font-weight: 500;">Open Google Maps Direction</a></div>
+                  </div>
+                </div>
+                
+                <div style="border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 8px; text-align: center;">
+                  <a id="profile-display-website" href="#" target="_blank" class="btn btn-primary w-100" style="text-decoration: none; display: inline-block; padding: 10px 0; border-radius: var(--radius-md); box-shadow: 0 4px 10px rgba(223, 180, 140, 0.2);">🌐 Open Customer Website</a>
+                  <a id="profile-display-manager" href="#" target="_blank" class="btn btn-secondary w-100" style="text-decoration: none; display: inline-block; padding: 10px 0; border-radius: var(--radius-md); box-shadow: 0 4px 10px rgba(223, 180, 140, 0.1);">🔑 Launch Manager Portal</a>
+                  <a id="profile-display-review" href="#" target="_blank" class="btn btn-warning w-100" style="background-color: var(--accent-amber); color: var(--dark-bg); font-weight: 600; text-decoration: none; display: inline-block; padding: 10px 0; border-radius: var(--radius-md); box-shadow: 0 4px 10px rgba(223, 180, 140, 0.2);">⭐ Get Google Customer Reviews</a>
+                </div>
+
+                <!-- Google Business Profile Linker sub-panel -->
+                <div style="border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 16px;">
+                  <h5 style="margin: 0 0 8px 0; font-size: 12px; color: var(--accent-coffee); display: flex; justify-content: space-between; align-items: center;">
+                    <span>🌐 Google Business Profile</span>
+                    <span id="gbp-connection-status" class="status-badge offline" style="font-size: 8px; padding: 2px 6px;">Disconnected</span>
+                  </h5>
+                  <div id="gbp-linker-form" style="display: flex; gap: 8px;">
+                    <input type="text" id="gbp-location-id" placeholder="Location / Store ID" class="form-select-sm" style="flex: 1; height: 32px;" />
+                    <button class="btn btn-primary btn-sm" onclick="linkGoogleBusinessProfile()" style="height: 32px; padding: 0 12px; font-size:11px;">Link</button>
+                  </div>
+                  <div id="gbp-linked-info" style="display: none; align-items: center; justify-content: space-between; font-size: 11px;">
+                    <span id="gbp-linked-id" class="text-muted" style="font-size: 11px;">ID: loc_bean_indira</span>
+                    <button class="btn btn-secondary btn-sm" onclick="unlinkGoogleBusinessProfile()" style="padding: 4px 8px; font-size: 10px;">Disconnect</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Café Information Configurator -->
+            <div class="dashboard-card mb-24">
+              <div class="card-header">
+                <h4>Café Details & Settings</h4>
+                <span>Modifications apply immediately to the AI Bot</span>
+              </div>
+              <div class="card-body">
+                <form id="branch-settings-form" onsubmit="saveBranchSettings(event)">
+                  <div class="form-group">
+                    <label>Café Brand Name</label>
+                    <input type="text" id="config-name" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Full Address / Location</label>
+                    <textarea id="config-location" rows="2" required></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Opening Hours / Timings</label>
+                    <input type="text" id="config-timings" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Contact Number</label>
+                    <input type="text" id="config-contact" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Google Map URL</label>
+                    <input type="text" id="config-map" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Guest WiFi Details</label>
+                    <input type="text" id="config-wifi" required />
+                  </div>
+                  <div class="form-group">
+                    <label>Google Review Link</label>
+                    <input type="text" id="config-review" required />
+                  </div>
+                  <button type="submit" class="btn btn-primary w-100 mt-12">💾 Save Bot Parameters</button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Campaign Manager -->
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h4>Low-Traffic Campaign Specials</h4>
+                <span>Incentivize customers during slow slots</span>
+              </div>
+              <div class="card-body">
+                <form id="branch-campaigns-form" onsubmit="saveBranchCampaigns(event)">
+                  <div class="form-group">
+                    <label>Monday Promo Special</label>
+                    <input type="text" id="camp-monday" placeholder="E.g. Monday Mocktail Special" />
+                  </div>
+                  <div class="form-group">
+                    <label>Tuesday Promo Special</label>
+                    <input type="text" id="camp-tuesday" placeholder="E.g. Tuesday Free Cookies" />
+                  </div>
+                  <div class="form-group">
+                    <label>Wednesday Promo Special</label>
+                    <input type="text" id="camp-wednesday" placeholder="E.g. Midweek Pasta BOGO" />
+                  </div>
+                  <button type="submit" class="btn btn-primary w-100 mt-12">💾 Update Active Schemes</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- CENTER COL: Chat Simulator -->
+          <div class="workspace-column center-col">
+            
+            <!-- WhatsApp Live Chat Mockup -->
+            <div class="dashboard-card chat-card">
+              <div class="card-header chat-header">
+                <div class="chat-avatar">🤖</div>
+                <div class="chat-title-info">
+                  <h4 id="chat-title-branch">AI Café Assistant</h4>
+                  <span>Active & Listening (English/Hindi/Hinglish)</span>
+                </div>
+                <div class="chat-sim-toggle">
+                  <label class="switch-label">Simulator Mode</label>
+                  <label class="switch">
+                    <input type="checkbox" id="sim-mode-chk" checked onchange="toggleSimMode()">
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+              </div>
+              
+              <!-- Chat Logs View -->
+              <div class="chat-messages-container" id="chat-stream">
+                <div class="system-message">
+                  <span>Welcome to the Chat Simulator. Choose a quick preset query below or type your own message to test the AI Bot's NLP, State reservation machine, and Pricing calculations.</span>
+                </div>
+              </div>
+
+              <!-- Typing Indicator -->
+              <div class="typing-indicator" id="wa-typing-indicator" style="display:none;">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="typing-text">Assistant is brewing a reply...</span>
+              </div>
+
+              <!-- Quick Presets for Easy Tester -->
+              <div class="chat-quick-presets" id="quick-presets">
+                <h5>💡 Quick Presets:</h5>
+                <div class="preset-buttons">
+                  <button onclick="sendPresetText('Menu')">📄 Menu</button>
+                  <button onclick="sendPresetText('Offer kya chal raha hai?')">🏷️ Offers (Hinglish)</button>
+                  <button onclick="sendPresetText('bhai table book karna hai')">📅 Book Table</button>
+                  <button onclick="sendPresetText('Fries kitne ki hai?')">🍟 Fries Price?</button>
+                  <button onclick="sendPresetText('sasta kya hai?')">💰 Sasta item?</button>
+                  <button onclick="sendPresetText('Wifi details?')">📶 WiFi Info</button>
+                  <button onclick="sendPresetText('Complaint: found hair in my pasta')">⚠️ Complaint</button>
+                </div>
+              </div>
+
+              <!-- Input Area -->
+              <div class="chat-input-area">
+                <input type="text" id="chat-input-field" placeholder="Type customer message here..." onkeydown="handleChatInputKey(event)" />
+                <button class="btn-send-chat" onclick="sendCustomMessage()">➔</button>
+              </div>
+            </div>
+
+            <!-- Custom Offer Approvals Card -->
+            <div class="dashboard-card mt-24">
+              <div class="card-header">
+                <h4>🔔 Pending Custom Offers Approval</h4>
+                <span>Reviews and approvals for custom customer discount requests</span>
+              </div>
+              <div class="card-body max-height-300">
+                <table class="data-table" id="branch-offers-table">
+                  <thead>
+                    <tr>
+                      <th>Customer</th>
+                      <th>Request</th>
+                      <th>Approved Offer Message</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="branch-offers-tbody">
+                    <!-- Populated dynamically via client.js -->
+                    <tr>
+                      <td colspan="4" class="text-center text-muted">No pending custom offer requests.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Customer Feedback Ledger Card -->
+            <div class="dashboard-card mt-24">
+              <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div>
+                  <h4>⭐ Customer Feedback & Reviews</h4>
+                  <span>Ratings and suggestions submitted via WhatsApp & Google</span>
+                </div>
+                <button id="btn-sync-gbp" class="btn btn-secondary btn-sm" style="display: none; font-size: 11px; padding: 6px 12px;" onclick="syncGoogleReviews()">🔄 Sync GBP Reviews</button>
+              </div>
+              <div class="card-body max-height-300">
+                <table class="data-table" id="branch-feedback-table">
+                  <thead>
+                    <tr>
+                      <th>Customer</th>
+                      <th>Rating</th>
+                      <th>Comment / Review</th>
+                      <th>Date/Time</th>
+                    </tr>
+                  </thead>
+                  <tbody id="branch-feedback-tbody">
+                    <!-- Populated dynamically via client.js -->
+                    <tr>
+                      <td colspan="4" class="text-center text-muted">No feedback recorded yet.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT COL: Menu & Bookings Ledger & Local CRM -->
+          <div class="workspace-column right-col">
+            
+            <!-- Dynamic Menu & Price Manager -->
+            <div class="dashboard-card mb-24">
+              <div class="card-header">
+                <h4>Dynamic Menu & Pricing Manager</h4>
+                <span>Edits instantly update the AI pricing reasoning engine</span>
+              </div>
+              <div class="card-body max-height-300">
+                <table class="data-table" id="branch-menu-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Category</th>
+                      <th>Price</th>
+                      <th>Disc %</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Populated reactively -->
+                  </tbody>
+                </table>
+                <button class="btn btn-secondary btn-sm w-100 mt-12" onclick="openAddMenuModal()">＋ Add New Menu Item</button>
+              </div>
+            </div>
+
+            <!-- Table Bookings Ledger -->
+            <div class="dashboard-card mb-24">
+              <div class="card-header">
+                <h4>Table Booking Ledger</h4>
+                <span>Captured by the bot's reservation flow</span>
+              </div>
+              <div class="card-body max-height-300">
+                <table class="data-table" id="branch-reservations-table">
+                  <thead>
+                    <tr>
+                      <th>Customer / Phone</th>
+                      <th>Guests</th>
+                      <th>Schedule</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Populated reactively -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Local CRM & Target Marketing Campaign -->
+            <div class="dashboard-card">
+              <div class="card-header">
+                <h4>Customer CRM & Target Broadcasts</h4>
+                <span>Targeted campaign simulator for slow days</span>
+              </div>
+              <div class="card-body max-height-300">
+                
+                <!-- Auto-Pilot Campaign Center -->
+                <div class="crm-broadcast-panel bg-espresso-light mb-12" style="border-left: 3px solid var(--warning);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h5 style="margin: 0; color: var(--warning); font-size:12px; font-weight:600;">⚡ Auto-Pilot Campaign</h5>
+                    <label class="switch small">
+                      <input type="checkbox" id="autopilot-toggle" onchange="toggleAutoPilotState()">
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                  <p class="small text-muted" id="autopilot-status-text" style="margin-bottom: 8px;">Status: Checking...</p>
+                  <button class="btn btn-secondary btn-sm w-100" onclick="triggerAutoPilotCampaign()">⚡ Run Auto-Pilot Now (Test)</button>
+                </div>
+
+                <!-- Target campaign UI -->
+                <div class="crm-broadcast-panel bg-espresso-light mb-12">
+                  <h5>🎯 Targeted Promo Broadcast</h5>
+                  <div class="form-group mb-8">
+                    <label>Target Segment</label>
+                    <select id="broadcast-tag-select" class="form-select-sm">
+                      <option value="all">All Saved Profiles</option>
+                      <option value="asked_offers">Offer Seekers</option>
+                      <option value="interested_in_coffee">Coffee Enthusiasts</option>
+                      <option value="interested_in_pasta">Pasta Lovers</option>
+                      <option value="complained">Previous Complainers</option>
+                    </select>
+                  </div>
+                  <div class="form-group mb-8">
+                    <label>Promo Text</label>
+                    <textarea id="broadcast-text-area" rows="2" class="form-textarea-sm" placeholder="E.g., Special midweek discount! Get 20% off..."></textarea>
+                  </div>
+                  <button class="btn btn-warning btn-sm w-100" onclick="triggerCampaignBroadcast()">📣 Broadcast Campaign</button>
+                </div>
+
+                <h5>👥 Captured Customer Database</h5>
+                <table class="data-table small" id="branch-crm-table">
+                  <thead>
+                    <tr>
+                      <th>Name / Phone</th>
+                      <th>Visits</th>
+                      <th>Interest Tags</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Populated reactively -->
+                  </tbody>
+                </table>
+
+                <!-- Contextual AI Campaign Suggestions inline inside CRM Panel -->
+                <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px;">
+                  <h5 style="font-size: 12px; margin-bottom: 12px; color: var(--accent); font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+                    <span>💡 Contextual AI Campaign Suggestions</span>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchAICampaignSuggestions()" style="padding: 4px 8px; font-size: 10px;">Refresh AI Schemes</button>
+                  </h5>
+                  
+                  <!-- Loading Spinner -->
+                  <div id="ai-campaigns-loading" style="display:none; text-align:center; padding:20px; background:var(--bg-overlay); border-radius:var(--radius-sm); border:1px solid var(--border);">
+                    <div class="qr-loading-spinner" style="display:inline-block; margin-bottom:6px;"></div>
+                    <p style="color:var(--text-secondary); font-size:11px; margin:0;">AI is analyzing customer psychology...</p>
+                  </div>
+                  
+                  <div id="ai-suggestions-container" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Cards populated dynamically -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: GLOBAL CAMPAIGN HUB ==================== -->
+      <section id="tab-marketing" class="tab-pane">
+        <header class="content-header">
+          <div>
+            <h2>HQ Campaign Hub</h2>
+            <p>Launch global franchise campaigns and central schemes to optimize revenue</p>
+          </div>
+        </header>
+
+        <div class="dashboard-card">
+          <div class="card-header">
+            <h4>Global SaaS Marketing Campaign</h4>
+            <span>Broadcast messages or push menu-wide discounts to multiple branches at once</span>
+          </div>
+          <div class="card-body">
+            <div class="global-campaign-wizard">
+              <div class="form-group">
+                <label>Select Target Branches</label>
+                <div class="checkbox-grid" id="hq-campaign-branches">
+                  <!-- Dynamically populated checkboxes -->
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Push Global Discount Program (Menu-wide)</label>
+                <div class="discount-range-selector">
+                  <input type="number" id="global-discount-pct" placeholder="Discount Percentage (e.g. 15)" min="0" max="100" />
+                  <span>% OFF on all Menu Bestsellers</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Global Broadcast Text Message</label>
+                <textarea id="global-broadcast-message" rows="3" placeholder="Write promotional message to push to all registered target customer profiles..."></textarea>
+              </div>
+
+              <button class="btn btn-primary" onclick="launchGlobalCampaign()">🚀 Launch Global Campaign & Schemes</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB: SYSTEM SETTINGS ==================== -->
+      <section id="tab-billing" class="tab-pane">
+        <header class="content-header">
+          <div>
+            <h2>💰 Billing &amp; Revenue</h2>
+            <p>Total revenue across all café branches — visible to you only</p>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input type="password" id="admin-token-input" placeholder="Enter Admin Token" style="padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;width:220px" />
+            <button class="btn btn-primary" onclick="loadBilling()">🔓 Load Revenue</button>
+          </div>
+        </header>
+
+        <!-- Revenue KPIs -->
+        <div class="kpi-grid" id="billing-kpis" style="display:none">
+          <div class="kpi-card" style="border-top:3px solid #22c55e">
+            <div class="kpi-header"><span>TODAY'S REVENUE</span><span class="kpi-icon">☀️</span></div>
+            <h3 id="b-today-rev">—</h3>
+            <span class="kpi-trend" id="b-today-orders">— orders</span>
+          </div>
+          <div class="kpi-card" style="border-top:3px solid #3b82f6">
+            <div class="kpi-header"><span>THIS WEEK</span><span class="kpi-icon">📅</span></div>
+            <h3 id="b-week-rev">—</h3>
+            <span class="kpi-trend green">7-day total</span>
+          </div>
+          <div class="kpi-card" style="border-top:3px solid #f59e0b">
+            <div class="kpi-header"><span>THIS MONTH</span><span class="kpi-icon">📆</span></div>
+            <h3 id="b-month-rev">—</h3>
+            <span class="kpi-trend green">Current month</span>
+          </div>
+          <div class="kpi-card" style="border-top:3px solid #8b5cf6">
+            <div class="kpi-header"><span>ALL TIME</span><span class="kpi-icon">🏆</span></div>
+            <h3 id="b-total-rev">—</h3>
+            <span class="kpi-trend" id="b-total-orders">— total orders</span>
+          </div>
+        </div>
+
+        <!-- Per-branch breakdown -->
+        <div id="billing-branches" style="display:none;margin-top:20px">
+          <div class="dashboard-card">
+            <div class="card-header"><h4>Revenue by Branch</h4></div>
+            <div class="card-body" style="padding:0">
+              <table class="data-table" id="billing-table">
+                <thead><tr>
+                  <th>Branch</th>
+                  <th>Today</th>
+                  <th>This Week</th>
+                  <th>This Month</th>
+                  <th>All Time</th>
+                  <th>Total Orders</th>
+                </tr></thead>
+                <tbody id="billing-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top customers across all branches -->
+        <div id="billing-customers" style="display:none;margin-top:20px">
+          <div class="dashboard-card">
+            <div class="card-header"><h4>🏅 Top Customers by Spend (All Branches)</h4></div>
+            <div class="card-body" style="padding:0">
+              <table class="data-table" id="top-customers-table">
+                <thead><tr><th>Customer</th><th>Phone</th><th>Branch</th><th>Visits</th><th>Total Spend</th><th>Last Visit</th></tr></thead>
+                <tbody id="top-customers-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- P&L Report -->
+        <div id="pl-section" style="display:none;margin-top:20px">
+          <div class="dashboard-card">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+              <h4>📊 Profit &amp; Loss Statement</h4>
+              <div style="display:flex;gap:8px;align-items:center">
+                <select id="pl-branch" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+                  <option value="all">All Branches</option>
+                </select>
+                <input type="date" id="pl-from" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+                <span style="color:#aaa">to</span>
+                <input type="date" id="pl-to" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+                <button class="btn btn-primary" onclick="loadPL()" style="padding:6px 14px;font-size:13px">Load P&amp;L</button>
+              </div>
+            </div>
+            <div class="card-body" id="pl-body">
+              <div style="color:#bbb;text-align:center;padding:20px">Load billing data first, then select branch and period</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GST Report -->
+        <div id="gst-section" style="display:none;margin-top:20px">
+          <div class="dashboard-card">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+              <h4>🧾 GST Report (GSTR-1)</h4>
+              <div style="display:flex;gap:8px;align-items:center">
+                <select id="gst-branch" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px">
+                  <option value="">Select Branch</option>
+                </select>
+                <select id="gst-month" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></select>
+                <select id="gst-year" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></select>
+                <button class="btn btn-primary" onclick="loadGST()" style="padding:6px 14px;font-size:13px">Load GST</button>
+              </div>
+            </div>
+            <div class="card-body" id="gst-body">
+              <div style="color:#bbb;text-align:center;padding:20px">Select branch and month to generate GST report</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="billing-error" style="display:none;padding:24px;text-align:center;color:#e57">
+          <div style="font-size:32px;margin-bottom:8px">🔒</div>
+          <div style="font-weight:600">Invalid admin token</div>
+          <div style="font-size:13px;color:#aaa;margin-top:4px">Check your ADMIN_TOKEN in .env file</div>
+        </div>
+      </section>
+
+      <section id="tab-staff" class="tab-pane">
+        <header class="content-header">
+          <div>
+            <h2>Staff &amp; Login Credentials</h2>
+            <p>View all manager and owner accounts per café — reset passwords as needed</p>
+          </div>
+          <button class="btn btn-primary" onclick="loadAllStaff()">🔄 Refresh</button>
+        </header>
+
+        <div id="staff-loading" style="text-align:center;padding:40px;color:#aaa">Loading staff accounts…</div>
+        <div id="staff-list"></div>
+
+        <!-- Reset password modal -->
+        <div id="reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999;display:none;align-items:center;justify-content:center">
+          <div style="background:#fff;border-radius:14px;padding:28px;width:380px;max-width:94vw;box-shadow:0 8px 40px rgba(0,0,0,.25)">
+            <h4 style="margin:0 0 6px">Reset Password</h4>
+            <p id="reset-modal-sub" style="font-size:13px;color:#777;margin:0 0 18px"></p>
+            <div style="margin-bottom:14px">
+              <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:5px">New Password (leave blank to auto-generate)</label>
+              <input type="text" id="reset-new-pass" class="form-control" placeholder="Auto-generate if empty"
+                style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+            </div>
+            <div id="reset-result" style="display:none;margin-bottom:14px;padding:10px 14px;background:#f0fdf4;border:1px solid #aed;border-radius:8px;font-size:13px;color:#2a7"></div>
+            <div style="display:flex;gap:10px">
+              <button onclick="confirmResetPassword()" style="flex:1;padding:10px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Reset Password</button>
+              <button onclick="closeResetModal()" style="flex:0 0 auto;padding:10px 18px;background:#eee;border:none;border-radius:8px;font-size:14px;cursor:pointer">Close</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-settings" class="tab-pane">
+        <header class="content-header">
+          <div>
+            <h2>System Configuration</h2>
+            <p>Manage Super Admin system access and API endpoints</p>
+          </div>
+        </header>
+
+        <div class="kpi-grid">
+          <div class="dashboard-card">
+            <div class="card-header">
+              <h4>System Version</h4>
+            </div>
+            <div class="card-body">
+              <p><strong>Version:</strong> 1.0.0 (Stable)</p>
+              <p><strong>Powered By:</strong> Node.js, Socket.io, whatsapp-web.js, and Antigravity AI Engine</p>
+            </div>
+          </div>
+
+          <div class="dashboard-card">
+            <div class="card-header">
+              <h4>REST API Access Key</h4>
+            </div>
+            <div class="card-body">
+              <input type="text" class="w-100" value="" placeholder="Managed server-side — keys are never shown in the browser" readonly />
+              <p class="small text-muted mt-8">API keys live in the server's .env only. Contact the platform admin for API access.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ==================== MODAL: ADD BUSINESS ==================== -->
+  <div id="add-business-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h4>Register New Franchise Location</h4>
+        <button class="btn-close" onclick="closeAddBusinessModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="add-business-form" onsubmit="submitAddBusiness(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Business / Café Name</label>
+              <input type="text" id="add-biz-name" placeholder="E.g., Mocha Delight" required />
+            </div>
+            <div class="form-group">
+              <label>Location / Address</label>
+              <input type="text" id="add-biz-location" placeholder="E.g., Bandra West, Mumbai" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Opening Timings</label>
+              <input type="text" id="add-biz-timings" placeholder="E.g., 9:00 AM - 11:00 PM" required />
+            </div>
+            <div class="form-group">
+              <label>Contact Number</label>
+              <input type="text" id="add-biz-contact" placeholder="E.g., +91 99999 88888" required />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>WiFi SSID / Password</label>
+              <input type="text" id="add-biz-wifi" placeholder="SSID / Password" required />
+            </div>
+            <div class="form-group">
+              <label>Google Map Link</label>
+              <input type="text" id="add-biz-map" placeholder="Map Link" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Google Review Link</label>
+            <input type="text" id="add-biz-review" placeholder="Review Link" required />
+          </div>
+          <button type="submit" class="btn btn-primary w-100 mt-12">🏢 Create Franchise & Seed Database</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: ADD MENU ITEM ==================== -->
+  <div id="add-menu-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-card mini">
+      <div class="modal-header">
+        <h4>Add Menu Item</h4>
+        <button class="btn-close" onclick="closeAddMenuModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="add-menu-form" onsubmit="submitAddMenuItem(event)">
+          <div class="form-group">
+            <label>Item Name</label>
+            <input type="text" id="add-menu-name" placeholder="E.g., Pasta Carbonara" required />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Category</label>
+              <select id="add-menu-category" required>
+                <option value="Coffee">Coffee</option>
+                <option value="Fries">Fries</option>
+                <option value="Pasta">Pasta</option>
+                <option value="Burgers">Burgers</option>
+                <option value="Mocktails">Mocktails</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Price (₹)</label>
+              <input type="number" id="add-menu-price" min="0" placeholder="199" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Initial Discount %</label>
+            <input type="number" id="add-menu-discount" min="0" max="100" value="0" />
+          </div>
+          <button type="submit" class="btn btn-primary w-100 mt-12">＋ Insert Item</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== COMMAND PALETTE ==================== -->
+  <div id="command-palette" class="command-palette-overlay" style="display: none;">
+    <div class="command-palette-card">
+      <div class="command-palette-search">
+        <span class="command-palette-search-icon">🔍</span>
+        <input type="text" id="command-palette-input" class="command-palette-input" placeholder="Type a command or search..." autocomplete="off">
+      </div>
+      <div class="command-palette-list" id="command-palette-list">
+        <!-- Dynamically populated commands -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Staff & Credentials module -->
+  <script>
+// Admin calls authenticate with the logged-in agency admin's JWT (the old
+// hardcoded x-admin-token was readable by anyone who viewed this page's source)
+const ADMIN_HEADERS = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('cafehq_token') || '') };
+let resetTargetId = null;
+
+async function loadAllStaff() {
+  const loadEl = document.getElementById('staff-loading');
+  const listEl = document.getElementById('staff-list');
+  if (!loadEl) return;
+  loadEl.style.display = 'block';
+  listEl.innerHTML = '';
+  try {
+    const [staffRes, bizRes] = await Promise.all([
+      fetch('/api/admin/all-staff',  { headers: ADMIN_HEADERS }),
+      fetch('/api/businesses',       { headers: ADMIN_HEADERS })
+    ]);
+    const staff      = await staffRes.json();
+    const businesses = await bizRes.json();
+    loadEl.style.display = 'none';
+
+    // Group staff by business_id
+    const grouped = {};
+    (Array.isArray(staff) ? staff : []).forEach(s => {
+      if (!grouped[s.business_id]) grouped[s.business_id] = [];
+      grouped[s.business_id].push(s);
+    });
+    const bizMap = {};
+    (Array.isArray(businesses) ? businesses : []).forEach(b => bizMap[b.id] = b.name);
+
+    const roleColor = { owner:'#8B6914', manager:'#1a4d8f', staff:'#2d7a3a', waiter:'#2d7a3a' };
+    const roleBg    = { owner:'#fef9e7', manager:'#eef4ff', staff:'#f0fdf4', waiter:'#f0fdf4' };
+
+    let html = '';
+    Object.keys(grouped).sort().forEach(bizId => {
+      const bizName = bizMap[bizId] || bizId;
+      html += `<div class="dashboard-card" style="margin-bottom:18px">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+          <h4 style="margin:0;font-size:15px">🏠 ${bizName}</h4>
+          <span style="font-size:11px;color:#aaa;font-family:monospace">${bizId}</span>
+        </div>
+        <div class="card-body" style="padding:0;overflow:auto">
+          <table class="data-table" style="margin:0;min-width:100%">
+            <thead><tr>
+              <th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Reset Password</th>
+            </tr></thead><tbody>`;
+      grouped[bizId].forEach(s => {
+        const c = roleColor[s.role] || '#555';
+        const b = roleBg[s.role]    || '#f9f9f9';
+        html += `<tr>
+          <td style="font-weight:600">${s.name || '—'}</td>
+          <td><code style="background:#f5f5f5;padding:2px 7px;border-radius:5px;font-size:13px">${s.username}</code></td>
+          <td><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;color:${c};background:${b}">${s.role}</span></td>
+          <td><span style="font-size:12px;color:${s.active?'#2a7':'#c00'}">${s.active?'✓ Active':'✗ Inactive'}</span></td>
+          <td><button onclick="openResetModal('${s.id}','${(s.name||'').replace(/'/g,"\'")}','${s.username}')"
+            style="padding:5px 14px;background:#1a1a1a;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap">
+            🔑 Reset
+          </button></td>
+        </tr>`;
+      });
+      html += `</tbody></table></div></div>`;
+    });
+    listEl.innerHTML = html || '<p style="color:#aaa;padding:20px">No staff accounts found.</p>';
+  } catch(e) {
+    if (loadEl) loadEl.style.display = 'none';
+    if (listEl) listEl.innerHTML = `<p style="color:#c00;padding:20px">Error: ${e.message}</p>`;
+  }
+}
+
+function openResetModal(staffId, name, username) {
+  resetTargetId = staffId;
+  const sub = document.getElementById('reset-modal-sub');
+  if (sub) sub.textContent = `Resetting password for: ${name} (${username})`;
+  const inp = document.getElementById('reset-new-pass');
+  if (inp) inp.value = '';
+  const res = document.getElementById('reset-result');
+  if (res) res.style.display = 'none';
+  const modal = document.getElementById('reset-modal');
+  if (modal) { modal.style.display = 'flex'; }
+}
+
+function closeResetModal() {
+  const modal = document.getElementById('reset-modal');
+  if (modal) modal.style.display = 'none';
+  resetTargetId = null;
+}
+
+async function confirmResetPassword() {
+  if (!resetTargetId) return;
+  const inp    = document.getElementById('reset-new-pass');
+  const resEl  = document.getElementById('reset-result');
+  const newPass = inp ? inp.value.trim() : '';
+  try {
+    const res = await fetch(`/api/admin/staff/${resetTargetId}/reset-password`, {
+      method: 'POST',
+      headers: ADMIN_HEADERS,
+      body: JSON.stringify({ newPassword: newPass || null })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      resEl.style.cssText = 'display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px';
+      resEl.textContent = data.error || 'Reset failed';
+    } else {
+      resEl.style.cssText = 'display:block;background:#f0fdf4;color:#1a7a3a;border:1px solid #aed;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px';
+      resEl.innerHTML = `✓ Password reset!<br><strong style="font-family:monospace;font-size:16px;letter-spacing:1px">${data.newPassword}</strong><br><span style="font-size:11px;color:#666">Copy this now — won't be shown again</span>`;
+    }
+  } catch(e) {
+    resEl.style.cssText = 'display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px';
+    resEl.textContent = 'Network error: ' + e.message;
+  }
+}
+  </script>
+  <!-- Client JS Script -->
+  <script src="client.js"></script>
+</body>
+</html>

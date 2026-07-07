@@ -1,0 +1,3532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Branch Manager — Zordic California</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --cream: #faf6f1; --ink: #1a1612; --espresso: #2c1a0e; --coffee: #6b3a1f;
+  --caramel: #c47f3a; --foam: #f0e6d3; --sage: #7a9e7e; --sage-light: #e8f2e9;
+  --rose: #c4616a; --rose-light: #faeaeb; --sky: #4a90c4; --sky-light: #e8f4fb;
+  --border: rgba(44,26,14,0.1); --border-strong: rgba(44,26,14,0.18);
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-height:100vh}
+
+/* Sidebar */
+.sidebar{position:fixed;top:0;left:0;width:210px;height:100vh;background:var(--espresso);display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.sidebar-logo .wordmark{font-family:var(--font-display);font-size:17px;color:#fff;line-height:1.2}
+.sidebar-logo .branch-name{font-size:11px;color:var(--caramel);margin-top:5px;font-weight:500;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar-nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-section-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.3);padding:14px 10px 5px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;cursor:pointer;transition:all 0.15s;color:rgba(255,255,255,0.55);font-size:13px;margin-bottom:2px;border:none;background:transparent;width:100%;text-align:left;font-family:var(--font-body)}
+.nav-item:hover{background:rgba(255,255,255,0.07);color:#fff}
+.nav-item.active{background:rgba(196,127,58,0.18);color:var(--caramel);font-weight:500}
+.nav-item svg{width:15px;height:15px;flex-shrink:0;opacity:0.75}
+.nav-item.active svg{opacity:1}
+.sidebar-back{padding:14px 8px;border-top:1px solid rgba(255,255,255,0.08)}
+.back-btn{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.4);font-size:12px;text-decoration:none;padding:8px 10px;border-radius:7px;transition:all 0.15s}
+.back-btn:hover{color:rgba(255,255,255,0.7);background:rgba(255,255,255,0.06)}
+
+/* Layout */
+.main{margin-left:210px;min-height:100vh}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(250,246,241,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 26px;height:56px;display:flex;align-items:center;justify-content:space-between}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-title{font-family:var(--font-display);font-size:17px;color:var(--espresso)}
+.topbar-id{font-size:11px;color:#aaa;background:var(--foam);padding:3px 9px;border-radius:20px;letter-spacing:0.3px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.wa-pill{display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);cursor:pointer;transition:all 0.15s;color:var(--espresso);background:#fff}
+.wa-pill:hover{background:var(--foam)}
+.wa-dot{width:7px;height:7px;border-radius:50%;background:#ccc;flex-shrink:0}
+.wa-dot.connected{background:var(--sage)}
+.wa-dot.scanning{background:var(--caramel);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+.pilot-toggle{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--espresso)}
+.toggle-switch{position:relative;width:36px;height:20px;background:#ddd;border-radius:10px;cursor:pointer;transition:background 0.2s}
+.toggle-switch.on{background:var(--sage)}
+.toggle-switch::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:left 0.2s}
+.toggle-switch.on::after{left:19px}
+.content{padding:20px 26px 40px}
+
+/* Section */
+.section-heading{font-family:var(--font-display);font-size:20px;color:var(--espresso);margin-bottom:3px;font-weight:400}
+.section-sub{font-size:13px;color:#999;margin-bottom:18px}
+
+/* KPI row */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.kpi-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi-card.green::before{background:var(--sage)}
+.kpi-card.amber::before{background:var(--caramel)}
+.kpi-card.rose::before{background:var(--rose)}
+.kpi-card.sky::before{background:var(--sky)}
+.kpi-label{font-size:10.5px;letter-spacing:0.8px;text-transform:uppercase;color:#999;font-weight:600;margin-bottom:6px}
+.kpi-value{font-family:var(--font-display);font-size:28px;color:var(--ink);line-height:1}
+.kpi-sub{font-size:11px;color:#bbb;margin-top:5px}
+
+/* Panel */
+.panel{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:18px}
+.panel-head{padding:14px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:13.5px;font-weight:600;color:var(--espresso)}
+.panel-sub{font-size:11.5px;color:#aaa;margin-top:2px}
+.panel-body{padding:16px 18px}
+.panel-action{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Grid layouts */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px}
+
+/* Table */
+.ds-pill{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:#888;font-family:var(--font-body);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s}
+.ds-pill.active,.ds-pill:hover{background:rgba(196,127,58,0.12);color:var(--caramel);border-color:rgba(196,127,58,0.35)}
+.ds-stat-card{background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+.ds-stat-val{font-family:var(--font-display,Georgia),serif;font-size:22px;color:var(--ink)}
+.ds-stat-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:#aaa;margin-top:3px}
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{text-align:left;font-size:10.5px;letter-spacing:0.8px;text-transform:uppercase;color:#aaa;font-weight:600;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--cream)}
+.data-table td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--ink);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(196,127,58,0.04)}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;letter-spacing:0.3px;text-transform:uppercase}
+.badge.approved,.badge.online{background:var(--sage-light);color:#3d7d41}
+.badge.pending{background:#fff9eb;color:#8a6200}
+.badge.rejected,.badge.offline{background:var(--rose-light);color:#a03038}
+.badge.arrived{background:#e8f5e9;color:#1b5e20}
+.badge.completed{background:#e8eaf6;color:#283593}
+.badge.new{background:#f3f0ff;color:#5b4ab0}
+.badge.regular{background:#e8f4fb;color:#1a6090}
+.badge.vip{background:#fff3e0;color:#8a4400}
+.badge.elite{background:#f8ebe0;color:var(--coffee)}
+.badge.google{background:#e8f5e9;color:#1b5e20}
+.badge.web{background:#e3f2fd;color:#1565c0}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;font-family:var(--font-body);transition:all 0.15s;border:1px solid var(--border-strong);background:#fff;color:var(--espresso)}
+.btn:hover{background:var(--foam)}
+.btn.primary{background:var(--espresso);color:#fff;border-color:var(--espresso)}
+.btn.primary:hover{background:var(--coffee)}
+.btn.success{background:var(--sage);color:#fff;border-color:var(--sage)}
+.btn.danger{background:var(--rose);color:#fff;border-color:var(--rose)}
+.btn.sm{padding:4px 10px;font-size:11.5px}
+.btn.full{width:100%}
+
+/* Stars */
+.stars{color:var(--caramel);font-size:13px;letter-spacing:1px}
+
+/* Menu editor */
+.menu-item-row{display:grid;grid-template-columns:1fr 90px 70px 60px 120px 36px auto;gap:8px;align-items:start;padding:12px 0;border-bottom:1px solid var(--border)}
+.menu-item-row:last-child{border-bottom:none}
+.form-input{width:100%;padding:7px 10px;border:1px solid var(--border-strong);border-radius:7px;font-size:13px;font-family:var(--font-body);background:var(--cream);color:var(--ink);outline:none;transition:border 0.15s}
+.form-input:focus{border-color:var(--caramel);background:#fff}
+.form-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:#999;display:block;margin-bottom:4px}
+.form-group{margin-bottom:12px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Chat simulator */
+.sim-toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:#888;margin-bottom:12px}
+.sim-active .sim-label{color:var(--sage);font-weight:600}
+.chat-window{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff}
+.chat-messages{height:320px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+.chat-bubble{max-width:75%;padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.5;word-break:break-word}
+.chat-bubble.bot{align-self:flex-start;background:var(--foam);color:var(--ink);border-bottom-left-radius:4px}
+.chat-bubble.user{align-self:flex-end;background:var(--espresso);color:#fff;border-bottom-right-radius:4px}
+.chat-bubble.system{align-self:center;background:#f5f5f5;color:#999;font-size:11px;padding:4px 12px}
+.chat-input-row{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--cream)}
+.chat-input-row input{flex:1;padding:8px 12px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;font-family:var(--font-body);background:#fff;color:var(--ink);outline:none}
+.chat-input-row input:focus{border-color:var(--caramel)}
+.chat-send{padding:8px 14px;background:var(--espresso);color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--font-body);transition:background 0.15s}
+.chat-send:hover{background:var(--coffee)}
+.quick-chips{display:flex;gap:6px;flex-wrap:wrap;padding:8px 14px 0}
+.chip{font-size:11.5px;padding:4px 11px;border-radius:20px;border:1px solid var(--border-strong);cursor:pointer;background:#fff;color:var(--espresso);transition:all 0.15s;font-family:var(--font-body)}
+.chip:hover{background:var(--foam)}
+
+/* Feedback cards */
+.feedback-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.fb-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.fb-name{font-weight:600;font-size:14px;color:var(--espresso)}
+.fb-time{font-size:11px;color:#bbb}
+.fb-comment{font-size:13px;color:#555;line-height:1.6;margin-bottom:10px}
+.fb-reply{background:var(--cream);border-radius:8px;padding:10px 12px;font-size:12.5px;color:#666;border-left:3px solid var(--caramel);margin-top:8px}
+.fb-reply-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--caramel);margin-bottom:4px}
+
+/* Campaign */
+.campaign-row{padding:14px;border-bottom:1px solid var(--border)}
+.campaign-row:last-child{border-bottom:none}
+.campaign-psychology{font-size:11.5px;color:#999;font-style:italic;margin-bottom:6px}
+.campaign-offer{font-size:13px;color:var(--ink);background:var(--cream);border-radius:7px;padding:8px 11px;margin-bottom:10px;line-height:1.5}
+.campaign-actions{display:flex;gap:8px}
+.offer-req-row{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px}
+.offer-req-row:last-child{border-bottom:none}
+.offer-req-info{flex:1;min-width:0}
+.offer-req-name{font-size:13px;font-weight:600;color:var(--espresso)}
+.offer-req-text{font-size:12.5px;color:#666;margin-top:2px}
+
+/* QR area */
+.qr-box{border:1px solid var(--border);border-radius:12px;background:var(--cream);padding:24px;text-align:center}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:1000;background:rgba(26,22,18,0.5);backdrop-filter:blur(4px);align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:16px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;padding:26px;animation:slideUp 0.25s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{font-family:var(--font-display);font-size:19px;color:var(--espresso);margin-bottom:18px}
+.modal-actions{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+
+/* Toast */
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--espresso);color:#fff;padding:11px 16px;border-radius:10px;font-size:13px;max-width:280px;display:flex;align-items:center;gap:8px;animation:toastIn 0.3s ease}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.toast.success{background:var(--sage)}
+.toast.error{background:var(--rose)}
+
+/* Textarea */
+textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
+
+/* Empty state */
+.empty-state{text-align:center;padding:36px;color:#ccc}
+.empty-icon{font-size:36px;margin-bottom:10px}
+.empty-text{font-size:13px}
+
+@media(max-width:900px){.kpi-row{grid-template-columns:1fr 1fr}.two-col,.three-col{grid-template-columns:1fr}}
+@media(max-width:680px){.sidebar{display:none}.main{margin-left:0}}
+
+/* Phase 1 auth styles */
+#logout-btn:hover { background: rgba(201,168,76,0.1) !important; }
+.auth-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(26,15,10,0.92);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cinzel', serif;
+}
+.auth-overlay-msg {
+  color: #C9A84C; font-size: 16px; letter-spacing: 0.15em; text-align: center;
+}
+
+
+/* Orders tab styles */
+.order-card {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.order-card:hover { background: rgba(196,127,58,0.04); }
+.order-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:8px; }
+.order-id { font-family:var(--font-display); font-size:13px; color:var(--espresso); }
+.order-meta { font-size:12px; color:#999; margin-top:2px; }
+.order-badge {
+  display:inline-block; padding:3px 10px; border-radius:20px;
+  font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase;
+}
+.badge-pending   { background:#FFF3CD; color:#856404; }
+.badge-confirmed { background:#D1ECF1; color:#0C5460; }
+.badge-arrived   { background:#e8f5e9; color:#1b5e20; }
+.badge-completed { background:#e8eaf6; color:#283593; }
+.badge-preparing { background:#FFE8CC; color:#7D3F00; }
+.badge-ready     { background:#D4EDDA; color:#155724; }
+.badge-served    { background:#E2E3E5; color:#383D41; }
+.badge-cancelled { background:#F8D7DA; color:#721C24; }
+.order-items-list { font-size:12px; color:#777; line-height:1.8; margin-bottom:10px; }
+.order-total { font-family:var(--font-display); font-size:14px; color:var(--espresso); }
+.status-btns { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.status-btn { padding:5px 12px; border:1px solid var(--border); border-radius:20px; font-size:11px; background:#fff; cursor:pointer; transition:all 0.15s; }
+.status-btn:hover { border-color:var(--caramel); color:var(--caramel); }
+.status-btn.active { background:var(--caramel); color:#fff; border-color:var(--caramel); }
+.top-item-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.top-item-bar-wrap { flex:1; height:6px; background:#F0EBE3; border-radius:3px; overflow:hidden; }
+.top-item-bar { height:100%; background:var(--caramel); border-radius:3px; transition:width 0.5s ease; }
+
+</style>
+</head>
+<body>
+
+  <!-- Notification permission banner -->
+  <div id="notif-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#3a1f0d;color:#fff;padding:10px 20px;align-items:center;justify-content:space-between;gap:12px;font-size:13px">
+    <span>&#128276; Enable browser notifications to get alerted for new orders, reservations &amp; WhatsApp messages.</span>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <button onclick="requestNotifPermission()" style="padding:6px 16px;background:#c9a84c;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">Enable</button>
+      <button onclick="dismissNotifBanner()" style="padding:6px 12px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">Later</button>
+    </div>
+  </div>
+
+<aside class="sidebar">
+  <div class="sidebar-logo" style="padding:14px 16px 10px">
+    <img src="/logo.svg" alt="Zordic California" style="height:28px;width:auto;margin-bottom:6px;display:block">
+    <div class="branch-name" id="sidebar-branch-name" style="font-size:.75rem;opacity:.6;margin-top:2px">Loading…</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Operations</div>
+    <button class="nav-item active" onclick="showTab('overview',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Overview
+    </button>
+    <button class="nav-item" onclick="showTab('reservations',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Reservations
+    </button>
+    <button class="nav-item" onclick="showTab('menu',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+      Menu & Pricing
+    </button>
+    <div class="nav-section-label">Customers</div>
+    <button class="nav-item" onclick="showTab('crm',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      CRM
+    </button>
+    <button class="nav-item" onclick="showTab('feedback',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Reviews
+    </button>
+    <div class="nav-section-label">Marketing</div>
+    <button class="nav-item" onclick="showTab('campaigns',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+      AI Campaigns
+    </button>
+    <button class="nav-item" onclick="showTab('offers',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      Offer Requests
+    </button>
+    <div class="nav-section-label">Tools</div>
+    <button class="nav-item" onclick="showTab('simulator',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      Chat Simulator
+    </button>
+    <button class="nav-item" onclick="showTab('orders',this)" id="nav-orders">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+      Orders & Revenue
+      <span id="orders-badge" style="display:none;margin-left:auto;background:#E84545;color:#fff;border-radius:10px;font-size:10px;padding:1px 7px;font-weight:700">0</span>
+    </button>
+    <button class="nav-item" onclick="showTab('qrcodes',this)" id="nav-qrcodes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="4" height="4"/><rect x="19" y="19" width="2" height="2"/></svg>
+      Table QR Codes
+    </button>
+    <button class="nav-item" id="nav-kitchen-link" onclick="openKitchen()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C8 2 4 5 4 9c0 3.1 1.8 5.8 4.4 7.1L9 20h6l.6-3.9C18.2 14.8 20 12.1 20 9c0-4-4-7-8-7z"/><path d="M9 20h6"/></svg>
+      Kitchen Display ↗
+    </button>
+    <button class="nav-item" onclick="showTab('loyalty',this)" id="nav-loyalty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      Loyalty & Rewards
+    </button>
+    <button class="nav-item" onclick="showTab('clients',this)" id="nav-clients">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Agency Clients
+    </button>
+    <button class="nav-item" onclick="showTab('expenses',this)" id="nav-expenses">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      Expenses
+    </button>
+    <button class="nav-item" onclick="showTab('datasheet',this)" id="nav-datasheet">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/><line x1="15" y1="9" x2="15" y2="21"/></svg>
+      Data Sheets
+    </button>
+    <button class="nav-item" onclick="showTab('settings',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+  <div class="sidebar-back">
+    <a href="/hq" target="_blank" class="back-btn" style="color:rgba(196,127,58,0.55);margin-bottom:4px;border:1px solid rgba(196,127,58,0.2);border-radius:6px;padding:6px 10px">🏢 Franchise HQ</a>
+    <a id="view-customer-portal" href="#" target="_blank" class="back-btn" style="color:rgba(196,127,58,0.7);margin-bottom:4px">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Customer Portal
+    </a>
+    <a href="/website.html" target="_blank" class="back-btn" style="margin-bottom:4px">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Agency Website
+    </a>
+    <a href="/" class="back-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back to HQ
+    </a>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title" id="topbar-branch">Branch</div>
+      <span class="topbar-id" id="topbar-id">—</span>
+    </div>
+    <div class="topbar-right">
+      <!-- Staff pill + logout (Phase 1 auth) -->
+      <div id="staff-pill" style="display:none;align-items:center;gap:8px;padding:5px 12px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);border-radius:20px;font-size:12px;color:#7A5C2E;cursor:default">
+        <span>👤</span>
+        <span id="staff-name-display">—</span>
+        <span id="staff-role-badge" style="font-size:10px;padding:1px 6px;background:rgba(201,168,76,0.15);border-radius:10px;color:#A07830;letter-spacing:0.05em"></span>
+      </div>
+      <!-- Notification Bell -->
+      <button id="notif-btn" onclick="toggleNotifications()" title="Enable notifications"
+        style="padding:6px 10px;border:1px solid var(--border);border-radius:20px;background:transparent;color:#999;font-size:16px;cursor:pointer;transition:all 0.2s;line-height:1;position:relative"
+        >🔔</button>
+
+      <button onclick="logoutStaff()" id="logout-btn" title="Logout"
+        style="display:none;padding:6px 14px;border:1px solid rgba(201,168,76,0.3);border-radius:20px;background:transparent;color:#A07830;font-size:12px;cursor:pointer;transition:all 0.2s">
+        Sign Out
+      </button>
+      <div class="pilot-toggle">
+        <span style="font-size:12px;color:#888">Auto-Pilot</span>
+        <div class="toggle-switch" id="pilot-toggle" onclick="toggleAutoPilot()"></div>
+      </div>
+      <button class="wa-pill" onclick="showTab('settings',document.querySelector('.nav-item:last-of-type'))">
+        <div class="wa-dot" id="wa-dot"></div>
+        <span id="wa-status-text">WhatsApp</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- OVERVIEW -->
+    <div id="tab-overview">
+      <div class="section-heading" id="overview-heading">Branch Dashboard</div>
+      <div class="section-sub" id="overview-sub">Loading branch details…</div>
+      <div class="kpi-row">
+        <div class="kpi-card green"><div class="kpi-label">Reservations</div><div class="kpi-value" id="kpi-res">—</div><div class="kpi-sub" id="kpi-res-sub">—</div></div>
+        <div class="kpi-card amber"><div class="kpi-label">CRM Customers</div><div class="kpi-value" id="kpi-cust">—</div><div class="kpi-sub" id="kpi-cust-sub">—</div></div>
+        <div class="kpi-card rose"><div class="kpi-label">Reviews</div><div class="kpi-value" id="kpi-reviews">—</div><div class="kpi-sub" id="kpi-reviews-sub">Avg rating</div></div>
+        <div class="kpi-card sky"><div class="kpi-label">Pending Offers</div><div class="kpi-value" id="kpi-offers">—</div><div class="kpi-sub">Awaiting approval</div></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-head"><div><div class="panel-title">Café Info</div><div class="panel-sub">Branch details at a glance</div></div>
+          <button class="btn sm" onclick="showTab('settings',null)">Edit</button></div>
+          <div class="panel-body" id="cafe-info-panel" style="font-size:13.5px;line-height:2"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><div class="panel-title">Traffic This Week</div><div class="panel-sub">Hourly inquiry volume</div></div></div>
+          <div class="panel-body"><canvas id="traffic-chart" height="160"></canvas></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="panel-title">Recent Reservations</div><div class="panel-sub">Latest 5 bookings</div></div>
+          <button class="btn sm primary" onclick="showTab('reservations',null)">View All</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table" id="mini-res-table">
+            <thead><tr><th>Name</th><th>Guests</th><th>When</th><th>Status</th></tr></thead>
+            <tbody id="mini-res-body"><tr><td colspan="4" style="color:#bbb;padding:20px;text-align:center">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESERVATIONS -->
+    <div id="tab-reservations" style="display:none">
+      <div class="section-heading">Reservations</div>
+      <div class="section-sub">Approve or cancel customer table bookings</div>
+      <div style="overflow-x:auto" class="panel">
+        <table class="data-table" id="res-table">
+          <thead><tr><th>Name</th><th>Phone</th><th>Guests</th><th>When</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="res-body"><tr><td colspan="6" style="color:#bbb;padding:24px;text-align:center">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MENU -->
+    <div id="tab-menu" style="display:none">
+      <div class="section-heading">Menu & Pricing</div>
+      <div class="section-sub">Edit items, prices and discounts. Changes reflect instantly in the AI chatbot.</div>
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="panel-title">Menu Items</div><div class="panel-sub">Prices and discount % for AI dynamic pricing</div></div>
+          <div class="panel-action">
+            <button class="btn" onclick="addMenuItem()">+ Add Item</button>
+            <button class="btn primary" onclick="saveMenu()">Save Menu</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 80px 80px 80px 32px;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px">
+            <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Item Name</span>
+            <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Category</span>
+            <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Price ₹</span>
+            <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Disc %</span>
+            <span></span>
+          </div>
+          <div id="menu-editor"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRM -->
+    <div id="tab-crm" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+        <div>
+          <div class="section-heading" style="margin-bottom:2px">Customer CRM</div>
+          <div class="section-sub" style="margin:0">All tracked customer profiles with loyalty tiers, tags and visit history</div>
+        </div>
+        <button class="btn primary" onclick="openWalkinModal()" style="white-space:nowrap">
+          <span style="font-size:15px;margin-right:6px">🚶</span>Register Walk-in
+        </button>
+      </div>
+      <!-- At-Risk Customers + AI Offers Panel -->
+      <div class="panel" style="margin-bottom:14px;border-left:3px solid #f59e0b">
+        <div class="panel-head" style="cursor:pointer" onclick="toggleAtRisk()">
+          <div><div class="panel-title">🎯 At-Risk Customers <span id="at-risk-count" style="font-size:12px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;margin-left:6px">—</span></div>
+          <div class="panel-sub">Customers who haven't visited in 14+ days — AI generates personalised re-engagement offers</div></div>
+          <span id="at-risk-toggle-icon" style="font-size:18px;color:#aaa">▾</span>
+        </div>
+        <div id="at-risk-body" class="panel-body" style="padding-top:0">
+          <div id="at-risk-list" style="margin-bottom:10px"><div style="color:#bbb;font-size:13px;padding:10px 0">Loading...</div></div>
+          <button class="btn primary" onclick="loadAtRiskCustomers()">🔄 Refresh List</button>
+        </div>
+      </div>
+
+      <!-- Customer Insights Modal trigger row -->
+      <div style="margin-bottom:14px;display:flex;gap:8px;align-items:center">
+        <input id="insight-phone" type="text" class="input" placeholder="Enter customer phone to view insights..." style="flex:1">
+        <button class="btn primary" onclick="loadCustomerInsights()">🔍 View Insights</button>
+      </div>
+      <div id="customer-insight-panel" style="display:none;margin-bottom:14px"></div>
+
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <div><div class="panel-title">Broadcast Campaign</div><div class="panel-sub">Send to a segment of customers</div></div>
+        </div>
+        <div class="panel-body">
+          <div class="form-row" style="margin-bottom:10px">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Target Segment</label>
+              <select class="form-input" id="broadcast-tag">
+                <option value="all">All Customers</option>
+                <option value="interested_in_coffee">Coffee Lovers</option>
+                <option value="interested_in_burgers">Burger Fans</option>
+                <option value="asked_for_offers">Offer Seekers</option>
+                <option value="frequent_booker">Frequent Bookers</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Campaign Message</label>
+              <input class="form-input" id="broadcast-msg" placeholder="e.g. Weekend special: 20% off all combos!"/>
+            </div>
+          </div>
+          <button class="btn primary" onclick="broadcastCampaign()">📢 Send Campaign</button>
+          <div id="broadcast-result" style="margin-top:12px;font-size:12.5px;color:var(--sage)"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Customer Profiles</div></div>
+        <div style="overflow-x:auto">
+          <table class="data-table" id="crm-table">
+            <thead><tr><th>Name</th><th>Phone</th><th>Visits</th><th>Tier</th><th>Tags</th><th>Avg Rating</th><th>Last Active</th></tr></thead>
+            <tbody id="crm-body"><tr><td colspan="7" style="color:#bbb;padding:24px;text-align:center">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEEDBACK -->
+    <div id="tab-feedback" style="display:none">
+      <div class="section-heading">Reviews & Feedback</div>
+      <div class="section-sub">Customer feedback with AI-generated reply drafts and Google review sync</div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn" onclick="syncGBP()">🔄 Sync Google Reviews</button>
+        <button class="btn primary" onclick="loadFeedback()">Refresh</button>
+      </div>
+      <div id="feedback-list"></div>
+    </div>
+
+    <!-- CAMPAIGNS -->
+    <div id="tab-campaigns" style="display:none">
+      <div class="section-heading">AI Campaign Suggestions</div>
+      <div class="section-sub">Gemini analyses your CRM and generates personalised offers per customer. Approve to send via WhatsApp.</div>
+      <div style="margin-bottom:14px;display:flex;gap:10px">
+        <button class="btn primary" onclick="loadCampaigns()">✨ Generate AI Suggestions</button>
+        <button class="btn" onclick="triggerAutoPilot()">▶ Run Auto-Pilot Now</button>
+      </div>
+      <div class="panel">
+        <div id="campaigns-list">
+          <div class="empty-state"><div class="empty-icon">✨</div><div class="empty-text">Click "Generate AI Suggestions" to analyse your CRM</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OFFER REQUESTS -->
+    <div id="tab-offers" style="display:none">
+      <div class="section-heading">Custom Offer Requests</div>
+      <div class="section-sub">Customers who requested personalised discounts — approve or reject each one</div>
+      <div class="panel">
+        <div id="offers-list">
+          <div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">No pending offer requests</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIMULATOR -->
+    <div id="tab-simulator" style="display:none">
+      <div class="section-heading">Chat Simulator</div>
+      <div class="section-sub">Test the AI bot for this branch. Language auto-detects — try English, Hindi or Hinglish.</div>
+      <div class="two-col">
+        <div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><div class="panel-title">Test Customer</div></div>
+            <div class="panel-body">
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">Phone (test)</label><input class="form-input" id="sim-phone" value="9999999999"/></div>
+                <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="sim-name" value="Test Customer"/></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Quick Presets</div></div>
+            <div class="panel-body" style="display:flex;flex-direction:column;gap:6px" id="sim-presets">
+              <button class="btn full" onclick="simSend('menu')">📋 Menu</button>
+              <button class="btn full" onclick="simSend('Offer kya hai?')">🏷️ Offers (Hinglish)</button>
+              <button class="btn full" onclick="simSend('Table book karna hai')">📅 Book Table</button>
+              <button class="btn full" onclick="simSend('Sasta kya hai?')">💰 Sasta kya hai?</button>
+              <button class="btn full" onclick="simSend('Cafe kaha hai?')">📍 Location</button>
+              <button class="btn full" onclick="simSend('I want to leave a review')">⭐ Feedback</button>
+              <button class="btn full" onclick="simSend('discount de do bhai')">🎁 Discount Request</button>
+              <button class="btn full" onclick="simSend('WiFi password kya hai?')">📶 WiFi</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="chat-window">
+            <div class="chat-messages" id="sim-messages">
+              <div class="chat-bubble system">Simulator ready — type a message or pick a preset</div>
+            </div>
+            <div class="quick-chips">
+              <button class="chip" onclick="simSend('hello')">hello</button>
+              <button class="chip" onclick="simSend('timing?')">timing?</button>
+              <button class="chip" onclick="simSend('contact')">contact</button>
+              <button class="chip" onclick="simSend('student offer')">student offer</button>
+            </div>
+            <div class="chat-input-row">
+              <input id="sim-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter')simSend()"/>
+              <button class="chat-send" onclick="simSend()">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+
+    <!-- ══════════════════ ORDERS & REVENUE TAB ══════════════════ -->
+    <div id="tab-orders" style="display:none">
+      <div style="max-width:1200px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-family:var(--font-display);font-size:22px;color:var(--espresso)">Orders & Revenue</div>
+            <div style="font-size:13px;color:#999;margin-top:4px">Live order queue + revenue analytics</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select id="order-filter" onchange="loadOrders()" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff">
+              <option value="">All Orders</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="preparing">Preparing</option>
+              <option value="ready">Ready</option>
+              <option value="served">Served</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button class="btn sm primary" onclick="openNewOrderModal()">+ New Order</button>
+            <button class="btn sm primary" onclick="loadOrders()">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- Order KPI strip (revenue hidden — admin only) -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px" id="revenue-kpis">
+          <div class="card" style="padding:18px 22px;text-align:center">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">Today</div>
+            <div style="font-family:var(--font-display);font-size:26px;color:var(--espresso)" id="kpi-today-orders">—</div>
+            <div style="font-size:12px;color:#bbb;margin-top:4px">orders</div>
+          </div>
+          <div class="card" style="padding:18px 22px;text-align:center">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">This Week</div>
+            <div style="font-family:var(--font-display);font-size:26px;color:var(--espresso)" id="kpi-week-orders">—</div>
+            <div style="font-size:12px;color:#bbb;margin-top:4px">orders</div>
+          </div>
+          <div class="card" style="padding:18px 22px;text-align:center">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">This Month</div>
+            <div style="font-family:var(--font-display);font-size:26px;color:var(--espresso)" id="kpi-month-orders">—</div>
+            <div style="font-size:12px;color:#bbb;margin-top:4px">orders</div>
+          </div>
+          <div class="card" style="padding:18px 22px;text-align:center">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">Active Now</div>
+            <div style="font-family:var(--font-display);font-size:26px;color:var(--espresso)" id="kpi-active">—</div>
+            <div style="font-size:12px;color:#bbb;margin-top:4px">pending + preparing</div>
+          </div>
+        </div>
+
+        <!-- Two-column: order queue + top items -->
+        <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start">
+
+          <!-- Order queue -->
+          <div class="card" style="padding:0;overflow:hidden">
+            <div style="padding:16px 22px;border-bottom:1px solid var(--border);font-family:var(--font-display);font-size:15px;color:var(--espresso)">
+              Live Order Queue
+            </div>
+            <div id="orders-list" style="min-height:200px;max-height:600px;overflow-y:auto">
+              <div style="padding:40px;text-align:center;color:#bbb;font-size:14px">Loading orders…</div>
+            </div>
+          </div>
+
+          <!-- Top items + daily chart -->
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div class="card" style="padding:20px 22px">
+              <div style="font-family:var(--font-display);font-size:14px;color:var(--espresso);margin-bottom:16px">🏆 Top Sellers</div>
+              <div id="top-items-list"><div style="color:#bbb;font-size:13px">No data yet</div></div>
+            </div>
+            <div class="card" style="padding:20px 22px">
+              <div style="font-family:var(--font-display);font-size:14px;color:var(--espresso);margin-bottom:16px">📈 Daily Revenue (14 days)</div>
+              <canvas id="revenue-chart" height="160"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-qrcodes" style="display:none">
+      <div style="max-width:960px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-family:var(--font-display);font-size:22px;color:var(--espresso)">Table QR Codes</div>
+            <div style="font-size:13px;color:#999;margin-top:4px">Customers scan these to order directly from their table</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <label style="font-size:13px;color:#666">Tables:</label>
+            <input type="number" id="qr-table-count" value="10" min="1" max="50" style="width:70px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;font-size:13px;background:#fff;outline:none" onchange="renderQRGrid()"/>
+            <button class="btn primary" onclick="printAllQR()">🖨 Print All</button>
+          </div>
+        </div>
+
+        <!-- Kitchen link banner -->
+        <div style="background:var(--espresso);border-radius:14px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-family:var(--font-display);font-size:15px;color:#fff">👨‍🍳 Kitchen Display System</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px">Open on the cook's screen to see live order tickets in real-time</div>
+          </div>
+          <button class="btn" style="background:var(--caramel);color:#fff;border-color:var(--caramel)" onclick="openKitchen()">Open Kitchen Display ↗</button>
+        </div>
+
+        <div id="qr-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px">
+          <div style="padding:40px;text-align:center;color:#bbb;grid-column:1/-1">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-loyalty" style="display:none">
+      <div class="section-heading">Loyalty &amp; Rewards</div>
+      <div class="section-sub">Customer points, stamp cards, birthday campaigns and tier management</div>
+
+      <!-- KPI row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px" id="loyalty-kpi-row">
+        <div class="panel" style="text-align:center;padding:20px 16px">
+          <div style="font-size:28px;font-family:'Cormorant Garamond',serif;color:var(--caramel)" id="lkpi-members">—</div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;margin-top:4px">Members</div>
+        </div>
+        <div class="panel" style="text-align:center;padding:20px 16px">
+          <div style="font-size:28px;font-family:'Cormorant Garamond',serif;color:var(--caramel)" id="lkpi-points">—</div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;margin-top:4px">Total Points Issued</div>
+        </div>
+        <div class="panel" style="text-align:center;padding:20px 16px">
+          <div style="font-size:28px;font-family:'Cormorant Garamond',serif;color:var(--caramel)" id="lkpi-redeemed">—</div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;margin-top:4px">Stamps Redeemed</div>
+        </div>
+        <div class="panel" style="text-align:center;padding:20px 16px">
+          <div style="font-size:28px;font-family:'Cormorant Garamond',serif;color:var(--caramel)" id="lkpi-birthdays">—</div>
+          <div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#aaa;margin-top:4px">Upcoming Birthdays</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- Leaderboard -->
+        <div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Points Leaderboard</div></div>
+            <div class="panel-body" style="padding:0">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">#</th>
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">Customer</th>
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">Tier</th>
+                    <th style="padding:10px 16px;text-align:right;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">Points</th>
+                    <th style="padding:10px 16px;text-align:right;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">Stamps</th>
+                  </tr>
+                </thead>
+                <tbody id="loyalty-leaderboard">
+                  <tr><td colspan="5" style="padding:32px;text-align:center;color:#666;font-size:13px">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Manual Points Adjustment -->
+          <div class="panel" style="margin-top:16px">
+            <div class="panel-head"><div class="panel-title">Manual Points Adjustment</div></div>
+            <div class="panel-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                <div class="form-group" style="margin:0"><label class="form-label">Customer Phone</label><input class="form-input" id="adj-phone" placeholder="9876543210" /></div>
+                <div class="form-group" style="margin:0"><label class="form-label">Points (use − to deduct)</label><input class="form-input" type="number" id="adj-points" placeholder="e.g. 100 or -50" /></div>
+              </div>
+              <div class="form-group" style="margin-bottom:12px"><label class="form-label">Reason</label><input class="form-input" id="adj-reason" placeholder="Goodwill gesture / correction…" /></div>
+              <button class="btn primary" onclick="adjustPoints()" style="width:100%">Apply Adjustment</button>
+              <div id="adj-msg" style="margin-top:8px;font-size:13px;min-height:18px;text-align:center;color:#7ECF7E"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Birthdays + Campaign -->
+        <div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">Upcoming Birthdays <span style="font-size:11px;color:#888;font-weight:400;margin-left:6px">(next 7 days)</span></div>
+              <button class="btn sm primary" onclick="sendBirthdayCampaign()" id="btn-bday-campaign" style="margin-left:auto">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                Send WhatsApp Wishes
+              </button>
+            </div>
+            <div class="panel-body" style="padding:0">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">Name</th>
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">Phone</th>
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">Birthday</th>
+                    <th style="padding:10px 16px;text-align:right;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="loyalty-birthdays">
+                  <tr><td colspan="4" style="padding:32px;text-align:center;color:#666;font-size:13px">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div id="bday-campaign-msg" style="margin-top:10px;font-size:13px;min-height:18px;text-align:center;color:#7ECF7E"></div>
+
+          <!-- Google Review Claims -->
+          <div class="panel" style="margin-top:16px" id="review-claims-panel">
+            <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center">
+              <div class="panel-title">⭐ Google Review Claims</div>
+              <span id="claims-badge" style="background:#E8C96A22;color:#E8C96A;font-size:11px;padding:3px 10px;border-radius:100px;font-weight:700;display:none">0 Pending</span>
+            </div>
+            <div class="panel-body" style="padding:0;overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+                    <th style="padding:10px 14px;text-align:left;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Customer</th>
+                    <th style="padding:10px 14px;text-align:left;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Reviewer Name on Google</th>
+                    <th style="padding:10px 14px;text-align:left;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Submitted</th>
+                    <th style="padding:10px 14px;text-align:left;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Status</th>
+                    <th style="padding:10px 14px;text-align:left;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="review-claims-tbody">
+                  <tr><td colspan="5" style="padding:24px;text-align:center;color:#666;font-size:13px">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recent Transactions -->
+          <div class="panel" style="margin-top:16px">
+            <div class="panel-head"><div class="panel-title">Recent Loyalty Activity</div></div>
+            <div class="panel-body" style="padding:0;max-height:260px;overflow-y:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Customer</th>
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Type</th>
+                    <th style="padding:10px 16px;text-align:right;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Amount</th>
+                    <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;text-transform:uppercase">Note</th>
+                  </tr>
+                </thead>
+                <tbody id="loyalty-activity">
+                  <tr><td colspan="4" style="padding:32px;text-align:center;color:#666;font-size:13px">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ EXPENSES TAB ══════════════════════════════════════════════════════ -->
+    <div id="tab-expenses" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+        <div>
+          <div class="section-heading" style="margin-bottom:2px">Expenses</div>
+          <div class="section-sub" style="margin:0">Log daily expenses — P&amp;L and GST reports visible to admin only</div>
+        </div>
+      </div>
+
+      <!-- Add Expense Form -->
+      <div class="panel" style="margin-bottom:18px">
+        <div class="panel-head"><div><div class="panel-title">Add Expense</div></div></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Category</label>
+              <select id="exp-category" class="input" style="width:100%">
+                <option value="ingredients">🥗 Ingredients / Raw Materials</option>
+                <option value="salaries">👥 Staff Salaries</option>
+                <option value="rent">🏠 Rent</option>
+                <option value="electricity">⚡ Electricity</option>
+                <option value="gas">🔥 Gas / Fuel</option>
+                <option value="marketing">📢 Marketing</option>
+                <option value="maintenance">🔧 Maintenance / Repairs</option>
+                <option value="equipment">📦 Equipment Purchase</option>
+                <option value="misc">📎 Miscellaneous</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Amount (₹)</label>
+              <input id="exp-amount" type="number" min="0" class="input" placeholder="e.g. 5000" style="width:100%;box-sizing:border-box">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Description</label>
+              <input id="exp-description" type="text" class="input" placeholder="e.g. Milk, coffee beans, sugar" style="width:100%;box-sizing:border-box">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Vendor / Supplier</label>
+              <input id="exp-vendor" type="text" class="input" placeholder="e.g. Metro Cash & Carry" style="width:100%;box-sizing:border-box">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Date</label>
+              <input id="exp-date" type="date" class="input" style="width:100%;box-sizing:border-box">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">GST Paid (₹)</label>
+              <input id="exp-gst" type="number" min="0" class="input" placeholder="0" style="width:100%;box-sizing:border-box">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Receipt No.</label>
+              <input id="exp-receipt" type="text" class="input" placeholder="Optional" style="width:100%;box-sizing:border-box">
+            </div>
+          </div>
+          <button class="btn primary" onclick="submitExpense()">+ Add Expense</button>
+        </div>
+      </div>
+
+      <!-- Expense List -->
+      <div class="panel">
+        <div class="panel-head" style="flex-wrap:wrap;gap:8px">
+          <div><div class="panel-title">Expense Log</div></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="month" id="exp-filter-month" class="input" style="font-size:12px;padding:6px 10px" onchange="loadExpenses()">
+            <select id="exp-filter-cat" class="input" style="font-size:12px;padding:6px 10px" onchange="loadExpenses()">
+              <option value="">All Categories</option>
+              <option value="ingredients">Ingredients</option>
+              <option value="salaries">Salaries</option>
+              <option value="rent">Rent</option>
+              <option value="electricity">Electricity</option>
+              <option value="gas">Gas</option>
+              <option value="marketing">Marketing</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="equipment">Equipment</option>
+              <option value="misc">Misc</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <div id="expense-list"><div style="padding:16px;color:#bbb;text-align:center">Loading expenses...</div></div>
+          <div id="expense-summary" style="padding:12px 16px;background:#fafafa;border-top:1px solid var(--border);font-size:13px;display:none"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══════════════════ DATA SHEETS TAB ══════════════════ -->
+    <div id="tab-datasheet" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+        <div>
+          <div class="section-heading" style="margin-bottom:2px">Data Sheets</div>
+          <div class="section-sub" style="margin:0">Complete records for every aspect of your café — searchable, filterable, exportable</div>
+        </div>
+        <button class="btn primary sm" onclick="dsExportCSV()" style="gap:6px">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV
+        </button>
+      </div>
+
+      <!-- Sub-tab pills -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px" id="ds-subtabs">
+        <button class="ds-pill active" onclick="switchDS('orders',this)">📋 Orders</button>
+        <button class="ds-pill" onclick="switchDS('customers',this)">👥 Customers</button>
+        <button class="ds-pill" onclick="switchDS('menu',this)">🍽️ Menu Items</button>
+        <button class="ds-pill" onclick="switchDS('expenses',this)">💸 Expenses</button>
+        <button class="ds-pill" onclick="switchDS('reservations',this)">📅 Reservations</button>
+      </div>
+
+      <!-- Search + filter bar -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-body" style="padding:12px 16px">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <input id="ds-search" class="input" type="search" placeholder="🔍 Search records…" style="flex:1;min-width:180px" oninput="dsFilter()">
+            <select id="ds-date-range" class="input" style="width:150px" onchange="dsReload()">
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="month">This Month</option>
+            </select>
+            <span id="ds-count" style="font-size:12px;color:#aaa;white-space:nowrap">— rows</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats cards row -->
+      <div id="ds-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px"></div>
+
+      <!-- Data table -->
+      <div class="panel">
+        <div class="panel-body" style="padding:0;overflow-x:auto">
+          <table class="data-table" id="ds-table">
+            <thead id="ds-thead"></thead>
+            <tbody id="ds-tbody"><tr><td style="padding:24px;color:#bbb;text-align:center" colspan="10">Select a sheet above to load data…</td></tr></tbody>
+          </table>
+        </div>
+        <div id="ds-pagination" style="padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#aaa"></div>
+      </div>
+    </div>
+    <!-- ══════════════════ END DATA SHEETS TAB ══════════════════ -->
+
+    <div id="tab-settings" style="display:none">
+      <div class="section-heading">Branch Settings</div>
+      <div class="section-sub">Configure branch details, WhatsApp linking, and auto-pilot campaigns</div>
+      <div class="two-col">
+        <div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><div class="panel-title">Branch Details</div></div>
+            <div class="panel-body">
+              <div class="form-group"><label class="form-label">Café Name</label><input class="form-input" id="s-name" placeholder="The Roasted Bean"/></div>
+              <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="s-location"/></div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">Timings</label><input class="form-input" id="s-timings"/></div>
+                <div class="form-group"><label class="form-label">Contact</label><input class="form-input" id="s-contact"/></div>
+              </div>
+              <div class="form-group"><label class="form-label">WiFi (SSID / Password)</label><input class="form-input" id="s-wifi"/></div>
+              <div class="form-group"><label class="form-label">Google Maps Link</label><input class="form-input" id="s-map"/></div>
+              <div class="form-group"><label class="form-label">Google Review Link</label><input class="form-input" id="s-review"/></div>
+              <button class="btn primary full" onclick="saveSettings()">Save Details</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Auto-Pilot Campaigns</div><div class="panel-sub">Day-specific offers sent automatically</div></div>
+            <div class="panel-body">
+              <div id="campaign-settings-list"></div>
+              <button class="btn" onclick="addCampaignRow()" style="margin-top:10px">+ Add Day Campaign</button>
+              <button class="btn primary" onclick="saveCampaigns()" style="margin-top:8px;margin-left:8px">Save Campaigns</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><div class="panel-title">Café Theme</div><div class="panel-sub">Choose the visual style for your customer website</div></div>
+            <div class="panel-body">
+              <div id="theme-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px"></div>
+              <button class="btn primary full" onclick="saveTheme()">Apply Theme</button>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><div><div class="panel-title">WhatsApp Cloud API</div><div class="panel-sub">Connect this branch to Meta WhatsApp Business API</div></div></div>
+            <div class="panel-body">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px;background:var(--cream);border-radius:9px">
+                <div id="wa-dot-2" style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0"></div>
+                <div>
+                  <div style="font-size:13.5px;font-weight:600;color:var(--espresso)" id="wa-status-big">Not configured</div>
+                  <div style="font-size:11.5px;color:#aaa" id="wa-number">No WhatsApp number linked</div>
+                </div>
+              </div>
+              <div style="margin-bottom:10px">
+                <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Phone Number ID</label>
+                <input id="wa-phone-id" type="text" class="input" placeholder="e.g. 123456789012345" style="width:100%;box-sizing:border-box">
+              </div>
+              <div style="margin-bottom:10px">
+                <label style="font-size:12px;font-weight:600;color:#666;display:block;margin-bottom:4px">Permanent Access Token</label>
+                <input id="wa-access-token" type="password" class="input" placeholder="EAAxxxxxxxxxxxxxxxx" style="width:100%;box-sizing:border-box">
+              </div>
+              <div style="margin-bottom:14px;padding:10px;background:#f0f9f0;border-radius:8px;border:1px solid #c6e6c6">
+                <div style="font-size:11.5px;font-weight:600;color:#2d7a2d;margin-bottom:4px">📋 Webhook URL (add in Meta Console)</div>
+                <div id="wa-webhook-url" style="font-size:11px;color:#555;word-break:break-all;font-family:monospace"></div>
+                <div style="font-size:11px;color:#888;margin-top:4px">Verify Token: <span id="wa-verify-token" style="font-family:monospace;font-weight:600"></span></div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn primary" style="flex:1" onclick="saveWhatsAppConfig()">💾 Save & Activate</button>
+                <button class="btn" style="flex:0 0 auto" onclick="testWhatsAppConfig()">🧪 Test</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">Danger Zone</div></div>
+            <div class="panel-body">
+              <p style="font-size:13px;color:#aaa;margin-bottom:12px">Manually trigger today's auto-pilot campaign for testing purposes.</p>
+              <button class="btn danger" onclick="triggerAutoPilot()">▶ Force Run Auto-Pilot</button>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">💳 Razorpay Payments</div>
+                <div class="panel-sub">Accept online payments from customers</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="form-group">
+                <label class="form-label">Key ID <span style="font-weight:400;color:#888">(public, starts with rzp_)</span></label>
+                <input class="form-input" id="rzp-key-id" type="text" placeholder="rzp_live_xxxxxxxxxxxx" style="font-family:monospace">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Key Secret <span style="font-weight:400;color:#888">(keep private)</span></label>
+                <div style="display:flex;gap:8px">
+                  <input class="form-input" id="rzp-key-secret" type="password" placeholder="Paste new secret to change" style="font-family:monospace;flex:1">
+                  <button class="btn" onclick="toggleRzpSecret(this)" style="white-space:nowrap;padding:0 14px">Show</button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+                <button class="btn primary" onclick="saveBranchApiKeys()" id="rzp-save-btn">Save Keys</button>
+                <span id="rzp-save-msg" style="font-size:.82rem;color:#aaa"></span>
+              </div>
+              <div style="margin-top:12px;padding:10px 12px;background:var(--bg-3,#1e1e1e);border-radius:6px;font-size:.78rem;color:#888;line-height:1.6">
+                Get your keys from <a href="https://dashboard.razorpay.com/app/keys" target="_blank" style="color:var(--brand)">Razorpay Dashboard → Settings → API Keys</a>.<br>
+                Use <code>rzp_test_</code> keys for testing, <code>rzp_live_</code> for production.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ AGENCY CLIENTS TAB ══════════════════════════════════ -->
+    <div id="tab-clients" style="display:none">
+      <div style="max-width:1200px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px">
+          <div>
+            <div class="section-heading">All Branches</div>
+            <div class="section-sub">Manage every café location — click a branch to open its full dashboard</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <a href="/hq" target="_blank" class="btn" style="text-decoration:none;font-size:12px">🏢 Full HQ View ↗</a>
+            <a href="/onboard" target="_blank" class="btn primary" style="text-decoration:none;font-size:12px">+ Add Branch</a>
+          </div>
+        </div>
+
+        <!-- KPI row -->
+        <div class="kpi-row" style="margin-bottom:22px">
+          <div class="kpi-card green"><div class="kpi-label">Total Branches</div><div class="kpi-value" id="ac-total">—</div></div>
+          <div class="kpi-card amber"><div class="kpi-label">Active / Trial</div><div class="kpi-value" id="ac-active">—</div></div>
+          <div class="kpi-card sky"><div class="kpi-label">Total Revenue</div><div class="kpi-value" id="ac-revenue">—</div></div>
+          <div class="kpi-card rose"><div class="kpi-label">Trials Expiring (7d)</div><div class="kpi-value" id="ac-expiring">—</div></div>
+        </div>
+
+        <!-- Branch cards grid -->
+        <div id="branch-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+          <div style="grid-column:1/-1;text-align:center;padding:40px;color:#bbb">Loading branches…</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="reply-modal">
+  <div class="modal">
+    <div class="modal-title">Reply to Review</div>
+    <div id="reply-feedback-info" style="margin-bottom:14px;padding:12px;background:var(--cream);border-radius:9px;font-size:13px"></div>
+    <div class="form-group"><label class="form-label">Your Reply</label><textarea class="form-input" id="reply-text" rows="4" placeholder="Type your response…"></textarea></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn" onclick="generateDraft()" style="flex:1">✨ AI Draft</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('reply-modal')">Cancel</button>
+      <button class="btn primary" onclick="submitReply()">Send Reply</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="approve-offer-modal">
+  <div class="modal">
+    <div class="modal-title">Approve Offer Request</div>
+    <div id="approve-offer-info" style="margin-bottom:14px;font-size:13px;color:#666"></div>
+    <div class="form-group"><label class="form-label">Offer Text to Send</label><input class="form-input" id="approve-offer-text" placeholder="e.g. Special 15% off just for you!"/></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('approve-offer-modal')">Cancel</button>
+      <button class="btn success" onclick="submitApproveOffer()">Approve & Send</button>
+    </div>
+
+
+
+  </div>
+</div>
+
+<div class="modal-overlay" id="new-order-modal" style="display:none" onclick="if(event.target===this)closeNewOrderModal()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">🧾 New Manual Order</div>
+    <div class="form-group"><label class="form-label">Customer Name <span style="color:var(--rose)">*</span></label><input class="form-input" id="no-name" placeholder="e.g. Walk-in customer"/></div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1"><label class="form-label">Phone (optional)</label><input class="form-input" id="no-phone" type="tel" maxlength="15"/></div>
+      <div class="form-group" style="flex:1"><label class="form-label">Table No (optional)</label><input class="form-input" id="no-table" placeholder="e.g. 4"/></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <div class="form-group" style="flex:1"><label class="form-label">Order Type</label><select class="form-input" id="no-type"><option value="dine_in">Dine-in</option><option value="takeaway">Takeaway</option><option value="delivery">Delivery</option></select></div>
+      <div class="form-group" style="flex:1"><label class="form-label">Payment Method</label><select class="form-input" id="no-payment"><option value="cash">Cash</option><option value="card">Card</option><option value="upi">UPI</option><option value="online">Online</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Items <span style="color:var(--rose)">*</span></label><div id="no-items-list" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;padding:8px"><div style="padding:16px;text-align:center;color:#bbb;font-size:13px">Loading menu…</div></div></div>
+    <div class="form-group"><label class="form-label">Notes (optional)</label><input class="form-input" id="no-notes" placeholder="e.g. Extra spicy, no onions…"/></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--cream);border-radius:9px;margin-bottom:14px">
+      <span style="font-size:13px;color:#888">Estimated Total</span>
+      <span style="font-family:var(--font-display);font-size:20px;color:var(--espresso)" id="no-total">₹0</span>
+    </div>
+    <div id="no-result" style="display:none;border-radius:9px;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.5"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeNewOrderModal()">Cancel</button>
+      <button class="btn primary" onclick="submitNewOrder()" id="no-submit-btn">Place Order</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="feedback-modal" style="display:none" onclick="if(event.target===this)closeFeedbackModal()">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">⭐ Rate This Order</div>
+    <p style="font-size:13px;color:#aaa;margin:-4px 0 18px">Order marked as served. Quickly record customer feedback (optional).</p>
+    <div style="display:flex;justify-content:center;gap:8px;font-size:34px;margin-bottom:18px" id="fb-stars"></div>
+    <div class="form-group"><label class="form-label">Comment (optional)</label><textarea class="form-input" id="fb-comment" rows="3" placeholder="e.g. Loved the coffee, service was quick…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeFeedbackModal()">Skip</button>
+      <button class="btn primary" onclick="submitFeedback()">Submit Feedback</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ── Auth guard ────────────────────────────────────────────────────────────────
+(function authGuard(requiredRoles) {
+  try {
+    const raw = localStorage.getItem('cafehq_staff') || sessionStorage.getItem('cafehq_staff');
+    if (!raw) { window.location.href = '/login'; return; }
+    const staff = JSON.parse(raw);
+    if (!staff || !staff.role) { window.location.href = '/login'; return; }
+    if (requiredRoles && !requiredRoles.includes(staff.role)) {
+      alert('Access denied. You do not have permission to view this page.');
+      window.location.href = '/login';
+    }
+  } catch(e) { window.location.href = '/login'; }
+})(['manager']);
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem('cafehq_token'); }
+
+function getAuthHeaders() {
+  const t = getToken();
+  return t ? { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' }
+           : { 'Content-Type': 'application/json' };
+}
+
+// Redirect to login if no token
+(function checkAuth() {
+  if (!getToken()) {
+    const bid = (function(){
+      const u = window.location.pathname.split('/').pop();
+      return (u && u !== 'manager.html' && u !== 'manager') ? u : (localStorage.getItem('cafehq_businessId') || '');
+    })();
+    window.location.href = '/login' + (bid ? '?branch=' + bid : '');
+  }
+})();
+
+// Global 401 handler — wrap fetch to auto-redirect on token expiry
+const _origFetch = window.fetch;
+window.fetch = function(input, init) {
+  init = init || {};
+  try {
+    const url = (typeof input === 'string') ? input : (input && input.url) || '';
+    if (url.startsWith('/api/')) {
+      const token = getToken();
+      if (token) {
+        const headers = new Headers(init.headers || {});
+        if (!headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + token);
+        init = Object.assign({}, init, { headers });
+      }
+    }
+  } catch(e) {}
+  return _origFetch.call(this, input, init).then(res => {
+    if (res.status === 401) {
+      localStorage.removeItem('cafehq_token');
+      localStorage.removeItem('cafehq_staff');
+      const bid = localStorage.getItem('cafehq_businessId') || '';
+      window.location.href = '/login' + (bid ? '?branch=' + bid : '');
+    }
+    return res;
+  });
+};
+
+function logoutStaff() {
+  const t = localStorage.getItem('cafehq_token');
+  if (t) {
+    fetch('/api/auth/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + t } }).catch(()=>{});
+  }
+  ['cafehq_token','cafehq_staff','cafehq_businessId'].forEach(k => localStorage.removeItem(k));
+  window.location.href = '/login?branch=' + branchId;
+}
+
+function initStaffUI() {
+  const staff = JSON.parse(localStorage.getItem('cafehq_staff') || 'null');
+  if (!staff) return;
+  const pill     = document.getElementById('staff-pill');
+  const nameEl   = document.getElementById('staff-name-display');
+  const roleEl   = document.getElementById('staff-role-badge');
+  const logoutEl = document.getElementById('logout-btn');
+  if (pill)     pill.style.display = 'flex';
+  if (nameEl)   nameEl.textContent = staff.name;
+  if (roleEl)   roleEl.textContent = staff.role.toUpperCase();
+  if (logoutEl) logoutEl.style.display = 'block';
+}
+// ─────────────────────────────────────────────────────────────────────────────
+const _urlBranch = window.location.pathname.split('/').pop();
+const branchId = (_urlBranch && _urlBranch !== 'manager.html' && _urlBranch !== 'manager')
+  ? _urlBranch
+  : (localStorage.getItem('cafehq_businessId') || _urlBranch);
+const socket = io();
+socket.on('connect', () => {
+  // Join this branch's staff room so live events (orders, chat, CRM) arrive
+  socket.emit('join_business', { businessId: branchId, token: localStorage.getItem('cafehq_token') });
+});
+let business = null;
+let menuData = [];
+let currentFeedbackId = null;
+let currentOfferId = null;
+let trafficChart = null;
+let autoPilotActive = false;
+let campaignSuggestions = [];
+
+// Toast
+function toast(msg, type=''){
+  const c=document.getElementById('toast-container');
+  const t=document.createElement('div'); t.className='toast '+(type||'');
+  t.textContent=msg; c.appendChild(t);
+  setTimeout(()=>t.remove(),3500);
+}
+// Alias — some sections use showToast(msg, isError)
+function showToast(msg, isError){
+  toast(msg, isError ? 'error' : 'success');
+}
+
+// Browser notification helper (deduped within 5s window)
+let _notifShown = {};
+function showBrowserNotif(title, body, tag){
+  if(Notification.permission !== 'granted') return;
+  const key = (tag||'notif') + ':' + Math.floor(Date.now()/5000);
+  if(_notifShown[key]) return;
+  _notifShown[key] = true;
+  try { new Notification(title, { body, tag: tag||'notif', icon: '/favicon.ico' }); }
+  catch(e){}
+  setTimeout(()=>delete _notifShown[key], 10000);
+}
+
+// Escape HTML
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Tab navigation
+const TABS=['overview','reservations','menu','crm','feedback','campaigns','offers','simulator','orders','loyalty','settings','clients','expenses','qrcodes','datasheet'];
+function showTab(id, el){
+  TABS.forEach(t=>{ const el=document.getElementById('tab-'+t); if(el) el.style.display=t===id?'block':'none'; });
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(el) el.classList.add('active');
+  if(id==='reservations') loadReservations();
+  else if(id==='crm') { loadCRM(); loadAtRiskCustomers(); }
+  else if(id==='expenses') { initExpenseDate(); loadExpenses(); }
+  else if(id==='feedback') loadFeedback();
+  else if(id==='offers') loadOffers();
+  else if(id==='menu') loadMenu();
+  else if(id==='settings') loadSettings();
+  else if(id==='orders') loadOrders();
+  else if(id==='loyalty') loadLoyalty();
+  else if(id==='qrcodes') renderQRGrid();
+  else if(id==='clients') loadClients();
+  else if(id==='datasheet') loadDataSheet();
+}
+
+// Load branch info
+async function loadBranch(){
+  try {
+    const res=await fetch('/api/businesses');
+    const list=await res.json();
+    business=list.find(b=>b.id===branchId)||list[0];
+    if(!business) return;
+    document.getElementById('sidebar-branch-name').textContent=business.name;
+    initStaffUI();
+    document.getElementById('topbar-branch').textContent=business.name;
+    document.getElementById('topbar-id').textContent=branchId;
+    document.getElementById('overview-heading').textContent=business.name;
+    document.getElementById('overview-sub').textContent=business.location;
+    document.title=business.name+' — Branch Manager';
+    document.getElementById('cafe-info-panel').innerHTML=`
+      <div>📍 <strong>${esc(business.location)}</strong></div>
+      <div>⏰ ${esc(business.timings)}</div>
+      <div>📞 ${esc(business.contact)}</div>
+      <div>📶 ${esc(business.wifi)}</div>
+      <div>🔗 <a href="${esc(business.map)}" target="_blank" style="color:var(--caramel)">Google Maps</a></div>
+      <div>⭐ <a href="${esc(business.review)}" target="_blank" style="color:var(--caramel)">Review Page</a></div>
+    `;
+    await loadOverviewKPIs();
+    loadTrafficChart();
+
+  } catch(e) {
+    console.error('[loadBranch]', e);
+    if(typeof toast==='function') toast('loadBranch failed — check console','error');
+  }
+}
+
+async function loadOverviewKPIs(){
+  try{
+    const [rRes,cRes,fRes,oRes]=await Promise.all([
+      fetch(`/api/businesses/${branchId}/reservations`),
+      fetch(`/api/businesses/${branchId}/crm`),
+      fetch(`/api/businesses/${branchId}/feedback`),
+      fetch(`/api/businesses/${branchId}/offers`)
+    ]);
+    const [res,crm,feedback,offers]=await Promise.all([rRes.json(),cRes.json(),fRes.json(),oRes.json()]);
+    document.getElementById('kpi-res').textContent=res.length;
+    const pending=res.filter(r=>r.status==='pending').length;
+    document.getElementById('kpi-res-sub').textContent=pending+' pending';
+    document.getElementById('kpi-cust').textContent=crm.length;
+    const vips=crm.filter(c=>c.loyaltyTier==='VIP'||c.loyaltyTier==='Elite').length;
+    document.getElementById('kpi-cust-sub').textContent=vips+' VIP/Elite';
+    document.getElementById('kpi-reviews').textContent=feedback.length;
+    const avgRating=feedback.length?((feedback.reduce((s,f)=>s+f.rating,0)/feedback.length).toFixed(1))+'★':'—';
+    document.getElementById('kpi-reviews-sub').textContent=avgRating;
+    const pendingOffers=offers.filter(o=>o.status==='pending').length;
+    document.getElementById('kpi-offers').textContent=pendingOffers;
+    // Mini reservation table
+    const tbody=document.getElementById('mini-res-body');
+    const top5=res.slice(-5).reverse();
+    tbody.innerHTML=top5.length?top5.map(r=>`<tr>
+      <td><strong>${esc(r.name)}</strong></td>
+      <td>${r.guests}</td>
+      <td>${esc(r.datetime)}</td>
+      <td><span class="badge ${r.status}">${r.status}</span></td>
+    </tr>`).join(''):'<tr><td colspan="4" style="color:#bbb;text-align:center;padding:16px">No reservations yet</td></tr>';
+    // Auto-pilot state
+    const sRes=await fetch(`/api/businesses/${branchId}/analytics`);
+    const analytics=await sRes.json();
+    autoPilotActive=analytics.settings&&analytics.settings.autoPilotActive;
+    const toggle=document.getElementById('pilot-toggle');
+    if(toggle) toggle.className='toggle-switch'+(autoPilotActive?' on':'');
+  }catch(e){console.error(e)}
+}
+
+async function loadTrafficChart(){
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/analytics`);
+    const data=await r.json();
+    const traffic=data.traffic||{};
+    const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const fullDays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const hours=['9am','11am','1pm','3pm','5pm','7pm','9pm','11pm'];
+    const today=new Date().toLocaleDateString('en-US',{weekday:'long'});
+    const todayData=traffic[today]||Array(8).fill(0);
+    const ctx=document.getElementById('traffic-chart');
+    if(!ctx) return;
+    if(trafficChart) trafficChart.destroy();
+    trafficChart=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels:hours,
+        datasets:[{
+          label:'Today',data:todayData,
+          borderColor:'#c47f3a',backgroundColor:'rgba(196,127,58,0.1)',
+          borderWidth:2,tension:0.4,pointRadius:4,pointBackgroundColor:'#c47f3a',fill:true
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{
+          x:{grid:{display:false},ticks:{font:{family:'DM Sans',size:11}}},
+          y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{family:'DM Sans',size:11},stepSize:1}}
+        }
+      }
+    });
+  }catch(e){console.error(e)}
+}
+
+// Reservations
+async function loadReservations(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/reservations`);
+    const res=await r.json();
+    const tbody=document.getElementById('res-body');
+    tbody.innerHTML=res.length?[...res].reverse().map(r=>`<tr>
+      <td><strong>${esc(r.name)}</strong></td>
+      <td>${esc(r.phone||'—')}</td>
+      <td>${r.guests}</td>
+      <td>${esc(r.datetime)}</td>
+      <td><span class="badge ${r.status}">${r.status}</span></td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        ${
+        r.status==='pending'   ? `<button class="btn sm success" onclick="updateRes('${r.id}','approved')">✓ Approve</button><button class="btn sm danger" onclick="updateRes('${r.id}','rejected')">✗ Cancel</button>` :
+        r.status==='approved'  ? `<button class="btn sm" style="background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7" onclick="updateRes('${r.id}','arrived')">🚶 Arrived</button><button class="btn sm danger" onclick="updateRes('${r.id}','rejected')">✗ Cancel</button>` :
+        r.status==='arrived'   ? `<button class="btn sm" style="background:#e8eaf6;color:#283593;border-color:#9fa8da" onclick="updateRes('${r.id}','completed')">✓ Completed</button>` :
+        r.status==='completed' ? `<span style="color:#283593;font-size:12px;font-weight:600">✓ Done</span>` :
+        `<span style="color:#bbb;font-size:12px">—</span>`
+      }
+      </td>
+    </tr>`).join(''):'<tr><td colspan="6" style="color:#bbb;text-align:center;padding:24px">No reservations yet</td></tr>';
+
+  } catch(e) {
+    console.error('[loadReservations]', e);
+    if(typeof toast==='function') toast('loadReservations failed — check console','error');
+  }
+}
+
+async function updateRes(id, status){
+  try {
+    await fetch(`/api/businesses/${branchId}/reservations/${id}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    toast(`Reservation ${status}`,'success');
+    loadReservations(); loadOverviewKPIs();
+
+  } catch(e) {
+    console.error('[updateRes]', e);
+    if(typeof toast==='function') toast('updateRes failed — check console','error');
+  }
+}
+
+// Menu
+async function loadMenu(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/menu`);
+    menuData=await r.json();
+    renderMenuEditor();
+
+  } catch(e) {
+    console.error('[loadMenu]', e);
+    if(typeof toast==='function') toast('loadMenu failed — check console','error');
+  }
+}
+
+function renderMenuEditor(){
+  const el=document.getElementById('menu-editor');
+  if(!menuData.length){
+    el.innerHTML='<div style="color:#bbb;text-align:center;padding:24px">No items yet. Click + Add Item to start.</div>';
+    return;
+  }
+  el.innerHTML=menuData.map((item,i)=>{
+    const avail = item.available !== false;
+    return `<div class="menu-item-row" style="grid-template-columns:1fr 90px 70px 60px 120px 36px auto;${!avail?'opacity:0.5':''}">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <input class="form-input" value="${esc(item.name)}" onchange="menuData[${i}].name=this.value" placeholder="Item name" style="font-weight:600"/>
+        <input class="form-input" value="${esc(item.description||'')}" onchange="menuData[${i}].description=this.value" placeholder="Description (shown to customer)" style="font-size:12px"/>
+        <input class="form-input" value="${esc(item.image||'')}" onchange="menuData[${i}].image=this.value" placeholder="Image URL (optional)" style="font-size:11px;color:#aaa"/>
+      </div>
+      <input class="form-input" value="${esc(item.category)}" onchange="menuData[${i}].category=this.value" placeholder="Category"/>
+      <input class="form-input" type="number" value="${item.price}" onchange="menuData[${i}].price=+this.value" placeholder="₹"/>
+      <input class="form-input" type="number" value="${item.discount||0}" onchange="menuData[${i}].discount=+this.value" placeholder="%"/>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;white-space:nowrap">
+        <input type="checkbox" ${avail?'checked':''} onchange="menuData[${i}].available=this.checked;renderMenuEditor()" style="width:15px;height:15px;accent-color:var(--sage)"/>
+        ${avail?'<span style="color:var(--sage)">Available</span>':'<span style="color:var(--rose)">86\'d</span>'}
+      </label>
+      <button onclick="deleteMenuItem(${i})" style="background:none;border:none;cursor:pointer;color:var(--rose);font-size:16px;padding:4px">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function addMenuItem(){
+  menuData.push({id:'m_'+Date.now(),name:'New Item',category:'Coffee',price:100,discount:0,description:'',image:'',available:true});
+  renderMenuEditor();
+}
+
+function deleteMenuItem(i){ menuData.splice(i,1); renderMenuEditor(); }
+
+async function saveMenu(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/menu`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(menuData)});
+    const d=await r.json();
+    if(d.success) toast('Menu saved! AI will use new prices immediately','success');
+    else toast('Error saving menu','error');
+
+  } catch(e) {
+    console.error('[saveMenu]', e);
+    if(typeof toast==='function') toast('saveMenu failed — check console','error');
+  }
+}
+
+// CRM
+async function loadCRM(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/crm`);
+    const crm=await r.json();
+    const tbody=document.getElementById('crm-body');
+    tbody.innerHTML=crm.length?[...crm].sort((a,b)=>b.visits-a.visits).map(c=>`<tr>
+      <td><strong>${esc(c.name||'—')}</strong></td>
+      <td style="font-family:monospace;font-size:12px">${esc(c.phone)}</td>
+      <td>${c.visits||0}</td>
+      <td><span class="badge ${(c.loyaltyTier||'new').toLowerCase().replace(' ','')}">${c.loyaltyTier||'New'}</span></td>
+      <td style="max-width:180px"><div style="display:flex;gap:4px;flex-wrap:wrap">${(c.tags||[]).slice(0,3).map(t=>`<span style="font-size:10px;background:var(--foam);color:var(--coffee);padding:2px 7px;border-radius:12px">${esc(t)}</span>`).join('')}</div></td>
+      <td>${c.averageRating?c.averageRating+'★':'—'}</td>
+      <td style="font-size:12px;color:#aaa">${esc(c.lastActive||'—')}</td>
+    </tr>`).join(''):'<tr><td colspan="7" style="color:#bbb;text-align:center;padding:24px">No customers yet</td></tr>';
+
+  } catch(e) {
+    console.error('[loadCRM]', e);
+    if(typeof toast==='function') toast('loadCRM failed — check console','error');
+  }
+}
+
+async function broadcastCampaign(){
+  try {
+    const tag=document.getElementById('broadcast-tag').value;
+    const msg=document.getElementById('broadcast-msg').value.trim();
+    if(!msg){ toast('Enter a campaign message','error'); return; }
+    socket.emit('trigger_campaign_broadcast',{branchId,campaignText:msg,targetTag:tag,token:localStorage.getItem('cafehq_token')});
+    document.getElementById('broadcast-result').textContent='Sending…';
+
+  } catch(e) {
+    console.error('[broadcastCampaign]', e);
+    if(typeof toast==='function') toast('broadcastCampaign failed — check console','error');
+  }
+}
+socket.on('campaign_broadcast_result',data=>{
+  document.getElementById('broadcast-result').textContent=`✅ Sent to ${data.logs.length} customer(s)`;
+  toast(`Campaign sent to ${data.logs.length} customers`,'success');
+});
+
+// Feedback
+async function loadFeedback(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/feedback`);
+    const feedback=await r.json();
+    const el=document.getElementById('feedback-list');
+    if(!feedback.length){
+      el.innerHTML='<div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-text">No feedback yet</div></div>';
+      return;
+    }
+    el.innerHTML=[...feedback].reverse().map(f=>`
+      <div class="feedback-card">
+        <div class="fb-head">
+          <div>
+            <div class="fb-name">${esc(f.customerName)} ${f.source==='google'?'<span class="badge google">Google</span>':f.source==='web'?'<span class="badge web">Web</span>':''}</div>
+            <div class="stars">${'★'.repeat(f.rating)}${'☆'.repeat(5-f.rating)}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="fb-time">${esc(f.timestamp||'')}</div>
+            ${f.couponCode?`<span style="font-size:11px;background:var(--sage-light);color:var(--sage);padding:2px 8px;border-radius:12px;font-weight:600">${f.couponCode}</span>`:''}
+          </div>
+        </div>
+        <div class="fb-comment">${esc(f.comment)}</div>
+        ${f.managerReply?`<div class="fb-reply"><div class="fb-reply-label">Manager Reply</div>${esc(f.managerReply)}</div>`:''}
+        <div style="display:flex;gap:8px;margin-top:10px">
+          ${!f.managerReply?`<button class="btn sm primary" onclick="openReplyModal('${f.id}','${esc(f.customerName)}',${f.rating},'${esc(f.comment)}')">Reply</button>`:'<button class="btn sm" onclick="openReplyModal(\''+f.id+'\',\''+esc(f.customerName)+'\','+f.rating+',\''+esc(f.comment)+'\')">Edit Reply</button>'}
+        </div>
+      </div>`).join('');
+
+  } catch(e) {
+    console.error('[loadFeedback]', e);
+    if(typeof toast==='function') toast('loadFeedback failed — check console','error');
+  }
+}
+
+function openReplyModal(id, name, rating, comment){
+  currentFeedbackId=id;
+  document.getElementById('reply-feedback-info').innerHTML=`<strong>${esc(name)}</strong> — ${'★'.repeat(rating)}${'☆'.repeat(5-rating)}<br/><span style="color:#666">${esc(comment)}</span>`;
+  document.getElementById('reply-text').value='';
+  document.getElementById('reply-modal').classList.add('open');
+}
+
+async function generateDraft(){
+  try {
+    document.getElementById('reply-text').value='Generating…';
+    const r=await fetch(`/api/businesses/${branchId}/feedback/${currentFeedbackId}/reply-draft`,{method:'POST'});
+    const d=await r.json();
+    document.getElementById('reply-text').value=d.draft||'';
+
+  } catch(e) {
+    console.error('[generateDraft]', e);
+    if(typeof toast==='function') toast('generateDraft failed — check console','error');
+  }
+}
+
+async function submitReply(){
+  try {
+    const reply=document.getElementById('reply-text').value.trim();
+    if(!reply){ toast('Enter a reply','error'); return; }
+    await fetch(`/api/businesses/${branchId}/feedback/${currentFeedbackId}/reply`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reply})});
+    toast('Reply saved','success');
+    closeModal('reply-modal');
+    loadFeedback();
+
+  } catch(e) {
+    console.error('[submitReply]', e);
+    if(typeof toast==='function') toast('submitReply failed — check console','error');
+  }
+}
+
+async function syncGBP(){
+  try{
+    await fetch(`/api/businesses/${branchId}/gbp/link`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({locationId:business.review||'linked'})});
+    const r=await fetch(`/api/businesses/${branchId}/gbp/sync`,{method:'POST'});
+    const d=await r.json();
+    toast(`Synced ${d.addedCount} Google review(s)`,'success');
+    loadFeedback();
+  }catch(e){ toast('Sync failed','error'); }
+}
+
+// AI Campaigns
+async function loadCampaigns(){
+  try {
+    document.getElementById('campaigns-list').innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Analysing CRM with Gemini…</div></div>';
+    const r=await fetch(`/api/businesses/${branchId}/ai-campaign-suggestions`);
+    campaignSuggestions=await r.json();
+    renderCampaigns();
+
+  } catch(e) {
+    console.error('[loadCampaigns]', e);
+    if(typeof toast==='function') toast('loadCampaigns failed — check console','error');
+  }
+}
+
+function renderCampaigns(){
+  const el=document.getElementById('campaigns-list');
+  if(!campaignSuggestions.length){
+    el.innerHTML='<div class="empty-state"><div class="empty-icon">✨</div><div class="empty-text">No suggestions generated yet</div></div>';
+    return;
+  }
+  el.innerHTML=campaignSuggestions.map(s=>`
+    <div class="campaign-row">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
+        <div>
+          <strong style="font-size:13.5px">${esc(s.customerName)}</strong>
+          <span class="badge ${(s.loyaltyTier||'new').toLowerCase().replace(' ','')}" style="margin-left:8px">${s.loyaltyTier||'New'}</span>
+        </div>
+        <span class="badge ${s.status==='approved'?'approved':'pending'}">${s.status}</span>
+      </div>
+      <div class="campaign-psychology">${esc(s.psychology)}</div>
+      <div class="campaign-offer">${esc(s.offerText)}</div>
+      ${s.status==='pending'?`
+        <div class="campaign-actions">
+          <input class="form-input" id="camp-edit-${s.id}" value="${esc(s.offerText)}" style="flex:1;font-size:12.5px"/>
+          <button class="btn sm success" onclick="approveCampaign('${s.id}')">Send ✓</button>
+        </div>`:'<div style="font-size:12px;color:var(--sage)">✅ Sent</div>'}
+    </div>`).join('');
+}
+
+async function approveCampaign(id){
+  try {
+    const input=document.getElementById('camp-edit-'+id);
+    const customOfferText=input?input.value.trim():'';
+    const r=await fetch(`/api/businesses/${branchId}/ai-campaign-suggestions/${id}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customOfferText})});
+    const d=await r.json();
+    if(d.success){ toast('Campaign sent to customer via WhatsApp!','success'); loadCampaigns(); }
+    else toast('Error sending campaign','error');
+
+  } catch(e) {
+    console.error('[approveCampaign]', e);
+    if(typeof toast==='function') toast('approveCampaign failed — check console','error');
+  }
+}
+
+async function triggerAutoPilot(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/autopilot/trigger`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+    const d=await r.json();
+    toast(d.result&&d.result.count?`Auto-pilot sent to ${d.result.count} customer(s)`:'No target customers matched today','success');
+
+  } catch(e) {
+    console.error('[triggerAutoPilot]', e);
+    if(typeof toast==='function') toast('triggerAutoPilot failed — check console','error');
+  }
+}
+
+// Offer Requests
+async function loadOffers(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/offers`);
+    const offers=await r.json();
+    const el=document.getElementById('offers-list');
+    if(!offers.length){
+      el.innerHTML='<div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">No pending offer requests</div></div>';
+      return;
+    }
+    el.innerHTML=[...offers].reverse().map(o=>`
+      <div class="offer-req-row">
+        <div class="offer-req-info">
+          <div class="offer-req-name">${esc(o.customerName||'Customer')} <span style="font-size:11px;color:#aaa;font-weight:400">${esc(o.phone)}</span></div>
+          <div class="offer-req-text">${esc(o.requestText)}</div>
+          <div style="font-size:11px;color:#bbb;margin-top:3px">${esc(o.timestamp)}</div>
+        </div>
+        <span class="badge ${o.status}">${o.status}</span>
+        ${o.status==='pending'?`
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn sm success" onclick="openApproveOffer('${o.id}','${esc(o.customerName)}','${esc(o.requestText)}')">Approve</button>
+            <button class="btn sm danger" onclick="rejectOffer('${o.id}')">Reject</button>
+          </div>`:''}
+      </div>`).join('');
+
+  } catch(e) {
+    console.error('[loadOffers]', e);
+    if(typeof toast==='function') toast('loadOffers failed — check console','error');
+  }
+}
+
+function openApproveOffer(id, name, text){
+  currentOfferId=id;
+  document.getElementById('approve-offer-info').textContent=`${name} requested: "${text}"`;
+  document.getElementById('approve-offer-text').value='Special discount approved! Enjoy 15% off on your next visit 🎁';
+  document.getElementById('approve-offer-modal').classList.add('open');
+}
+
+async function submitApproveOffer(){
+  try {
+    const text=document.getElementById('approve-offer-text').value.trim();
+    await fetch(`/api/businesses/${branchId}/offers/${currentOfferId}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customText:text})});
+    toast('Offer approved and sent!','success');
+    closeModal('approve-offer-modal');
+    loadOffers(); loadOverviewKPIs();
+
+  } catch(e) {
+    console.error('[submitApproveOffer]', e);
+    if(typeof toast==='function') toast('submitApproveOffer failed — check console','error');
+  }
+}
+
+async function rejectOffer(id){
+  try {
+    await fetch(`/api/businesses/${branchId}/offers/${id}/reject`,{method:'POST'});
+    toast('Offer rejected');
+    loadOffers();
+
+  } catch(e) {
+    console.error('[rejectOffer]', e);
+    if(typeof toast==='function') toast('rejectOffer failed — check console','error');
+  }
+}
+
+// Theme selector
+const THEME_META = {
+  espresso:   { label:'Espresso',   dot:'#C9A84C', bg:'#1A0E04', text:'#C9A84C' },
+  ocean:      { label:'Ocean',      dot:'#3B82F6', bg:'#0C1A35', text:'#93C5FD' },
+  forest:     { label:'Forest',     dot:'#16A34A', bg:'#071A0E', text:'#4ADE80' },
+  cherry:     { label:'Cherry',     dot:'#E11D48', bg:'#1A0510', text:'#FB7185' },
+  lavender:   { label:'Lavender',   dot:'#9333EA', bg:'#120826', text:'#C084FC' },
+  terracotta: { label:'Terracotta', dot:'#C2410C', bg:'#1C0A03', text:'#EA580C' },
+  emerald:    { label:'Emerald',    dot:'#059669', bg:'#022C22', text:'#34D399' },
+  midnight:   { label:'Midnight',   dot:'#94A3B8', bg:'#0F172A', text:'#CBD5E1' },
+};
+let selectedTheme = 'espresso';
+
+function loadThemeGrid(current){
+  selectedTheme = current || 'espresso';
+  const grid = document.getElementById('theme-grid');
+  if(!grid) return;
+  grid.innerHTML = Object.entries(THEME_META).map(([key,m])=>`
+    <div onclick="selectTheme('${key}')" id="tc-${key}" style="border:2px solid ${key===selectedTheme?'white':'transparent'};border-radius:11px;padding:8px 6px 6px;cursor:pointer;text-align:center;background:${m.bg};transition:border .18s,transform .15s;">
+      <div style="width:24px;height:24px;border-radius:50%;background:${m.dot};margin:0 auto 4px;border:2px solid rgba(255,255,255,.2)"></div>
+      <div style="font-size:.58rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${m.text}">${m.label}</div>
+    </div>`).join('');
+}
+
+function selectTheme(key){
+  selectedTheme = key;
+  Object.keys(THEME_META).forEach(k=>{
+    const el=document.getElementById('tc-'+k);
+    if(el) el.style.borderColor = k===key ? 'white' : 'transparent';
+  });
+}
+
+async function saveTheme(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/theme`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:selectedTheme})});
+    const d=await r.json();
+    if(d.success){ toast('Theme saved — customers will see the new look!','success'); if(business) business.theme=selectedTheme; }
+    else toast(d.error||'Error saving theme','error');
+
+  } catch(e) {
+    console.error('[saveTheme]', e);
+    if(typeof toast==='function') toast('saveTheme failed — check console','error');
+  }
+}
+
+// Settings
+async function loadSettings(){
+  try {
+    if(!business) return;
+    document.getElementById('s-name').value=business.name||'';
+    loadThemeGrid(business.theme||'espresso');
+    loadWhatsAppSettings();
+    document.getElementById('s-location').value=business.location||'';
+    document.getElementById('s-timings').value=business.timings||'';
+    document.getElementById('s-contact').value=business.contact||'';
+    document.getElementById('s-wifi').value=business.wifi||'';
+    document.getElementById('s-map').value=business.map||'';
+    document.getElementById('s-review').value=business.review||'';
+    const analytics=await(await fetch(`/api/businesses/${branchId}/analytics`)).json();
+    const campaigns=(analytics.settings&&analytics.settings.lowTrafficCampaigns)||[];
+    renderCampaignSettings(campaigns);
+    loadBranchApiKeys();
+
+  } catch(e) {
+    console.error('[loadSettings]', e);
+    if(typeof toast==='function') toast('loadSettings failed — check console','error');
+  }
+}
+
+function renderCampaignSettings(campaigns){
+  const el=document.getElementById('campaign-settings-list');
+  const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  el.innerHTML=campaigns.map((c,i)=>`
+    <div style="display:grid;grid-template-columns:120px 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
+      <select class="form-input" id="camp-day-${i}"><option value="">Day…</option>${DAYS.map(d=>`<option value="${d}" ${c.day===d?'selected':''}>${d}</option>`).join('')}</select>
+      <input class="form-input" id="camp-offer-${i}" value="${esc(c.offer)}"/>
+      <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:var(--rose);font-size:16px">✕</button>
+    </div>`).join('');
+}
+
+function addCampaignRow(){
+  const el=document.getElementById('campaign-settings-list');
+  const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const i=Date.now();
+  const d=document.createElement('div');
+  d.style.cssText='display:grid;grid-template-columns:120px 1fr auto;gap:8px;margin-bottom:8px;align-items:center';
+  d.innerHTML=`<select class="form-input" id="camp-day-${i}"><option value="">Day…</option>${DAYS.map(d=>`<option value="${d}">${d}</option>`).join('')}</select>
+    <input class="form-input" id="camp-offer-${i}" placeholder="Offer text…"/>
+    <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;color:var(--rose);font-size:16px">✕</button>`;
+  el.appendChild(d);
+}
+
+
+// ─── Branch API Keys (Razorpay) ──────────────────────────────────────────────
+async function loadBranchApiKeys() {
+  try {
+    const r = await apiFetch(`/api/businesses/${BIZ}/settings`);
+    if (!r) return;
+    document.getElementById('rzp-key-id').value     = r.razorpay?.keyId     || '';
+    document.getElementById('rzp-key-secret').value = r.razorpay?.keySecret || '';
+  } catch(e) { console.warn('Branch API keys load:', e.message); }
+}
+
+async function saveBranchApiKeys() {
+  const btn = document.getElementById('rzp-save-btn');
+  const msg = document.getElementById('rzp-save-msg');
+  btn.disabled = true; btn.textContent = 'Saving…'; msg.textContent = '';
+  try {
+    const body = {
+      razorpay: {
+        keyId:     document.getElementById('rzp-key-id').value.trim(),
+        keySecret: document.getElementById('rzp-key-secret').value,
+      }
+    };
+    const r = await apiFetch(`/api/businesses/${BIZ}/settings`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (r?.success) {
+      msg.textContent = '✅ Saved'; msg.style.color = '#22c55e';
+      setTimeout(loadBranchApiKeys, 600);
+    } else {
+      msg.textContent = '❌ ' + (r?.error || 'Failed'); msg.style.color = '#ef4444';
+    }
+  } catch(e) {
+    msg.textContent = '❌ Error'; msg.style.color = '#ef4444';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Keys';
+  }
+}
+
+function toggleRzpSecret(btn) {
+  const el = document.getElementById('rzp-key-secret');
+  if (el.type === 'password') { el.type = 'text'; btn.textContent = 'Hide'; }
+  else { el.type = 'password'; btn.textContent = 'Show'; }
+}
+
+async function saveSettings(){
+  try {
+    const payload={
+      name:document.getElementById('s-name').value.trim(),
+      location:document.getElementById('s-location').value.trim(),
+      timings:document.getElementById('s-timings').value.trim(),
+      contact:document.getElementById('s-contact').value.trim(),
+      wifi:document.getElementById('s-wifi').value.trim(),
+      map:document.getElementById('s-map').value.trim(),
+      review:document.getElementById('s-review').value.trim()
+    };
+    const r=await fetch(`/api/businesses/${branchId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(d.id){ business=d; toast('Branch details saved!','success'); await loadBranch(); }
+    else toast('Error saving details','error');
+
+  } catch(e) {
+    console.error('[saveSettings]', e);
+    if(typeof toast==='function') toast('saveSettings failed — check console','error');
+  }
+}
+
+async function saveCampaigns(){
+  try {
+    const rows=document.querySelectorAll('#campaign-settings-list > div');
+    const campaigns=[];
+    rows.forEach(row=>{
+      const sel=row.querySelector('select');
+      const inp=row.querySelector('input');
+      if(sel&&inp&&sel.value&&inp.value.trim()) campaigns.push({day:sel.value,offer:inp.value.trim()});
+    });
+    const r=await fetch(`/api/businesses/${branchId}/campaigns`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lowTrafficCampaigns:campaigns})});
+    const d=await r.json();
+    if(d.success) toast('Campaigns saved!','success');
+    else toast('Error saving campaigns','error');
+
+  } catch(e) {
+    console.error('[saveCampaigns]', e);
+    if(typeof toast==='function') toast('saveCampaigns failed — check console','error');
+  }
+}
+
+async function toggleAutoPilot(){
+  try {
+    autoPilotActive=!autoPilotActive;
+    const toggle=document.getElementById('pilot-toggle');
+    if(toggle) toggle.className='toggle-switch'+(autoPilotActive?' on':'');
+    await fetch(`/api/businesses/${branchId}/autopilot/toggle`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({active:autoPilotActive})});
+    toast('Auto-Pilot '+(autoPilotActive?'enabled':'disabled'),'success');
+
+  } catch(e) {
+    console.error('[toggleAutoPilot]', e);
+    if(typeof toast==='function') toast('toggleAutoPilot failed — check console','error');
+  }
+}
+
+// Chat Simulator
+async function simSend(preset){
+  try {
+    const input=document.getElementById('sim-input');
+    const text=preset||input.value.trim();
+    if(!text) return;
+    if(!preset) input.value='';
+    const phone=document.getElementById('sim-phone').value||'9999999999';
+    const customerName=document.getElementById('sim-name').value||'Test Customer';
+    addSimBubble(text,'user');
+    socket.emit('simulate_chat',{branchId,phone,text,customerName});
+
+  } catch(e) {
+    console.error('[simSend]', e);
+    if(typeof toast==='function') toast('simSend failed — check console','error');
+  }
+}
+
+function addSimBubble(text, sender){
+  const c=document.getElementById('sim-messages');
+  const d=document.createElement('div');
+  d.className='chat-bubble '+(sender==='user'?'user':'bot');
+  d.textContent=text;
+  c.appendChild(d);
+  c.scrollTop=c.scrollHeight;
+}
+
+// ── WhatsApp Cloud API ────────────────────────────────────────────────────────
+function loadWhatsAppSettings() {
+  const base = window.location.origin;
+  const webhookUrl = base + '/api/webhook/whatsapp';
+  const el = document.getElementById('wa-webhook-url');
+  if (el) el.textContent = webhookUrl;
+  // Load saved credentials for this branch
+  fetch(`/api/businesses/${branchId}/whatsapp/status`, { headers: getAuthHeaders() })
+    .then(r => r.json()).then(data => {
+      updateWaStatusUI(data);
+      if (data.configured) {
+        // Show phoneNumberId in input (masked)
+        const cfg = window._waCfg;
+        const vtEl = document.getElementById('wa-verify-token');
+        if (vtEl && data.verifyToken) vtEl.textContent = data.verifyToken;
+      }
+    }).catch(() => {});
+}
+
+function updateWaStatusUI(data) {
+  const dot1 = document.getElementById('wa-dot');
+  const dot2 = document.getElementById('wa-dot-2');
+  const big  = document.getElementById('wa-status-big');
+  const num  = document.getElementById('wa-number');
+  const txt  = document.getElementById('wa-status-text');
+  const isOk = data.configured && data.valid;
+  const color = isOk ? '#22c55e' : data.configured ? '#f59e0b' : '#ccc';
+  [dot1, dot2].forEach(d => { if (d) d.style.background = color; });
+  if (big) big.textContent = isOk ? '✅ Connected — ' + (data.phone || '') : data.configured ? '⚠️ Credentials saved (unverified)' : 'Not configured';
+  if (num) num.textContent = data.phone ? 'Number: ' + data.phone : 'No number linked';
+  if (txt) txt.textContent = isOk ? 'Connected' : data.configured ? 'Configured' : 'Not set';
+}
+
+async function saveWhatsAppConfig() {
+  try {
+    const phoneNumberId = document.getElementById('wa-phone-id').value.trim();
+    const accessToken   = document.getElementById('wa-access-token').value.trim();
+    if (!phoneNumberId || !accessToken) { showToast('Enter Phone Number ID and Access Token', true); return; }
+    const r = await fetch(`/api/businesses/${branchId}/whatsapp/setup`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumberId, accessToken })
+    });
+    const data = await r.json();
+    if (data.success) {
+      showToast('✅ WhatsApp Cloud API configured!');
+      const vtEl = document.getElementById('wa-verify-token');
+      if (vtEl) vtEl.textContent = data.verifyToken;
+      testWhatsAppConfig();
+    } else {
+      showToast(data.error || 'Save failed', true);
+    }
+
+  } catch(e) {
+    console.error('[saveWhatsAppConfig]', e);
+    if(typeof toast==='function') toast('saveWhatsAppConfig failed — check console','error');
+  }
+}
+
+async function testWhatsAppConfig() {
+  try {
+    showToast('Testing credentials…');
+    const r = await fetch(`/api/businesses/${branchId}/whatsapp/status`, { headers: getAuthHeaders() });
+    const data = await r.json();
+    updateWaStatusUI(data);
+    if (data.valid) showToast('✅ WhatsApp API credentials are valid! Bot is live.');
+    else showToast('⚠️ Credentials saved but could not verify with Meta. Check your token.', true);
+
+  } catch(e) {
+    console.error('[testWhatsAppConfig]', e);
+    if(typeof toast==='function') toast('testWhatsAppConfig failed — check console','error');
+  }
+}
+
+// Socket events
+socket.on('whatsapp_state', data => {
+  // Handle both single-branch and multi-branch events
+  if (data.branches) {
+    const branch = data.branches.find(b => b.branchId === branchId);
+    if (branch) updateWaStatusUI({ configured: branch.configured, valid: branch.configured, phone: branch.phone, status: branch.status });
+  } else if (!data.branchId || data.branchId === branchId) {
+    updateWaStatusUI(data);
+  }
+});
+
+socket.on('inbound_chat', data=>{
+  if(data.branchId!==branchId) return;
+  if(data.sender==='ai') addSimBubble(data.text,'bot');
+  else {
+    const sender = (data.message && data.message.from) ? data.message.from.replace('@c.us','').replace(/^91/,'') : 'Customer';
+    const txt = (data.message && (data.message.body||data.message.text||'New message')) || 'New message';
+    showBrowserNotif('💬 WhatsApp Message', sender + ': ' + txt.slice(0,80), 'wa_' + sender);
+  }
+});
+
+socket.on('reservation_update', data=>{
+  if(data.branchId!==branchId) return;
+  loadOverviewKPIs();
+  if(document.getElementById('tab-reservations')&&document.getElementById('tab-reservations').style.display!=='none') loadReservations();
+  // Notify for brand-new reservations (status pending)
+  if(data.reservations){
+    const newest = [...data.reservations].reverse().find(r=>r.status==='pending');
+    if(newest) showBrowserNotif('\ud83d\uddd3\ufe0f New Reservation', newest.name + ' — ' + newest.guests + ' guests on ' + newest.datetime, 'reservation');
+  }
+});
+socket.on('crm_update', data=>{ if(data.branchId===branchId){ /* refresh if tab active */ }});
+socket.on('feedback_update', data=>{ if(data.branchId===branchId){ loadFeedback(); }});
+socket.on('offers_update', data=>{ if(data.branchId===branchId){ loadOffers(); }});
+socket.on('new_offer_request', data=>{ if(data.branchId!==branchId) return; toast('\U0001F3F7\ufe0f New offer request received!'); loadOffers(); loadOverviewKPIs(); showBrowserNotif('\U0001F3F7\ufe0f Offer Request', 'A customer has requested a special offer!', 'offer'); });
+
+// Modal helpers
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
+
+// Init
+loadBranch();
+
+// ════════════════════════════════ ORDERS & REVENUE ════════════════════════════
+let revenueChartInstance = null;
+
+async function loadOrders() {
+  const filter = document.getElementById('order-filter')?.value || '';
+  const url = '/api/businesses/' + branchId + '/orders' + (filter ? '?status=' + filter : '');
+  try {
+    const orders = await fetch(url).then(r => r.json());
+    renderOrdersList(orders);
+    loadRevenue();
+  } catch(e) { console.error('Orders load error', e); }
+}
+
+function renderOrdersList(orders) {
+  const container = document.getElementById('orders-list');
+  if (!container) return;
+  if (!orders.length) {
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:#bbb;font-size:14px">No orders yet.<br><span style="font-size:12px">Orders placed from the customer portal appear here.</span></div>';
+    return;
+  }
+  const statusFlow = ['pending','confirmed','preparing','ready','served','cancelled'];
+  container.innerHTML = orders.map(o => {
+    const badge = '<span class="order-badge badge-' + o.status + '">' + o.status + '</span>';
+    const items = (o.items||[]).map(i => i.name + ' x' + i.qty).join(', ');
+    const dt = new Date(o.created_at).toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'});
+    const idx = statusFlow.indexOf(o.status);
+    const nextStatuses = idx >= 0 ? statusFlow.slice(idx+1).filter(s=>s!=='cancelled') : [];
+    const btns = nextStatuses.map(s =>
+      '<button class="status-btn" onclick="updateOrderStatus(\''+o.id+'\',\''+s+'\')">'+s.charAt(0).toUpperCase()+s.slice(1)+'</button>'
+    ).join('');
+    const cancelBtn = (o.status!=='served'&&o.status!=='cancelled')
+      ? '<button class="status-btn" style="color:#c0392b;border-color:#f5c6cb" onclick="updateOrderStatus(\''+o.id+'\',\'cancelled\')">Cancel</button>' : '';
+    const tableInfo = (o.table_no||o.tableNo) ? ' · Table ' + (o.table_no||o.tableNo) : '';
+    return '<div class="order-card" id="ocard-'+o.id+'">'+
+      '<div class="order-card-top">'+
+        '<div>'+
+          '<div class="order-id">#'+o.id.slice(-6).toUpperCase()+' — '+(o.customer_name||o.customerName)+'</div>'+
+          '<div class="order-meta">'+dt+' · '+(o.order_type||'dine_in')+tableInfo+' · '+(o.payment_method||'cash')+'</div>'+
+        '</div>'+badge+
+      '</div>'+
+      '<div class="order-items-list">'+items+'</div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'+
+        '<div class="order-total">₹'+(o.total||0).toFixed(0)+' <span style="font-size:11px;color:#999;font-family:var(--font-body)">('+( o.payment_status||'pending')+')</span></div>'+
+        '<div class="status-btns">'+btns+cancelBtn+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  const pending = orders.filter(o=>o.status==='pending'||o.status==='preparing').length;
+  const badge = document.getElementById('orders-badge');
+  if (badge) { badge.style.display = pending ? 'inline' : 'none'; badge.textContent = pending; }
+}
+
+async function updateOrderStatus(orderId, status) {
+  try {
+    await fetch('/api/businesses/' + branchId + '/orders/' + orderId + '/status', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({status})
+    });
+    loadOrders();
+    if (status === 'served') showFeedbackPrompt(orderId);
+  } catch(e) { alert('Could not update: ' + e.message); }
+}
+
+// ════════════════════════════════ MANUAL ORDER ENTRY ════════════════════════════
+let _noMenu = [], _noCart = {};
+async function openNewOrderModal() {
+  document.getElementById('no-name').value = '';
+  document.getElementById('no-phone').value = '';
+  document.getElementById('no-table').value = '';
+  document.getElementById('no-notes').value = '';
+  document.getElementById('no-type').value = 'dine_in';
+  document.getElementById('no-payment').value = 'cash';
+  document.getElementById('no-result').style.display = 'none';
+  _noCart = {};
+  document.getElementById('new-order-modal').classList.add('open');
+  const list = document.getElementById('no-items-list');
+  list.innerHTML = '<div style="padding:16px;text-align:center;color:#bbb;font-size:13px">Loading menu…</div>';
+  try {
+    _noMenu = await fetch('/api/businesses/' + branchId + '/menu').then(r=>r.json());
+    if (!Array.isArray(_noMenu)) _noMenu = [];
+    renderNoItems();
+    noUpdateTotal();
+  } catch(e) {
+    list.innerHTML = '<div style="padding:16px;text-align:center;color:#c0392b;font-size:13px">Could not load menu</div>';
+  }
+}
+function closeNewOrderModal() { document.getElementById('new-order-modal').classList.remove('open'); }
+function renderNoItems() {
+  const list = document.getElementById('no-items-list');
+  if (!_noMenu.length) { list.innerHTML = '<div style="padding:16px;text-align:center;color:#bbb;font-size:13px">No menu items found</div>'; return; }
+  list.innerHTML = _noMenu.map(m => {
+    const qty = _noCart[m.id] || 0;
+    const price = m.discount ? (m.price*(1-m.discount/100)) : m.price;
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border)">'+
+      '<div><div style="font-size:13.5px;color:var(--espresso)">'+m.name+'</div><div style="font-size:11px;color:#aaa">₹'+price.toFixed(0)+(m.discount?' (was ₹'+m.price+')':'')+'</div></div>'+
+      '<div style="display:flex;align-items:center;gap:8px">'+
+        '<button class="btn sm" onclick="noChangeQty(\''+m.id+'\',-1)" style="width:28px;padding:4px 0">−</button>'+
+        '<span style="min-width:18px;text-align:center;font-size:13px">'+qty+'</span>'+
+        '<button class="btn sm" onclick="noChangeQty(\''+m.id+'\',1)" style="width:28px;padding:4px 0">+</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+function noChangeQty(id, delta) {
+  const cur = _noCart[id] || 0;
+  const next = Math.max(0, cur + delta);
+  if (next === 0) delete _noCart[id]; else _noCart[id] = next;
+  renderNoItems();
+  noUpdateTotal();
+}
+function noUpdateTotal() {
+  let total = 0;
+  Object.keys(_noCart).forEach(id => {
+    const m = _noMenu.find(x=>String(x.id)===String(id));
+    if (!m) return;
+    const price = m.discount ? (m.price*(1-m.discount/100)) : m.price;
+    total += price * _noCart[id];
+  });
+  document.getElementById('no-total').textContent = '₹' + Math.round(total*1.05);
+}
+async function submitNewOrder() {
+  const name = document.getElementById('no-name').value.trim();
+  const items = Object.keys(_noCart).map(id => ({ id, qty: _noCart[id] }));
+  const result = document.getElementById('no-result');
+  result.style.display = 'none';
+  if (!name) { result.style.display='block'; result.style.background='#fdecea'; result.style.color='#c0392b'; result.textContent='Please enter a customer name.'; return; }
+  if (!items.length) { result.style.display='block'; result.style.background='#fdecea'; result.style.color='#c0392b'; result.textContent='Please select at least one item.'; return; }
+  const btn = document.getElementById('no-submit-btn');
+  btn.disabled = true; btn.textContent = 'Placing…';
+  try {
+    const res = await fetch('/api/businesses/' + branchId + '/orders', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        customerName: name,
+        customerPhone: document.getElementById('no-phone').value.trim(),
+        tableNo: document.getElementById('no-table').value.trim(),
+        orderType: document.getElementById('no-type').value,
+        paymentMethod: document.getElementById('no-payment').value,
+        notes: document.getElementById('no-notes').value.trim(),
+        items
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to place order');
+    closeNewOrderModal();
+    loadOrders();
+  } catch(e) {
+    result.style.display='block'; result.style.background='#fdecea'; result.style.color='#c0392b'; result.textContent='❌ ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Place Order';
+  }
+}
+
+// ════════════════════════════════ POST-ORDER FEEDBACK ═══════════════════════════
+let _fbOrderId = null, _fbRating = 5;
+function showFeedbackPrompt(orderId) {
+  _fbOrderId = orderId; _fbRating = 5;
+  renderFbStars();
+  const c = document.getElementById('fb-comment'); if (c) c.value = '';
+  document.getElementById('feedback-modal').classList.add('open');
+}
+function closeFeedbackModal() { document.getElementById('feedback-modal').classList.remove('open'); _fbOrderId = null; }
+function renderFbStars() {
+  const wrap = document.getElementById('fb-stars');
+  if (!wrap) return;
+  wrap.innerHTML = [1,2,3,4,5].map(i => '<span onclick="setFbRating('+i+')" style="cursor:pointer;color:'+(i<=_fbRating?'#f5b942':'#ddd')+'">★</span>').join('');
+}
+function setFbRating(r) { _fbRating = r; renderFbStars(); }
+async function submitFeedback() {
+  if (!_fbOrderId) { closeFeedbackModal(); return; }
+  try {
+    await fetch('/api/businesses/' + branchId + '/orders/' + _fbOrderId + '/feedback', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ rating: _fbRating, comment: (document.getElementById('fb-comment')?.value||'').trim() })
+    });
+  } catch(e) { console.error('Feedback submit error', e); }
+  closeFeedbackModal();
+}
+
+async function loadRevenue() {
+  try {
+    const data = await fetch('/api/businesses/' + branchId + '/revenue').then(r=>r.json());
+    const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    // Revenue is admin-only — managers see order counts only
+    if (data.adminOnly) {
+      const c = data.counts || {};
+      set('kpi-today-orders',  c.today_orders  || 0);
+      set('kpi-week-orders',   c.week_orders   || 0);
+      set('kpi-month-orders',  c.month_orders  || 0);
+      set('kpi-active', c.active_orders || 0);
+      const topEl = document.getElementById('top-items-list');
+      if (topEl) topEl.innerHTML = '<div style="color:#bbb;font-size:13px">Revenue data is admin-only.</div>';
+      const canvas = document.getElementById('revenue-chart');
+      if (canvas) { const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#ddd'; ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.fillText('Revenue visible to admin only', canvas.width/2, 70); }
+      return;
+    }
+    const s = data.stats || {};
+    set('kpi-today-orders',  (s.today_orders||0));
+    set('kpi-week-orders',   (s.week_orders||0));
+    set('kpi-month-orders',  (s.month_orders||0));
+    set('kpi-active', (s.pending_count||0) + (s.preparing_count||0));
+
+    const topEl = document.getElementById('top-items-list');
+    if (topEl && data.topItems && data.topItems.length) {
+      const max = data.topItems[0].qty || 1;
+      topEl.innerHTML = data.topItems.map((item,i) =>
+        '<div class="top-item-row">'+
+          '<span style="font-size:12px;min-width:20px;color:#999">'+(i+1)+'</span>'+
+          '<span style="font-size:13px;flex:none;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.name+'</span>'+
+          '<div class="top-item-bar-wrap"><div class="top-item-bar" style="width:'+Math.round((item.qty/max)*100)+'%"></div></div>'+
+          '<span style="font-size:12px;color:var(--caramel);min-width:28px;text-align:right">'+item.qty+'</span>'+
+        '</div>'
+      ).join('');
+    } else if (topEl) {
+      topEl.innerHTML = '<div style="color:#bbb;font-size:13px">No sales data yet.</div>';
+    }
+    renderRevenueChart(data.daily || []);
+  } catch(e) { console.error('Revenue error', e); }
+}
+
+function renderRevenueChart(daily) {
+  const canvas = document.getElementById('revenue-chart');
+  if (!canvas) return;
+  if (typeof Chart === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+    s.onload = () => renderRevenueChart(daily);
+    document.head.appendChild(s);
+    return;
+  }
+  if (revenueChartInstance) { revenueChartInstance.destroy(); revenueChartInstance = null; }
+  if (!daily.length) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = '#bbb'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No revenue data yet', canvas.width/2, 60);
+    return;
+  }
+  const labels = daily.map(d => {
+    const dt = new Date(d.day + 'T00:00:00');
+    return dt.toLocaleDateString('en-IN',{month:'short',day:'numeric'});
+  });
+  revenueChartInstance = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Revenue', data: daily.map(d=>d.revenue),
+        backgroundColor:'rgba(196,127,58,0.25)', borderColor:'#C47F3A',
+        borderWidth:1.5, borderRadius:3 }]
+    },
+    options: {
+      responsive:true, plugins:{legend:{display:false}},
+      scales:{
+        y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'},ticks:{callback:v=>'\u20b9'+v,font:{size:10}}},
+        x:{grid:{display:false},ticks:{font:{size:9}}}
+      }
+    }
+  });
+}
+
+socket.on('new_order', function(data) {
+  if (data.businessId !== branchId) return;
+  const badge = document.getElementById('orders-badge');
+  if (badge) { badge.style.display='inline'; badge.textContent=parseInt(badge.textContent||'0')+1; }
+  if (document.getElementById('tab-orders') && document.getElementById('tab-orders').style.display !== 'none') loadOrders();
+  const cname = (data.order && (data.order.customer_name||data.order.customerName)) || 'Customer';
+  const amt = parseFloat((data.order && data.order.total)||0).toFixed(0);
+  if (typeof showToast === 'function') showToast('New order from ' + cname + ' — ₹' + amt);
+  showBrowserNotif('🛒 New Order!', cname + ' placed an order — ₹' + amt, 'new_order');
+});
+
+socket.on('order_status_update', function(data) {
+  if (data.businessId !== branchId) return;
+  if (document.getElementById('tab-orders') && document.getElementById('tab-orders').style.display !== 'none') loadOrders();
+});
+
+// ── LOYALTY TAB ──────────────────────────────────────────────────────────────
+async function loadLoyalty() {
+  try {
+    const [lbRes, bdRes] = await Promise.all([
+      fetch('/api/businesses/' + branchId + '/loyalty/leaderboard'),
+      fetch('/api/businesses/' + branchId + '/loyalty/birthdays')
+    ]);
+    const leaderboard = await lbRes.json();
+    const birthdays   = await bdRes.json();
+
+    renderLeaderboard(leaderboard);
+    renderBirthdays(birthdays);
+    updateLoyaltyKPIs(leaderboard, birthdays);
+
+    // recent activity — pull from top 20 leaderboard members' history
+    loadLoyaltyActivity();
+    loadReviewClaims();
+  } catch(e) { console.error('loadLoyalty error:', e); }
+}
+
+function updateLoyaltyKPIs(leaderboard, birthdays) {
+  const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('lkpi-members',   leaderboard.length);
+  set('lkpi-points',    leaderboard.reduce((s,r)=>s+(r.points||0),0).toLocaleString('en-IN'));
+  set('lkpi-redeemed',  leaderboard.reduce((s,r)=>s+(r.redeemed_stamps||0),0));
+  set('lkpi-birthdays', birthdays.length);
+}
+
+const TIER_COLORS = { new:'#888', regular:'#4A9CC5', vip:'#C47F3A', elite:'#C9A84C' };
+function tierBadge(tier) {
+  const t = (tier||'new').toLowerCase();
+  const c = TIER_COLORS[t] || '#888';
+  return `<span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:${c}22;color:${c};border:1px solid ${c}44">${tier||'New'}</span>`;
+}
+
+function renderLeaderboard(rows) {
+  const tbody = document.getElementById('loyalty-leaderboard');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="padding:32px;text-align:center;color:#666">No members yet</td></tr>';
+    return;
+  }
+  const medals = ['🥇','🥈','🥉'];
+  tbody.innerHTML = rows.slice(0,20).map((r,i) => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.15s" onmouseover="this.style.background='rgba(196,127,58,0.06)'" onmouseout="this.style.background=''">
+      <td style="padding:10px 16px;color:#888;font-family:'Cormorant Garamond',serif;font-size:16px">${medals[i]||i+1}</td>
+      <td style="padding:10px 16px">
+        <div style="font-weight:500;color:#e0e0e0">${r.name||'Guest'}</div>
+        <div style="font-size:11px;color:#666">${r.phone||''}</div>
+      </td>
+      <td style="padding:10px 16px">${tierBadge(r.tier)}</td>
+      <td style="padding:10px 16px;text-align:right;color:var(--caramel);font-family:'Cormorant Garamond',serif;font-size:18px">${(r.points||0).toLocaleString('en-IN')}</td>
+      <td style="padding:10px 16px;text-align:right;color:#aaa;font-size:13px">${r.stamps||0} ☕</td>
+    </tr>`).join('');
+}
+
+function renderBirthdays(rows) {
+  const tbody = document.getElementById('loyalty-birthdays');
+  if (!tbody) return;
+  document.getElementById('lkpi-birthdays').textContent = rows.length;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:32px;text-align:center;color:#666">No upcoming birthdays in next 7 days</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const d = new Date(r.birthday);
+    const label = (d.getDate()).toString().padStart(2,'0') + ' ' + d.toLocaleString('en-IN',{month:'short'});
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+      <td style="padding:10px 16px">
+        <div style="font-weight:500;color:#e0e0e0">${r.name||'Guest'}</div>
+      </td>
+      <td style="padding:10px 16px;color:#aaa;font-size:13px">${r.phone||''}</td>
+      <td style="padding:10px 16px">
+        <span style="background:rgba(201,168,76,0.12);color:var(--caramel);padding:2px 10px;border-radius:10px;font-size:12px">🎂 ${label}</span>
+      </td>
+      <td style="padding:10px 16px;text-align:right">
+        <button class="btn sm primary" onclick="sendSingleBday('${r.phone}','${(r.name||'Guest').replace(/'/g,"\'")}')">
+          <svg width="11" height="11" fill="currentColor" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Wish
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadLoyaltyActivity() {
+  try {
+    const res = await fetch('/api/businesses/' + branchId + '/loyalty/activity');
+    if (!res.ok) return;
+    const rows = await res.json();
+    const tbody = document.getElementById('loyalty-activity');
+    if (!tbody || !rows.length) { if(tbody) tbody.innerHTML='<tr><td colspan="4" style="padding:24px;text-align:center;color:#666">No activity yet</td></tr>'; return; }
+    const typeColor = { earn:'#7ECF7E', redeem_stamps:'#C47F3A', redeem_points:'#C47F3A', adjust:'#4A9CC5', stamp:'#C9A84C' };
+    tbody.innerHTML = rows.slice(0,30).map(r => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+        <td style="padding:8px 16px;color:#e0e0e0">${r.customer_name||r.phone||'—'}</td>
+        <td style="padding:8px 16px"><span style="color:${typeColor[r.type]||'#aaa'};font-size:12px;text-transform:capitalize">${r.type||''}</span></td>
+        <td style="padding:8px 16px;text-align:right;color:var(--caramel);font-family:'Cormorant Garamond',serif;font-size:15px">${r.type==='stamp'?(r.amount+' ☕'):(r.amount>0?'+':'')+r.amount+' pts'}</td>
+        <td style="padding:8px 16px;color:#666;font-size:12px">${r.note||''}</td>
+      </tr>`).join('');
+  } catch(e) {}
+}
+
+async function sendBirthdayCampaign() {
+  const btn = document.getElementById('btn-bday-campaign');
+  const msg = document.getElementById('bday-campaign-msg');
+  if (!btn || !msg) return;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  msg.textContent = '';
+  try {
+    const res = await fetch('/api/businesses/' + branchId + '/loyalty/birthday-campaign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
+    const data = await res.json();
+    msg.textContent = data.message || ('Sent to ' + (data.sent||0) + ' customers');
+    msg.style.color = '#7ECF7E';
+    loadLoyalty();
+  } catch(e) { msg.textContent = 'Error: ' + e.message; msg.style.color = '#E84545'; }
+  finally { btn.disabled=false; btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> Send WhatsApp Wishes'; }
+}
+
+async function sendSingleBday(phone, name) {
+  const msg = document.getElementById('bday-campaign-msg');
+  if (msg) { msg.textContent = 'Sending to ' + name + '…'; msg.style.color='#C9A84C'; }
+  try {
+    const res = await fetch('/api/businesses/' + branchId + '/loyalty/birthday-campaign', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone })
+    });
+    const data = await res.json();
+    if (msg) { msg.textContent = data.message || 'Sent!'; msg.style.color = '#7ECF7E'; }
+  } catch(e) { if(msg) { msg.textContent='Error: '+e.message; msg.style.color='#E84545'; } }
+}
+
+async function adjustPoints() {
+  const phone  = (document.getElementById('adj-phone')||{}).value?.trim();
+  const points = parseInt((document.getElementById('adj-points')||{}).value || '0');
+  const reason = (document.getElementById('adj-reason')||{}).value?.trim() || 'Manual adjustment';
+  const msgEl  = document.getElementById('adj-msg');
+  if (!phone || isNaN(points) || points === 0) { if(msgEl) { msgEl.textContent='Please enter phone and a non-zero point value'; msgEl.style.color='#E84545'; } return; }
+  if(msgEl) { msgEl.textContent='Applying…'; msgEl.style.color='#C9A84C'; }
+  try {
+    const res = await fetch('/api/businesses/' + branchId + '/loyalty/award', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, points, note: reason })
+    });
+    const data = await res.json();
+    if(msgEl) { msgEl.textContent = (points > 0 ? '+' : '') + points + ' pts applied. New balance: ' + (data.card?.points || '?') + ' pts'; msgEl.style.color='#7ECF7E'; }
+    loadLoyalty();
+    // clear inputs
+    ['adj-phone','adj-points','adj-reason'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  } catch(e) { if(msgEl) { msgEl.textContent='Error: '+e.message; msgEl.style.color='#E84545'; } }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ══════════════ GOOGLE REVIEW CLAIMS ════════════════════════════════════════
+async function loadReviewClaims() {
+  const tbody = document.getElementById('review-claims-tbody');
+  const badge = document.getElementById('claims-badge');
+  if (!tbody) return;
+  try {
+    const res = await fetch('/api/businesses/' + branchId + '/google-review/claims');
+    const claims = await res.json();
+    const pending = claims.filter(c => c.status === 'pending');
+    if (badge) {
+      badge.textContent = pending.length + ' Pending';
+      badge.style.display = pending.length > 0 ? '' : 'none';
+    }
+    if (!claims.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="padding:24px;text-align:center;color:#666;font-size:13px">No review claims yet.</td></tr>';
+      return;
+    }
+    const statusStyle = {
+      pending:  'background:#E8C96A22;color:#E8C96A',
+      approved: 'background:#7ECF7E22;color:#7ECF7E',
+      rejected: 'background:#E8454522;color:#E84545'
+    };
+    tbody.innerHTML = [...claims].reverse().map(c => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+        <td style="padding:11px 14px">
+          <div style="font-weight:600">${esc(c.customerName)}</div>
+          <div style="font-size:11px;color:#888">+91${esc(c.phone)}</div>
+        </td>
+        <td style="padding:11px 14px;font-weight:600;color:var(--accent)">${esc(c.reviewerName)}</td>
+        <td style="padding:11px 14px;font-size:12px;color:#888">${new Date(c.submittedAt).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}</td>
+        <td style="padding:11px 14px">
+          <span style="font-size:11px;padding:3px 10px;border-radius:100px;font-weight:700;${statusStyle[c.status]||''}">
+            ${c.status.charAt(0).toUpperCase()+c.status.slice(1)}
+          </span>
+          ${c.rejectReason ? '<div style="font-size:10px;color:#888;margin-top:3px">'+esc(c.rejectReason)+'</div>' : ''}
+        </td>
+        <td style="padding:11px 14px;white-space:nowrap">
+          ${c.status === 'pending' ? `
+            <a href="${business && business.review ? business.review : '#'}" target="_blank"
+               class="btn sm" style="font-size:11px;text-decoration:none;margin-right:4px">Check Google</a>
+            <button class="btn sm primary" style="font-size:11px;margin-right:4px"
+              onclick="approveReviewClaim('${c.id}')">✓ Approve</button>
+            <button class="btn sm" style="font-size:11px;color:#E84545;border-color:#E84545"
+              onclick="rejectReviewClaim('${c.id}')">✗ Reject</button>
+          ` : '—'}
+        </td>
+      </tr>`).join('');
+  } catch(e) {
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;text-align:center;color:#E84545">'+e.message+'</td></tr>';
+  }
+}
+
+async function approveReviewClaim(claimId) {
+  if (!confirm('Approve this Google review and award +100 points to the customer?')) return;
+  try {
+    const res  = await fetch('/api/businesses/'+branchId+'/google-review/'+claimId+'/approve', { method:'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast('✅ Approved! +100 points awarded and customer notified via WhatsApp.', 'success');
+    loadReviewClaims();
+    loadLoyalty();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function rejectReviewClaim(claimId) {
+  const reason = prompt('Reason for rejection (sent to customer):', 'Review not found on Google');
+  if (reason === null) return;
+  try {
+    const res  = await fetch('/api/businesses/'+branchId+'/google-review/'+claimId+'/reject', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ reason: reason || 'Review not found' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast('Claim rejected. Customer has been notified.', '');
+    loadReviewClaims();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+// Socket: live badge update when new claim comes in
+socket.on('google_review_claim', data => {
+  if (data.branchId !== branchId) return;
+  const badge = document.getElementById('claims-badge');
+  if (badge) {
+    const cur = parseInt(badge.textContent) || 0;
+    badge.textContent = (cur + 1) + ' Pending';
+    badge.style.display = '';
+  }
+  // Reload if loyalty tab is open
+  if (document.getElementById('tab-loyalty') && document.getElementById('tab-loyalty').style.display !== 'none') {
+    loadReviewClaims();
+  }
+});
+
+// ══════════════ AGENCY CLIENTS — Phase 6 ═══════════════════════════════════
+const STATUS_COLORS = { trial:'#E8C96A', active:'#7ECF7E', paused:'#aaa', cancelled:'#E84545' };
+const STATUS_LABELS = { trial:'Trial', active:'Active', paused:'Paused', cancelled:'Cancelled' };
+
+function isAgencyAdmin() {
+  // Show clients tab for branchId 'agency' OR when there are multiple businesses
+  return branchId === 'agency' || (window._allBusinesses && window._allBusinesses.length > 1);
+}
+
+async function loadClients() {
+  const grid = document.getElementById('branch-cards');
+  if (!grid) return;
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#bbb">Loading…</div>';
+  try {
+    const res  = await fetch('/api/agency/clients');
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('Unexpected response');
+
+    // KPIs
+    const kpiSet = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    kpiSet('ac-total',   data.length);
+    kpiSet('ac-active',  data.filter(c=>c.subscriptionStatus==='active').length + ' / ' + data.filter(c=>c.subscriptionStatus==='trial').length);
+    kpiSet('ac-revenue', '₹' + Math.round(data.reduce((s,c)=>s+(c.revenue||0),0)).toLocaleString('en-IN'));
+    kpiSet('ac-expiring', data.filter(c=>c.daysLeft!==null&&c.daysLeft<=7).length);
+
+    if (!data.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#bbb">No branches yet. <a href="/onboard" target="_blank" style="color:var(--caramel)">Onboard your first →</a></div>';
+      return;
+    }
+
+    const EMOJI = ['☕','🏠','🍵','🧁','🍰','🥐','🍮','🫖','🥤','🍫'];
+    const STATUS_C = { active:'#7a9e7e', trial:'#c47f3a', paused:'#aaa', offline:'#c4616a' };
+    const STATUS_L = { active:'Active', trial:'Trial', paused:'Paused', offline:'Offline' };
+
+    grid.innerHTML = data.map((b, idx) => {
+      const status  = b.subscriptionStatus || 'active';
+      const sColor  = STATUS_C[status] || '#aaa';
+      const sLabel  = STATUS_L[status] || status;
+      const color   = b.brandColor || '#c47f3a';
+      const emoji   = EMOJI[idx % EMOJI.length];
+
+      // Trial progress bar
+      let trialHtml = '';
+      if (status === 'trial' && b.trialEndsAt) {
+        const daysLeft  = b.daysLeft || 0;
+        const pctUsed   = Math.min(100, Math.round(((30 - daysLeft) / 30) * 100));
+        const barColor  = daysLeft <= 5 ? 'var(--rose)' : 'var(--caramel)';
+        trialHtml = `<div style="padding:8px 16px 0;display:flex;align-items:center;gap:8px">
+          <div style="flex:1;background:var(--foam);border-radius:4px;height:4px">
+            <div style="width:${pctUsed}%;height:4px;border-radius:4px;background:${barColor}"></div>
+          </div>
+          <span style="font-size:10px;color:#aaa;white-space:nowrap">${daysLeft<=0?'Expired':daysLeft+'d left'}</span>
+        </div>`;
+      }
+
+      return `<div style="background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow='0 4px 20px rgba(44,26,14,0.12)'" onmouseout="this.style.boxShadow=''">
+        <!-- Card header -->
+        <div style="padding:16px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px">
+          <div style="width:38px;height:38px;border-radius:10px;background:${color}18;border:1.5px solid ${color}33;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${emoji}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--font-display);font-size:15px;color:var(--espresso);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name||b.id)}</div>
+            <div style="font-size:11px;color:#aaa;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.location||b.id)}</div>
+          </div>
+          <span style="background:${sColor}22;color:${sColor};font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:12px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">${sLabel}</span>
+        </div>
+
+        <!-- Stats row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border)">
+          <div style="padding:10px;text-align:center;border-right:1px solid var(--border)">
+            <div style="font-family:var(--font-display);font-size:17px;color:var(--espresso)">${b.orders||0}</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:#bbb;margin-top:1px">Orders</div>
+          </div>
+          <div style="padding:10px;text-align:center;border-right:1px solid var(--border)">
+            <div style="font-family:var(--font-display);font-size:17px;color:var(--espresso)">₹${Math.round((b.revenue||0)/1000)}k</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:#bbb;margin-top:1px">Revenue</div>
+          </div>
+          <div style="padding:10px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:17px;color:var(--espresso)">${b.onboardedAt?Math.floor((Date.now()-new Date(b.onboardedAt))/86400000)+'d':'—'}</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:#bbb;margin-top:1px">Age</div>
+          </div>
+        </div>
+
+        ${trialHtml}
+
+        <!-- Action buttons -->
+        <div style="padding:12px 14px;display:flex;gap:7px">
+          <a href="/manager/${b.id}" target="_blank" style="flex:2;text-align:center;padding:8px 6px;background:var(--espresso);color:#fff;border-radius:9px;font-size:12px;font-weight:600;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">📊 Dashboard</a>
+          <a href="/portal/${b.id}" target="_blank" style="flex:1;text-align:center;padding:8px 4px;background:rgba(196,127,58,0.08);color:var(--caramel);border:1px solid rgba(196,127,58,0.2);border-radius:9px;font-size:11.5px;font-weight:500;text-decoration:none" onmouseover="this.style.background='rgba(196,127,58,0.18)'" onmouseout="this.style.background='rgba(196,127,58,0.08)'">🔑 Portal</a>
+          <a href="/kitchen.html?branch=${b.id}" target="_blank" style="flex:1;text-align:center;padding:8px 4px;background:rgba(74,144,196,0.1);color:var(--sky);border:1px solid rgba(74,144,196,0.25);border-radius:9px;font-size:11.5px;font-weight:500;text-decoration:none" onmouseover="this.style.background='rgba(74,144,196,0.2)'" onmouseout="this.style.background='rgba(74,144,196,0.1)'">🍳 Kitchen</a>
+          ${status !== 'active'
+            ? `<button onclick="setClientStatus('${b.id}','active')" style="flex:1;padding:8px 4px;background:rgba(122,158,126,0.1);color:var(--sage);border:1px solid rgba(122,158,126,0.25);border-radius:9px;font-size:11px;font-weight:600;cursor:pointer">✓ Activate</button>`
+            : `<button onclick="setClientStatus('${b.id}','paused')" style="flex:1;padding:8px 4px;background:rgba(196,97,106,0.08);color:var(--rose);border:1px solid rgba(196,97,106,0.2);border-radius:9px;font-size:11px;font-weight:600;cursor:pointer">⏸ Pause</button>`}
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    if(grid) grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--rose)">Error: ${e.message}</div>`;
+  }
+}
+
+async function setClientStatus(clientId, status) {
+  try {
+    await fetch('/api/agency/clients/' + clientId + '/status', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscriptionStatus: status })
+    });
+    toast('Status updated to ' + status, 'success');
+    loadClients();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+
+function sendWhatsAppToClient(phone, cafeName) {
+  const msg = encodeURIComponent('Hi! Following up on your Zordic California subscription for ' + cafeName + '.');
+  window.open('https://wa.me/91' + phone.replace(/\D/g,'').slice(-10) + '?text=' + msg, '_blank');
+}
+
+// Show clients nav if there are multiple branches
+(function checkAgencyView() {
+  fetch('/api/agency/clients').then(r => r.json()).then(data => {
+    window._allBusinesses = data;
+    if (data.length > 1 || branchId === 'agency') {
+      const navBtn = document.getElementById('nav-clients');
+      if (navBtn) navBtn.style.display = '';
+    }
+  }).catch(()=>{});
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+// ── Walk-in Customer Registration ────────────────────────────────────────────
+function openWalkinModal() {
+  resetWalkinForm();
+  document.getElementById('walkin-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('wi-name').focus(), 80);
+}
+
+function closeWalkinModal() {
+  document.getElementById('walkin-modal').style.display = 'none';
+}
+
+function resetWalkinForm() {
+  ['wi-name','wi-phone','wi-birthday','wi-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const res = document.getElementById('wi-result');
+  res.style.display = 'none';
+  res.textContent = '';
+  document.getElementById('wi-submit-btn').style.display = '';
+  document.getElementById('wi-register-another').style.display = 'none';
+  document.getElementById('wi-spinner').style.display = 'none';
+}
+
+async function submitWalkin() {
+  const name    = document.getElementById('wi-name').value.trim();
+  const phone   = document.getElementById('wi-phone').value.trim();
+  const birthday= document.getElementById('wi-birthday').value;
+  const notes   = document.getElementById('wi-notes').value.trim();
+
+  if (!name) { toast('Please enter the customer name','error'); return; }
+  if (!phone || phone.replace(/\D/g,'').length < 10) { toast('Please enter a valid 10-digit phone number','error'); return; }
+
+  const btn = document.getElementById('wi-submit-btn');
+  const spinner = document.getElementById('wi-spinner');
+  btn.disabled = true;
+  spinner.style.display = 'inline';
+
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/walkin`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ name, phone, birthday, notes })
+    });
+    const data = await r.json();
+
+    const resBox = document.getElementById('wi-result');
+    if (data.success) {
+      const tier = data.customer?.loyaltyTier || 'New';
+      const visits = data.customer?.visits || 1;
+      const pts = data.pointsAwarded || 0;
+      resBox.style.cssText = 'display:block;background:rgba(42,157,143,.12);border:1px solid rgba(42,157,143,.3);border-radius:9px;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.6;color:#e0e0e0';
+      resBox.innerHTML = `
+        <div style="font-size:15px;font-weight:700;color:var(--sage);margin-bottom:4px">${data.isNew ? '✅ New customer registered!' : '✅ Returning customer logged!'}</div>
+        <div><strong>${esc(name)}</strong> · ${esc(phone)}</div>
+        <div style="margin-top:6px;display:flex;gap:16px;flex-wrap:wrap">
+          <span>🏆 Tier: <strong>${tier}</strong></span>
+          <span>📅 Visits: <strong>${visits}</strong></span>
+          ${pts > 0 ? `<span>⭐ +${pts} welcome points</span>` : ''}
+        </div>`;
+      btn.style.display = 'none';
+      document.getElementById('wi-register-another').style.display = 'block';
+      loadCRM(); // refresh table
+    } else {
+      toast(data.error || 'Registration failed', 'error');
+      btn.disabled = false;
+    }
+  } catch(e) {
+    toast('Network error — try again', 'error');
+    btn.disabled = false;
+  } finally {
+    spinner.style.display = 'none';
+  }
+}
+
+// Walk-in modal overlay click handled inline on the div
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Customer Psychology Engine ────────────────────────────────────────────────
+let atRiskExpanded = true;
+
+function toggleAtRisk() {
+  atRiskExpanded = !atRiskExpanded;
+  const body = document.getElementById('at-risk-body');
+  const icon = document.getElementById('at-risk-toggle-icon');
+  if (body) body.style.display = atRiskExpanded ? '' : 'none';
+  if (icon) icon.textContent = atRiskExpanded ? '▾' : '▸';
+}
+
+async function loadAtRiskCustomers() {
+  const list = document.getElementById('at-risk-list');
+  const countEl = document.getElementById('at-risk-count');
+  if (list) list.innerHTML = '<div style="color:#bbb;font-size:13px;padding:8px 0">Loading...</div>';
+  try {
+    const data = await fetch('/api/businesses/' + branchId + '/at-risk-customers', { headers: getAuthHeaders() }).then(r=>r.json());
+    if (countEl) countEl.textContent = data.length || '0';
+    if (!data.length) { if(list) list.innerHTML = '<div style="color:#bbb;font-size:13px;padding:8px 0">No at-risk customers right now 🎉</div>'; return; }
+    if (list) list.innerHTML = data.map(c => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="width:36px;height:36px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">⚠️</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:13px">${c.name||'Customer'}</div>
+          <div style="font-size:11.5px;color:#aaa">${c.phone} · ${c.visits} visits · Last: ${c.daysSince}d ago · Avg ₹${c.avgSpend}</div>
+        </div>
+        <button class="btn sm" onclick="generateAiOffer('${c.phone}','${(c.name||'').replace(/'/g,'')}')" style="white-space:nowrap;font-size:11px">🤖 AI Offer</button>
+      </div>`).join('');
+  } catch(e) { if(list) list.innerHTML = '<div style="color:#e57;font-size:13px">Failed to load</div>'; }
+}
+
+async function generateAiOffer(phone, name) {
+  showToast('Generating AI offer for ' + (name||phone) + '...');
+  try {
+    const data = await fetch('/api/businesses/' + branchId + '/customers/' + phone + '/ai-offer', {
+      method: 'POST', headers: getAuthHeaders()
+    }).then(r=>r.json());
+    if (data.error) { showToast(data.error, true); return; }
+    const confirmed = confirm('AI Offer for ' + (name||phone) + ':\n\n' + data.offer + '\n\nSend via WhatsApp?');
+    if (confirmed) {
+      const r = await fetch('/api/businesses/' + branchId + '/at-risk-customers/send-offer', {
+        method: 'POST',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, offer: data.offer })
+      }).then(r=>r.json());
+      showToast(r.message || (r.success ? 'Offer sent!' : 'Not sent'), !r.success);
+    }
+  } catch(e) { showToast('Failed: ' + e.message, true); }
+}
+
+async function loadCustomerInsights() {
+  const phone = document.getElementById('insight-phone')?.value?.replace(/[^0-9]/g,'').slice(-10);
+  if (!phone || phone.length < 10) { showToast('Enter a valid 10-digit phone number', true); return; }
+  const panel = document.getElementById('customer-insight-panel');
+  if (panel) { panel.style.display='block'; panel.innerHTML = '<div style="color:#bbb;padding:16px;text-align:center">Loading insights...</div>'; }
+  try {
+    const p = await fetch('/api/businesses/' + branchId + '/customers/' + phone + '/insights', { headers: getAuthHeaders() }).then(r=>r.json());
+    if (p.error) { if(panel) panel.innerHTML='<div style="color:#e57;padding:12px">'+p.error+'</div>'; return; }
+    const segColors = { loyal:'#22c55e', regular:'#3b82f6', returning:'#f59e0b', new:'#a78bfa', at_risk:'#f97316', lost:'#ef4444' };
+    const segColor = segColors[p.segment] || '#aaa';
+    const favItems = (p.favourites||[]).slice(0,3).map(f=>`<span style="background:#f5f5f5;padding:3px 8px;border-radius:12px;font-size:11px">${f.name} x${f.count}</span>`).join(' ');
+    if (panel) panel.innerHTML = `
+      <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="width:44px;height:44px;border-radius:50%;background:#f5f0eb;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>
+          <div><div style="font-weight:700;font-size:15px">${p.name}</div><div style="font-size:12px;color:#aaa">${p.phone}</div></div>
+          <span style="margin-left:auto;background:${segColor}22;color:${segColor};padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:600;text-transform:capitalize">${p.segment.replace('_',' ')}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          <div style="text-align:center;padding:10px;background:#fafafa;border-radius:10px"><div style="font-size:22px;font-weight:700;color:var(--espresso)">${p.totalVisits}</div><div style="font-size:11px;color:#aaa">Visits</div></div>
+          <div style="text-align:center;padding:10px;background:#fafafa;border-radius:10px"><div style="font-size:22px;font-weight:700;color:var(--espresso)">Rs.${p.avgSpend}</div><div style="font-size:11px;color:#aaa">Avg Spend</div></div>
+          <div style="text-align:center;padding:10px;background:#fafafa;border-radius:10px"><div style="font-size:22px;font-weight:700;color:var(--espresso)">${p.daysSinceLastVisit}d</div><div style="font-size:11px;color:#aaa">Since Last Visit</div></div>
+        </div>
+        <div style="margin-bottom:10px"><div style="font-size:11.5px;font-weight:600;color:#666;margin-bottom:6px">FAVOURITE ITEMS</div><div style="display:flex;flex-wrap:wrap;gap:6px">${favItems||'<span style="color:#bbb;font-size:12px">Not enough data</span>'}</div></div>
+        <div style="margin-bottom:14px;font-size:12px;color:#888">Visits mostly on <strong>${p.peakDay}s</strong> around <strong>${p.peakHour}</strong> · Total: <strong>Rs.${p.totalSpend}</strong></div>
+        <button class="btn primary full" onclick="generateAiOffer('${p.phone}','${(p.name||'').replace(/'/g,'')}')">🤖 Generate AI Re-engagement Offer</button>
+      </div>`;
+  } catch(e) { if(panel) panel.innerHTML='<div style="color:#e57;padding:12px">Error: '+e.message+'</div>'; }
+}
+
+// Load at-risk customers when CRM tab opens
+
+
+// ── Expenses ──────────────────────────────────────────────────────────────────
+const EXP_ICONS = { ingredients:'🥗', salaries:'👥', rent:'🏠', electricity:'⚡',
+  gas:'🔥', marketing:'📢', maintenance:'🔧', equipment:'📦', misc:'📎' };
+
+function initExpenseDate() {
+  const d = document.getElementById('exp-date');
+  if (d && !d.value) d.value = new Date().toISOString().slice(0,10);
+}
+
+async function submitExpense() {
+  const category    = document.getElementById('exp-category')?.value;
+  const amount      = parseFloat(document.getElementById('exp-amount')?.value);
+  const description = document.getElementById('exp-description')?.value?.trim();
+  const vendor      = document.getElementById('exp-vendor')?.value?.trim();
+  const expenseDate = document.getElementById('exp-date')?.value;
+  const gstAmount   = parseFloat(document.getElementById('exp-gst')?.value||'0');
+  const receiptNo   = document.getElementById('exp-receipt')?.value?.trim();
+
+  if (!amount || amount <= 0) { showToast('Enter a valid amount', true); return; }
+
+  let r;
+  try {
+    const resp = await fetch('/api/businesses/'+branchId+'/accounting/expenses', {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category, amount, description, vendor, expenseDate, gstAmount, receiptNo })
+    });
+    r = await resp.json();
+  } catch(e) {
+    showToast('Connection error — could not save expense', true);
+    return;
+  }
+
+  if (r.success) {
+    showToast('Expense added ✓');
+    ['exp-amount','exp-description','exp-vendor','exp-gst','exp-receipt'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.value='';
+    });
+    loadExpenses();
+  } else {
+    showToast(r.error||'Failed to add expense', true);
+  }
+}
+
+async function loadExpenses() {
+  const monthEl = document.getElementById('exp-filter-month');
+  const catEl   = document.getElementById('exp-filter-cat');
+  const month   = monthEl?.value;
+  const cat     = catEl?.value;
+
+  let url = '/api/businesses/'+branchId+'/accounting/expenses?';
+  if (month) {
+    const [y,m] = month.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate(); // 0th day of next month = last day of this month
+    url += 'from='+month+'-01&to='+month+'-'+String(lastDay).padStart(2,'0')+'&';
+  }
+  if (cat)   url += 'category='+cat+'&';
+
+  const list    = document.getElementById('expense-list');
+  const summary = document.getElementById('expense-summary');
+  if (list) list.innerHTML = '<div style="padding:16px;color:#bbb;text-align:center">Loading...</div>';
+
+  let data;
+  try {
+    const r = await fetch(url, { headers: getAuthHeaders() });
+    data = await r.json();
+    if (!r.ok || data.error) {
+      if (list) list.innerHTML = '<div style="padding:16px;color:#e74c3c;text-align:center">Error: ' + (data.error || 'Failed to load expenses') + '</div>';
+      return;
+    }
+  } catch(e) {
+    if (list) list.innerHTML = '<div style="padding:16px;color:#e74c3c;text-align:center">Connection error</div>';
+    return;
+  }
+
+  if (!Array.isArray(data) || !data.length) {
+    if (list) list.innerHTML = '<div style="padding:16px;color:#bbb;text-align:center">No expenses recorded yet</div>';
+    if (summary) summary.style.display = 'none';
+    return;
+  }
+
+  if (list) list.innerHTML = data.map(e => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
+      <span style="font-size:20px">${EXP_ICONS[e.category]||'📎'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px;text-transform:capitalize">${e.category}${e.description?' — '+e.description:''}</div>
+        <div style="font-size:11.5px;color:#aaa">${e.expense_date}${e.vendor?' · '+e.vendor:''}${e.receipt_no?' · #'+e.receipt_no:''} · by ${e.added_by||'manager'}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-weight:700;font-size:14px">₹${Math.round(e.amount).toLocaleString('en-IN')}</div>
+        ${e.gst_amount>0?'<div style="font-size:11px;color:#aaa">GST: ₹'+e.gst_amount+'</div>':''}
+      </div>
+      <button onclick="deleteExpense('${e.id}')" style="background:none;border:none;cursor:pointer;color:#ddd;font-size:16px;padding:4px" title="Delete">✕</button>
+    </div>`).join('');
+
+  const total   = data.reduce((s,e)=>s+e.amount,0);
+  const gstPaid = data.reduce((s,e)=>s+e.gst_amount,0);
+  if (summary) {
+    summary.style.display = '';
+    summary.innerHTML = `<strong>${data.length} expenses</strong> · Total: <strong>₹${Math.round(total).toLocaleString('en-IN')}</strong>${gstPaid>0?' · GST paid: ₹'+Math.round(gstPaid):''}`;
+  }
+}
+
+async function deleteExpense(id) {
+  try {
+    if (!confirm('Delete this expense?')) return;
+    await fetch('/api/businesses/'+branchId+'/accounting/expenses/'+id, {
+      method: 'DELETE', headers: getAuthHeaders()
+    });
+    loadExpenses();
+
+  } catch(e) {
+    console.error('[deleteExpense]', e);
+    if(typeof toast==='function') toast('deleteExpense failed — check console','error');
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// BROWSER NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════
+const NOTIF_KEY = 'manager_notif_dismissed';
+
+function initNotifications() {
+  if (!('Notification' in window)) return; // browser doesn't support
+  const perm = Notification.permission;
+  updateNotifBell(perm);
+  if (perm === 'granted') return; // already enabled
+  if (perm === 'denied') return;  // user blocked — can't ask again
+  // Show banner if not recently dismissed
+  const dismissed = localStorage.getItem(NOTIF_KEY);
+  if (!dismissed || Date.now() - parseInt(dismissed) > 7 * 24 * 60 * 60 * 1000) {
+    const banner = document.getElementById('notif-banner');
+    if (banner) banner.style.display = 'flex';
+  }
+}
+
+function updateNotifBell(perm) {
+  const btn = document.getElementById('notif-btn');
+  if (!btn) return;
+  if (perm === 'granted') {
+    btn.title = 'Notifications ON';
+    btn.style.color = '#c9a84c';
+    btn.style.borderColor = 'rgba(201,168,76,0.4)';
+    btn.style.background = 'rgba(201,168,76,0.08)';
+  } else if (perm === 'denied') {
+    btn.title = 'Notifications blocked — allow in browser settings';
+    btn.style.color = '#ccc';
+    btn.style.background = 'transparent';
+    btn.innerHTML = '&#128277;'; // bell with slash
+  } else {
+    btn.title = 'Click to enable notifications';
+    btn.style.color = '#999';
+  }
+}
+
+async function requestNotifPermission() {
+  try {
+    if (!('Notification' in window)) { toast('Browser does not support notifications','error'); return; }
+    const perm = await Notification.requestPermission();
+    updateNotifBell(perm);
+    const banner = document.getElementById('notif-banner');
+    if (banner) banner.style.display = 'none';
+    if (perm === 'granted') {
+      toast('&#128276; Notifications enabled!','success');
+      // Send a test notification
+      new Notification('Zordic Notifications ON', {
+        body: 'You will now receive alerts for new orders, reservations and messages.',
+        icon: '/icon-192.png'
+      });
+    } else if (perm === 'denied') {
+      toast('Notifications blocked. Allow them in browser settings.','error');
+    }
+
+  } catch(e) {
+    console.error('[requestNotifPermission]', e);
+    if(typeof toast==='function') toast('requestNotifPermission failed — check console','error');
+  }
+}
+
+function dismissNotifBanner() {
+  localStorage.setItem(NOTIF_KEY, Date.now().toString());
+  const banner = document.getElementById('notif-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+function toggleNotifications() {
+  if (!('Notification' in window)) { toast('Browser does not support notifications','error'); return; }
+  if (Notification.permission === 'granted') {
+    toast('Notifications are ON. To turn off, use your browser settings.','');
+  } else {
+    requestNotifPermission();
+  }
+}
+
+function showBrowserNotif(title, body, tag) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: tag || 'cafehq',
+      requireInteraction: false
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+    setTimeout(() => n.close(), 8000);
+  } catch(e) {}
+}
+
+// Call on page load
+setTimeout(initNotifications, 2000);
+
+</script>
+
+<!-- Walk-in Customer Modal -->
+<div class="modal-overlay" id="walkin-modal" style="display:none" onclick="if(event.target===this)closeWalkinModal()">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title" style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">🚶</span> Register Walk-in Customer
+    </div>
+    <p style="font-size:13px;color:#aaa;margin:-4px 0 18px">Add a customer who visited in person. They'll be added to your CRM and earn 50 welcome loyalty points.</p>
+
+    <div class="form-group">
+      <label class="form-label">Full Name <span style="color:var(--rose)">*</span></label>
+      <input class="form-input" id="wi-name" placeholder="e.g. Riya Sharma" autocomplete="off"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone Number <span style="color:var(--rose)">*</span></label>
+      <input class="form-input" id="wi-phone" placeholder="10-digit mobile number" type="tel" maxlength="15" autocomplete="off"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Birthday <span style="font-weight:400;color:#888">(optional — for birthday campaigns)</span></label>
+      <input class="form-input" id="wi-birthday" type="date"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes <span style="font-weight:400;color:#888">(optional)</span></label>
+      <input class="form-input" id="wi-notes" placeholder="e.g. Prefers oat milk, corporate client…"/>
+    </div>
+
+    <div id="wi-result" style="display:none;border-radius:9px;padding:12px 14px;margin-bottom:14px;font-size:13.5px;line-height:1.5"></div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn" onclick="closeWalkinModal()" style="flex:1">Cancel</button>
+      <button class="btn primary" onclick="submitWalkin()" id="wi-submit-btn" style="flex:2">
+        <span id="wi-spinner" style="display:none;margin-right:6px">⏳</span>Register & Award Points
+      </button>
+    </div>
+    <button id="wi-register-another" onclick="resetWalkinForm()" style="display:none;width:100%;margin-top:10px" class="btn">+ Register Another Customer</button>
+  </div>
+</div>
+
+<!-- QR codes generated via local /api/qr endpoint -->
+<script>
+// ── Table QR Codes ──────────────────────────────────────────────────────────
+function renderQRGrid() {
+  const qrBranchId = typeof branchId !== 'undefined' ? branchId : (location.pathname.split('/').pop());
+  const count   = parseInt(document.getElementById('qr-table-count')?.value) || 10;
+  const baseUrl = location.origin;
+  const grid    = document.getElementById('qr-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  for (let t = 1; t <= count; t++) {
+    const url    = baseUrl + '/order/' + qrBranchId + '?table=' + t;
+    const qrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&color=2c1a0e&bgcolor=faf6f1&data=' + encodeURIComponent(url) + '&format=png';
+    const card   = document.createElement('div');
+    card.style.cssText = 'background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center';
+    card.innerHTML =
+      '<div style="font-family:var(--font-display);font-size:15px;color:var(--espresso);margin-bottom:10px">Table ' + t + '</div>' +
+      '<img id="qr-' + t + '" src="' + qrSrc + '" width="140" height="140" style="display:block;margin:0 auto 10px;border-radius:6px" alt="QR Table ' + t + '"/>' +
+      '<div style="font-size:10px;color:#aaa;word-break:break-all;margin-bottom:10px">' + url + '</div>' +
+      '<div style="display:flex;gap:6px;justify-content:center">' +
+        '<button class="btn sm" onclick="downloadQR(' + t + ')">⬇ Save</button>' +
+        '<a class="btn sm" href="' + url + '" target="_blank" style="text-decoration:none">↗ Open</a>' +
+      '</div>';
+    grid.appendChild(card);
+  }
+}
+
+function downloadQR(tableNo) {
+  const img = document.getElementById('qr-' + tableNo);
+  if (!img) { alert('QR not ready'); return; }
+  const link = document.createElement('a');
+  link.download = 'table-' + tableNo + '-qr.png';
+  link.href = img.src;
+  link.click();
+}
+
+function printAllQR() {
+  const qrBranchId = typeof branchId !== 'undefined' ? branchId : (window.BRANCH_ID || location.pathname.split('/').pop());
+  const count    = parseInt(document.getElementById('qr-table-count')?.value) || 10;
+  const baseUrl  = location.origin;
+  let html = `<!DOCTYPE html><html><head><title>Table QR Codes</title>
+    <style>body{font-family:sans-serif;background:#fff}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:20px}
+    .card{border:1px solid #ddd;border-radius:10px;padding:14px;text-align:center;page-break-inside:avoid}
+    .title{font-size:14px;font-weight:700;margin-bottom:8px;color:#2c1a0e}
+    .url{font-size:9px;color:#aaa;word-break:break-all;margin-top:6px}
+    @media print{@page{margin:10mm}.grid{gap:8px}}</style></head><body>
+    <div style="text-align:center;padding:14px 0;border-bottom:1px solid #eee;margin-bottom:16px">
+      <strong>Table QR Codes</strong> — Scan to order
+    </div><div class="grid">`;
+  for (let t = 1; t <= count; t++) {
+    const url = `${baseUrl}/order/${qrBranchId}?table=${t}`;
+    const qrImgSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(url) + '&format=png';
+    const img = '<img src="' + qrImgSrc + '" width="120" height="120"/>';
+    html += `<div class="card">${img}<div class="title">Table ${t}</div><div class="url">${url}</div></div>`;
+  }
+  html += '</div></body></html>';
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  w.onload = () => { w.print(); };
+}
+
+function openKitchen() {
+  const kitBranchId = (typeof branchId !== 'undefined' && branchId && branchId !== 'manager' && branchId !== 'manager.html' && branchId !== 'agency')
+    ? branchId
+    : (localStorage.getItem('cafehq_businessId') || location.pathname.split('/').pop());
+  if (!kitBranchId || kitBranchId === 'manager' || kitBranchId === 'manager.html') {
+    alert('Could not detect branch ID. Please navigate to your branch manager page first (e.g. /manager/your-branch-id), then click Kitchen Display.');
+    return;
+  }
+  window.open('/kitchen/' + kitBranchId, '_blank');
+}
+// ═══════════════════════════════════════════════════════════════
+// DATA SHEETS MODULE
+// ═══════════════════════════════════════════════════════════════
+let _dsSheet = 'orders';
+let _dsAllRows = [];
+let _dsFiltRows = [];
+let _dsPage = 1;
+const DS_PAGE_SIZE = 50;
+
+function switchDS(sheet, btn) {
+  _dsSheet = sheet;
+  _dsPage = 1;
+  document.querySelectorAll('.ds-pill').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  dsReload();
+}
+
+async function loadDataSheet() {
+  // default open on orders
+  dsReload();
+}
+
+async function dsReload() {
+  document.getElementById('ds-tbody').innerHTML = '<tr><td colspan="12" style="padding:24px;color:#bbb;text-align:center">Loading…</td></tr>';
+  document.getElementById('ds-stats').innerHTML = '';
+  try {
+    let rows = [], headers = [], stats = [];
+    const bid = branchId;
+    const range = document.getElementById('ds-date-range').value;
+    const cutoff = dsGetCutoff(range);
+
+    if (_dsSheet === 'orders') {
+      const res = await fetch(`/api/businesses/${bid}/orders`);
+      const data = await res.json();
+      const raw = Array.isArray(data) ? data : (data.orders || []);
+      rows = raw.filter(o => !cutoff || new Date(o.createdAt||o.timestamp||0) >= cutoff)
+                .map(o => ({
+                  'Order ID': o.id||o._id||'—',
+                  'Date': fmtDate(o.createdAt||o.timestamp),
+                  'Table': o.table||'—',
+                  'Customer': o.customerName||o.phone||'Walk-in',
+                  'Items': (o.items||[]).map(i=>`${i.name}×${i.qty||1}`).join(', ')||'—',
+                  'Amount': '₹'+(o.total||o.amount||0),
+                  'Status': o.status||'pending',
+                  'Payment': o.paymentMode||o.payment||'cash',
+                }));
+      const totalRev = raw.reduce((s,o)=>s+(o.total||o.amount||0),0);
+      stats = [
+        {label:'Total Orders', val: raw.length},
+        {label:'Revenue', val: '₹'+Math.round(totalRev).toLocaleString('en-IN')},
+        {label:'Avg. Order', val: raw.length ? '₹'+Math.round(totalRev/raw.length) : '—'},
+        {label:'This Period', val: rows.length+' orders'},
+      ];
+    }
+
+    else if (_dsSheet === 'customers') {
+      const res = await fetch(`/api/businesses/${bid}/crm`);
+      const data = await res.json();
+      const raw = Array.isArray(data) ? data : (data.customers || data.crm || []);
+      rows = raw.map(c => ({
+        'Name': c.name||'—',
+        'Phone': c.phone||'—',
+        'Email': c.email||'—',
+        'Visits': c.visits||c.visitCount||0,
+        'Last Visit': fmtDate(c.lastVisit||c.lastSeen),
+        'Loyalty Pts': c.loyaltyPoints||c.points||0,
+        'Total Spent': '₹'+(c.totalSpent||c.lifetimeValue||0),
+        'Birthday': c.birthday||'—',
+        'Tags': (c.tags||[]).join(', ')||'—',
+        'Notes': c.notes||'—',
+      }));
+      stats = [
+        {label:'Total Customers', val: raw.length},
+        {label:'Regulars (5+ visits)', val: raw.filter(c=>(c.visits||c.visitCount||0)>=5).length},
+        {label:'Total Loyalty Pts', val: raw.reduce((s,c)=>s+(c.loyaltyPoints||c.points||0),0).toLocaleString()},
+        {label:'Avg Visits', val: raw.length ? Math.round(raw.reduce((s,c)=>s+(c.visits||c.visitCount||0),0)/raw.length) : '—'},
+      ];
+    }
+
+    else if (_dsSheet === 'menu') {
+      const res = await fetch(`/api/businesses/${bid}/menu`);
+      const data = await res.json();
+      const raw = Array.isArray(data) ? data : (data.items || data.menu || []);
+      rows = raw.map(item => ({
+        'Item Name': item.name||'—',
+        'Category': item.category||'—',
+        'Price': '₹'+(item.price||0),
+        'Available': item.available!==false ? '✅ Yes' : '❌ No',
+        'Description': (item.description||'').substring(0,60)||(item.description&&item.description.length>60?'…':''),
+        'GST %': item.gst||item.gstPercent||'—',
+        'Image': item.image ? '🖼 Yes' : '—',
+        'ID': item.id||item._id||'—',
+      }));
+      stats = [
+        {label:'Total Items', val: raw.length},
+        {label:'Available', val: raw.filter(i=>i.available!==false).length},
+        {label:'86\u2019d / Off', val: raw.filter(i=>i.available===false).length},
+        {label:'Categories', val: [...new Set(raw.map(i=>i.category).filter(Boolean))].length},
+      ];
+    }
+
+    else if (_dsSheet === 'expenses') {
+      const res = await fetch(`/api/businesses/${bid}/expenses`);
+      const data = await res.json();
+      const raw = Array.isArray(data) ? data : (data.expenses || []);
+      rows = raw.filter(e => !cutoff || new Date(e.expense_date||e.date||0) >= cutoff)
+                .map(e => ({
+                  'Date': fmtDate(e.expense_date||e.date),
+                  'Category': e.category||'—',
+                  'Description': e.description||'—',
+                  'Vendor': e.vendor||'—',
+                  'Amount': '₹'+(e.amount||0),
+                  'GST Paid': '₹'+(e.gst_amount||e.gst||0),
+                  'Receipt': e.receipt_no||e.receipt||'—',
+                }));
+      const totalAmt = raw.reduce((s,e)=>s+(e.amount||0),0);
+      const totalGST = raw.reduce((s,e)=>s+(e.gst_amount||e.gst||0),0);
+      stats = [
+        {label:'Total Expenses', val: raw.length},
+        {label:'Total Amount', val: '₹'+Math.round(totalAmt).toLocaleString('en-IN')},
+        {label:'GST Paid', val: '₹'+Math.round(totalGST).toLocaleString('en-IN')},
+        {label:'This Period', val: rows.length+' entries'},
+      ];
+    }
+
+    else if (_dsSheet === 'reservations') {
+      const res = await fetch(`/api/businesses/${bid}/reservations`);
+      const data = await res.json();
+      const raw = Array.isArray(data) ? data : (data.reservations || []);
+      rows = raw.filter(r => !cutoff || new Date(r.date||r.createdAt||0) >= cutoff)
+                .map(r => ({
+                  'Date': fmtDate(r.date||r.createdAt),
+                  'Time': r.time||'—',
+                  'Customer': r.name||r.customerName||'—',
+                  'Phone': r.phone||'—',
+                  'Guests': r.guests||r.pax||1,
+                  'Table': r.table||'Any',
+                  'Status': r.status||'confirmed',
+                  'Notes': r.notes||r.specialRequest||'—',
+                }));
+      stats = [
+        {label:'Total Reservations', val: raw.length},
+        {label:'Confirmed', val: raw.filter(r=>(r.status||'confirmed')==='confirmed').length},
+        {label:'Total Guests', val: raw.reduce((s,r)=>s+(r.guests||r.pax||1),0)},
+        {label:'This Period', val: rows.length+' bookings'},
+      ];
+    }
+
+    _dsAllRows = rows;
+    dsFilter();
+    dsRenderStats(stats);
+  } catch(e) {
+    document.getElementById('ds-tbody').innerHTML = `<tr><td colspan="12" style="padding:24px;color:#E84545;text-align:center">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function dsGetCutoff(range) {
+  const now = new Date();
+  if (range === 'today') return new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  if (range === '7d')   return new Date(now - 7*86400000);
+  if (range === '30d')  return new Date(now - 30*86400000);
+  if (range === 'month') return new Date(now.getFullYear(),now.getMonth(),1);
+  return null;
+}
+
+function dsFilter() {
+  const q = (document.getElementById('ds-search').value||'').toLowerCase();
+  _dsFiltRows = q
+    ? _dsAllRows.filter(row => Object.values(row).some(v => String(v).toLowerCase().includes(q)))
+    : _dsAllRows.slice();
+  _dsPage = 1;
+  dsRenderTable();
+}
+
+function dsRenderTable() {
+  const start = (_dsPage-1)*DS_PAGE_SIZE;
+  const pageRows = _dsFiltRows.slice(start, start+DS_PAGE_SIZE);
+  const headers = pageRows.length ? Object.keys(pageRows[0]) : (_dsAllRows.length ? Object.keys(_dsAllRows[0]) : []);
+
+  document.getElementById('ds-thead').innerHTML = headers.length
+    ? `<tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr>`
+    : '';
+
+  document.getElementById('ds-tbody').innerHTML = pageRows.length
+    ? pageRows.map(row => `<tr>${headers.map(h=>`<td>${esc(String(row[h]??'—'))}</td>`).join('')}</tr>`).join('')
+    : '<tr><td colspan="12" style="padding:24px;color:#bbb;text-align:center">No records found</td></tr>';
+
+  const total = _dsFiltRows.length;
+  document.getElementById('ds-count').textContent = total.toLocaleString()+' rows';
+
+  const totalPages = Math.max(1, Math.ceil(total/DS_PAGE_SIZE));
+  document.getElementById('ds-pagination').innerHTML = total > DS_PAGE_SIZE
+    ? `<span>Page ${_dsPage} of ${totalPages}</span>
+       <div style="display:flex;gap:6px">
+         ${_dsPage>1?`<button class="btn sm" onclick="_dsPage--;dsRenderTable()">← Prev</button>`:''}
+         ${_dsPage<totalPages?`<button class="btn sm" onclick="_dsPage++;dsRenderTable()">Next →</button>`:''}
+       </div>`
+    : '';
+}
+
+function dsRenderStats(stats) {
+  document.getElementById('ds-stats').innerHTML = stats.map(s =>
+    `<div class="ds-stat-card">
+      <div class="ds-stat-val">${esc(String(s.val))}</div>
+      <div class="ds-stat-lbl">${esc(s.label)}</div>
+    </div>`
+  ).join('');
+}
+
+function dsExportCSV() {
+  if (!_dsFiltRows.length) { toast('No data to export','error'); return; }
+  const headers = Object.keys(_dsFiltRows[0]);
+  const csvRows = [headers.join(',')];
+  _dsFiltRows.forEach(row => {
+    csvRows.push(headers.map(h => '"'+String(row[h]??'').replace(/"/g,'""')+'"').join(','));
+  });
+  const blob = new Blob([csvRows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${branchId}-${_dsSheet}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('CSV exported ✓');
+}
+
+function fmtDate(val) {
+  if (!val) return '—';
+  try { return new Date(val).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+  catch { return String(val); }
+}
+// ═══════════════════════════════════════════════════════════════
+// END DATA SHEETS MODULE
+// ═══════════════════════════════════════════════════════════════
+
+</script>
+
+</body>
+</html>

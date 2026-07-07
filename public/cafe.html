@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welcome to Our Café</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#C9A84C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zordic California">
+<meta name="description" content="Premium café experience — menu, ordering & loyalty rewards">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Cinzel:wght@400;500;600&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C97A;
+    --gold-pale: #F5E9C9;
+    --espresso: #7B3F1A;
+    --espresso-deep: #3D1E0A;
+    --cream: #FAF5EC;
+    --dark: #120A06;
+    --text: #3A2010;
+    --muted: #7A6050;
+    --success: #2a9d8f;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Nunito Sans', sans-serif; background: var(--cream); color: var(--text); overflow-x: hidden; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--dark); }
+  ::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+
+  /* NAV */
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; display: flex; align-items: center; justify-content: space-between; padding: 20px 60px; transition: all 0.4s ease; }
+  nav.scrolled { background: rgba(18,10,6,0.97); backdrop-filter: blur(12px); padding: 14px 60px; box-shadow: 0 2px 30px rgba(0,0,0,0.4); }
+  .nav-logo { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .nav-logo .logo-text { font-family: 'Cinzel', serif; font-size: 18px; color: var(--gold); letter-spacing: 3px; text-decoration: none; }
+  .nav-logo .logo-sub { font-size: 9px; color: var(--gold-light); letter-spacing: 5px; text-transform: uppercase; font-weight: 300; }
+  .nav-links { display: flex; gap: 36px; list-style: none; }
+  .nav-links a { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: rgba(255,255,255,0.85); text-decoration: none; font-weight: 600; transition: color 0.3s; position: relative; }
+  .nav-links a::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 1px; background: var(--gold); transition: width 0.3s; }
+  .nav-links a:hover { color: var(--gold); }
+  .nav-links a:hover::after { width: 100%; }
+  .nav-book { background: var(--gold); color: var(--dark); padding: 10px 26px; border: none; cursor: pointer; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 600; transition: all 0.3s; text-decoration: none; }
+  .nav-book:hover { background: var(--gold-light); }
+
+  /* HERO */
+  .hero { height: 100vh; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .hero-bg { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(18,10,6,0.55) 0%, rgba(18,10,6,0.30) 40%, rgba(18,10,6,0.78) 100%), var(--hero-image, url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1600&q=80')) center/cover no-repeat; transform: scale(1.05); animation: heroZoom 18s ease-in-out infinite alternate; }
+  .hero-bg-fallback { position: absolute; inset: 0; z-index: 0; background: linear-gradient(160deg, #120A06 0%, #3D1E0A 40%, #120A06 100%); }
+  @keyframes heroZoom { from { transform: scale(1.05); } to { transform: scale(1.12); } }
+  .hero-pattern { position: absolute; inset: 0; z-index: 1; background: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23C9A84C' fill-opacity='0.04'%3E%3Cpath d='M40 0L50 30H80L56 48L66 78L40 60L14 78L24 48L0 30H30Z'/%3E%3C/g%3E%3C/svg%3E"); pointer-events: none; }
+  .building-overlay { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; z-index: 1; pointer-events: none; background: linear-gradient(180deg, transparent 60%, rgba(18,10,6,0.92) 100%); height: 300px; }
+  .hero-content { position: relative; z-index: 2; text-align: center; padding: 0 20px; animation: fadeUp 1.2s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+  .hero-badge { display: inline-block; border: 1px solid var(--gold); color: var(--gold); font-size: 10px; letter-spacing: 5px; text-transform: uppercase; padding: 7px 22px; margin-bottom: 24px; font-family: 'Cinzel', serif; animation: fadeUp 1s 0.2s ease both; }
+  .hero h1 { font-family: 'Cormorant Garamond', serif; font-size: clamp(52px, 8vw, 96px); font-weight: 300; color: #fff; line-height: 1.05; letter-spacing: 2px; text-shadow: 0 4px 30px rgba(0,0,0,0.8); animation: fadeUp 1s 0.4s ease both; }
+  .hero h1 span { color: var(--gold); font-style: italic; }
+  .hero-divider { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 28px 0; animation: fadeUp 1s 0.6s ease both; }
+  .hero-divider::before, .hero-divider::after { content: ''; flex: 1; max-width: 120px; height: 1px; }
+  .hero-divider::before { background: linear-gradient(90deg, transparent, var(--gold)); }
+  .hero-divider::after { background: linear-gradient(90deg, var(--gold), transparent); }
+  .hero-sub { font-family: 'Cormorant Garamond', serif; font-size: clamp(16px, 2vw, 22px); color: rgba(255,255,255,0.85); font-weight: 300; letter-spacing: 1px; margin-bottom: 44px; text-shadow: 0 2px 10px rgba(0,0,0,0.6); animation: fadeUp 1s 0.8s ease both; }
+  .hero-ctas { display: flex; gap: 16px; justify-content: center; animation: fadeUp 1s 1s ease both; }
+  .btn-primary { background: var(--gold); color: var(--dark); padding: 16px 40px; border: none; cursor: pointer; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; text-decoration: none; transition: all 0.3s; display: inline-block; }
+  .btn-primary:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(201,168,76,0.4); }
+  .btn-outline { background: transparent; color: #fff; padding: 16px 40px; border: 1px solid rgba(255,255,255,0.5); cursor: pointer; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; text-decoration: none; transition: all 0.3s; display: inline-block; }
+  .btn-outline:hover { border-color: var(--gold); color: var(--gold); transform: translateY(-2px); }
+  .hero-scroll { position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; color: rgba(255,255,255,0.5); font-size: 9px; letter-spacing: 3px; text-transform: uppercase; z-index: 2; animation: fadeUp 1s 1.2s ease both; }
+  .scroll-line { width: 1px; height: 50px; background: linear-gradient(180deg, var(--gold), transparent); animation: scrollLine 2s ease-in-out infinite; }
+  @keyframes scrollLine { 0%, 100% { opacity: 0.4; height: 50px; } 50% { opacity: 1; height: 70px; } }
+
+  /* MAPS STRIP */
+  .maps-strip { background: var(--dark); padding: 0; display: flex; height: 120px; border-top: 2px solid var(--gold); border-bottom: 2px solid rgba(201,168,76,0.3); overflow: hidden; }
+  .maps-strip iframe { flex: 1; border: none; filter: grayscale(30%) sepia(20%); }
+  .maps-info { width: 360px; flex-shrink: 0; background: var(--espresso-deep); display: flex; align-items: center; padding: 0 30px; gap: 16px; }
+  .maps-info-icon { font-size: 28px; }
+  .maps-info h4 { font-family: 'Cinzel', serif; font-size: 12px; color: var(--gold); letter-spacing: 1px; margin-bottom: 4px; }
+  .maps-info p { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.6; }
+  .maps-info a { color: var(--gold-light); text-decoration: none; font-size: 11px; margin-top: 4px; display: block; }
+
+  /* BOOKING BAR */
+  .booking-bar { background: var(--dark); padding: 0 60px; display: flex; align-items: stretch; gap: 0; border-bottom: 2px solid var(--gold); }
+  .booking-field { flex: 1; padding: 22px 28px; border-right: 1px solid rgba(201,168,76,0.2); display: flex; flex-direction: column; gap: 5px; cursor: pointer; transition: background 0.2s; }
+  .booking-field:hover { background: rgba(201,168,76,0.06); }
+  .booking-field label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+  .booking-field input, .booking-field select { background: none; border: none; outline: none; color: #fff; font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 400; cursor: pointer; width: 100%; }
+  .booking-field select option { background: var(--dark); }
+  .booking-submit { background: var(--gold); color: var(--dark); padding: 0 44px; border: none; cursor: pointer; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; transition: all 0.3s; white-space: nowrap; }
+  .booking-submit:hover { background: var(--gold-light); }
+
+  /* SECTIONS */
+  section { padding: 100px 60px; }
+  .section-label { font-size: 9px; letter-spacing: 5px; text-transform: uppercase; color: var(--gold); font-family: 'Cinzel', serif; margin-bottom: 12px; }
+  .section-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(38px, 5vw, 62px); font-weight: 300; line-height: 1.1; color: var(--dark); }
+  .section-title em { font-style: italic; color: var(--espresso); }
+  .section-divider { display: flex; align-items: center; gap: 14px; margin: 22px 0 50px; }
+  .section-divider::after { content: ''; flex: 1; max-width: 80px; height: 1px; background: var(--gold); }
+  .divider-gem { width: 8px; height: 8px; background: var(--gold); transform: rotate(45deg); }
+
+  /* ABOUT */
+  .about { background: var(--cream); }
+  .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; max-width: 1300px; margin: 0 auto; }
+  .about-images { position: relative; height: 560px; }
+  .about-img-main { position: absolute; top: 0; left: 0; width: 75%; height: 80%; overflow: hidden; box-shadow: 20px 20px 60px rgba(0,0,0,0.15); }
+  .about-img-main img, .about-img-accent img { width: 100%; height: 100%; object-fit: cover; }
+  .about-img-accent { position: absolute; bottom: 0; right: 0; width: 55%; height: 52%; overflow: hidden; border: 6px solid var(--cream); box-shadow: -10px -10px 40px rgba(0,0,0,0.1); }
+  .about-gold-block { position: absolute; top: 55%; left: 60%; transform: translate(-50%, -50%); width: 90px; height: 90px; background: var(--gold); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 3; }
+  .about-gold-block .num { font-family: 'Cinzel', serif; font-size: 22px; color: var(--dark); font-weight: 600; }
+  .about-gold-block .lbl { font-size: 7px; letter-spacing: 2px; color: var(--dark); text-transform: uppercase; }
+  .about-text p { font-size: 16px; line-height: 1.9; color: var(--muted); margin-bottom: 18px; font-weight: 300; }
+  .about-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 44px; }
+  .stat { text-align: center; padding: 24px 16px; border: 1px solid var(--gold-pale); }
+  .stat-num { font-family: 'Cormorant Garamond', serif; font-size: 38px; font-weight: 300; color: var(--espresso); line-height: 1; }
+  .stat-lbl { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 6px; display: block; }
+
+  /* MENU */
+  .menu-section { background: var(--dark); padding: 100px 60px; }
+  .menu-section .section-title { color: #fff; }
+  .menu-category-section { margin-bottom: 48px; }
+  .menu-category-title { font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 24px; padding-bottom: 10px; border-bottom: 1px solid rgba(201,168,76,0.25); }
+  .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .menu-item { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 0; border-bottom: 1px solid rgba(201,168,76,0.1); gap: 20px; }
+  .menu-item-name { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: rgba(255,255,255,0.9); font-weight: 400; }
+  .menu-item-desc { font-size: 12px; color: rgba(255,255,255,0.4); font-family: 'Nunito Sans', sans-serif; margin-top: 3px; }
+  .menu-price-wrap { text-align: right; flex-shrink: 0; }
+  .price-value { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 500; color: var(--gold); }
+  .old-price { font-size: 13px; color: rgba(255,255,255,0.3); text-decoration: line-through; margin-right: 6px; font-family: 'Nunito Sans', sans-serif; }
+  .discount-pill { background: rgba(42,157,143,0.15); border: 1px solid #2a9d8f; color: #52b788; font-size: 9px; padding: 2px 6px; font-weight: 700; margin-left: 4px; }
+
+  /* AMENITIES */
+  .amenities { background: var(--cream); }
+  .amenities-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--gold-pale); margin-top: 60px; max-width: 1400px; margin-left: auto; margin-right: auto; }
+  .amenity { background: var(--cream); padding: 44px 32px; text-align: center; transition: all 0.3s; position: relative; overflow: hidden; }
+  .amenity::before { content: ''; position: absolute; inset: 0; background: var(--dark); transform: scaleY(0); transform-origin: bottom; transition: transform 0.4s ease; z-index: 0; }
+  .amenity:hover::before { transform: scaleY(1); }
+  .amenity > * { position: relative; z-index: 1; }
+  .amenity-icon { font-size: 38px; margin-bottom: 18px; display: block; transition: transform 0.3s; }
+  .amenity:hover .amenity-icon { transform: scale(1.15); }
+  .amenity h3 { font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 1.5px; color: var(--dark); margin-bottom: 10px; transition: color 0.3s; }
+  .amenity p { font-size: 13px; color: var(--muted); line-height: 1.7; transition: color 0.3s; }
+  .amenity:hover h3, .amenity:hover p { color: rgba(255,255,255,0.85); }
+
+  /* LOCATION */
+  .location-section { background: linear-gradient(135deg, var(--espresso-deep) 0%, var(--dark) 100%); position: relative; overflow: hidden; }
+  .location-section::before { content: ''; position: absolute; top: -100px; right: -100px; width: 500px; height: 500px; background: radial-gradient(circle, rgba(201,168,76,0.1) 0%, transparent 70%); pointer-events: none; }
+  .location-section .section-title { color: #fff; }
+  .location-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; max-width: 1300px; margin: 0 auto; }
+  .location-text p { color: rgba(255,255,255,0.7); font-size: 16px; line-height: 1.9; font-weight: 300; margin-bottom: 18px; }
+  .dist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 36px; }
+  .dist-item { padding: 18px 20px; border: 1px solid rgba(201,168,76,0.3); display: flex; align-items: center; gap: 14px; }
+  .dist-icon { font-size: 22px; }
+  .dist-name { font-size: 13px; color: rgba(255,255,255,0.8); font-weight: 400; }
+  .dist-km { font-family: 'Cormorant Garamond', serif; font-size: 13px; color: var(--gold); }
+  .location-image { position: relative; }
+  .location-image img { width: 100%; height: 500px; object-fit: cover; }
+  .location-image::after { content: ''; position: absolute; inset: -12px -12px 12px 12px; border: 1px solid rgba(201,168,76,0.4); pointer-events: none; z-index: -1; }
+
+  /* GALLERY */
+  .gallery { background: var(--dark); padding: 100px 60px; }
+  .gallery .section-title { color: #fff; }
+  .gallery-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 200px); gap: 8px; margin-top: 60px; max-width: 1400px; margin-left: auto; margin-right: auto; }
+  .gallery-item { overflow: hidden; cursor: pointer; position: relative; }
+  .gallery-item:nth-child(1) { grid-column: span 2; grid-row: span 2; }
+  .gallery-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease, filter 0.5s; filter: brightness(0.85); }
+  .gallery-item:hover img { transform: scale(1.08); filter: brightness(1); }
+  .gallery-item-overlay { position: absolute; inset: 0; background: rgba(201,168,76,0.15); opacity: 0; transition: opacity 0.3s; display: flex; align-items: center; justify-content: center; }
+  .gallery-item:hover .gallery-item-overlay { opacity: 1; }
+  .gallery-item-overlay span { color: #fff; font-size: 28px; }
+  .gallery-view-all { display: block; margin: 30px auto 0; text-align: center; color: var(--gold); font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px; text-decoration: none; text-transform: uppercase; padding: 14px 36px; border: 1px solid var(--gold); transition: all 0.3s; width: fit-content; }
+  .gallery-view-all:hover { background: var(--gold); color: var(--dark); }
+
+  /* REVIEWS */
+  .testimonials { background: var(--cream); }
+  .testimonials-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 60px; max-width: 1400px; margin-left: auto; margin-right: auto; }
+  .reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; max-width: 1400px; margin: 0 auto; }
+  .review-card { background: #fff; padding: 40px 36px; box-shadow: 0 4px 40px rgba(0,0,0,0.06); position: relative; overflow: hidden; transition: transform 0.3s, box-shadow 0.3s; }
+  .review-card:hover { transform: translateY(-6px); box-shadow: 0 12px 60px rgba(0,0,0,0.1); }
+  .review-card::before { content: '"'; position: absolute; top: 10px; right: 20px; font-family: 'Cormorant Garamond', serif; font-size: 120px; color: var(--gold-pale); line-height: 1; pointer-events: none; }
+  .stars { color: var(--gold); font-size: 14px; margin-bottom: 18px; letter-spacing: 2px; }
+  .review-text { font-family: 'Cormorant Garamond', serif; font-size: 18px; line-height: 1.75; color: var(--text); font-style: italic; margin-bottom: 24px; position: relative; z-index: 1; }
+  .reviewer { display: flex; align-items: center; gap: 14px; border-top: 1px solid var(--gold-pale); padding-top: 20px; }
+  .reviewer-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; font-size: 16px; color: var(--dark); font-weight: 600; }
+  .reviewer-name { font-weight: 600; font-size: 14px; color: var(--dark); }
+  .reviewer-loc { font-size: 12px; color: var(--muted); }
+  .ota-links { display: flex; gap: 12px; margin-top: 40px; flex-wrap: wrap; justify-content: center; }
+  .ota-btn { padding: 10px 22px; border: 1px solid var(--gold-pale); color: var(--muted); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; text-decoration: none; transition: all 0.3s; font-family: 'Cinzel', serif; }
+  .ota-btn:hover { background: var(--gold); color: var(--dark); border-color: var(--gold); }
+
+  /* GOOGLE REVIEW QR BAND */
+  .review-qr-band { background: var(--dark); padding: 80px 60px; border-top: 2px solid var(--gold); }
+  .review-qr-inner { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr; gap: 70px; align-items: center; }
+  .qr-box { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .qr-frame { background: #fff; padding: 18px; position: relative; box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
+  .qr-frame::after { content: ''; position: absolute; inset: -4px; border: 2px solid var(--gold); pointer-events: none; }
+  .qr-label { font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); text-align: center; }
+  .qr-scan-hint { font-size: 12px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.6; max-width: 160px; }
+  .qr-text-side { display: flex; flex-direction: column; gap: 18px; }
+  .qr-text-side h3 { font-family: 'Cormorant Garamond', serif; font-size: clamp(28px, 3vw, 44px); font-weight: 300; color: #fff; line-height: 1.15; }
+  .qr-text-side h3 em { font-style: italic; color: var(--gold); }
+  .qr-text-side p { font-size: 15px; color: rgba(255,255,255,0.6); line-height: 1.8; max-width: 460px; font-weight: 300; }
+  .qr-steps { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+  .qr-step { display: flex; align-items: center; gap: 16px; font-size: 14px; color: rgba(255,255,255,0.65); font-family: 'Nunito Sans', sans-serif; }
+  .qr-step-num { width: 30px; height: 30px; border: 1px solid rgba(201,168,76,0.5); display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; font-size: 12px; color: var(--gold); flex-shrink: 0; }
+  .btn-google-review { display: inline-flex; align-items: center; gap: 12px; background: #fff; color: #3c4043; padding: 14px 30px; font-size: 14px; font-weight: 600; text-decoration: none; transition: all 0.3s; box-shadow: 0 2px 10px rgba(0,0,0,0.3); margin-top: 10px; width: fit-content; font-family: 'Nunito Sans', sans-serif; border: none; }
+  .btn-google-review:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.4); transform: translateY(-2px); }
+
+  /* DINING / FEATURES SPLIT */
+  .features-split { background: var(--cream); padding: 0; display: grid; grid-template-columns: 1fr 1fr; min-height: 560px; }
+  .features-image { position: relative; overflow: hidden; }
+  .features-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s; }
+  .features-split:hover .features-image img { transform: scale(1.04); }
+  .features-content { background: var(--dark); padding: 100px 80px; display: flex; flex-direction: column; justify-content: center; }
+  .features-content .section-title { color: #fff; }
+  .features-content p { color: rgba(255,255,255,0.65); font-size: 16px; line-height: 1.9; font-weight: 300; margin-top: 28px; margin-bottom: 40px; }
+  .feature-list { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 40px; }
+  .feature-item { padding: 14px 18px; border: 1px solid rgba(201,168,76,0.25); display: flex; align-items: center; gap: 10px; }
+  .feature-item span:first-child { font-size: 18px; }
+  .feature-item-name { font-size: 13px; color: rgba(255,255,255,0.75); font-family: 'Nunito Sans', sans-serif; }
+
+  /* CONTACT */
+  .contact { background: var(--dark); display: grid; grid-template-columns: 1fr 1fr; }
+  .contact-info { padding: 100px 60px; }
+  .contact-info .section-title { color: #fff; margin-bottom: 40px; }
+  .contact-items { display: flex; flex-direction: column; gap: 28px; margin-top: 50px; }
+  .contact-item { display: flex; gap: 20px; align-items: flex-start; padding-bottom: 28px; border-bottom: 1px solid rgba(201,168,76,0.15); }
+  .contact-icon { width: 44px; height: 44px; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.3); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .contact-label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; font-family: 'Cinzel', serif; }
+  .contact-value { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: #fff; font-weight: 300; }
+  .contact-form-wrap { background: var(--espresso-deep); padding: 100px 60px; }
+  .contact-form-wrap h2 { font-family: 'Cormorant Garamond', serif; font-size: 36px; color: #fff; margin-bottom: 10px; }
+  .form-tabs { display: flex; gap: 24px; margin-bottom: 28px; border-bottom: 1px solid rgba(201,168,76,0.2); padding-bottom: 12px; }
+  .form-tab-btn { background: none; border: none; color: rgba(255,255,255,0.4); font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; padding: 4px 0; transition: color 0.2s; }
+  .form-tab-btn.active { color: var(--gold); border-bottom: 1px solid var(--gold); }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; font-family: 'Cinzel', serif; }
+  .form-group input, .form-group textarea, .form-group select { width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(201,168,76,0.25); color: #fff; padding: 14px 18px; font-family: 'Cormorant Garamond', serif; font-size: 17px; outline: none; transition: border 0.3s; }
+  .form-group input:focus, .form-group textarea:focus { border-color: var(--gold); }
+  .form-group textarea { resize: vertical; min-height: 100px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .star-selector { display: flex; gap: 8px; font-size: 30px; margin-bottom: 4px; }
+  .star-selector span { cursor: pointer; color: var(--gold); transition: transform 0.15s; }
+  .star-selector span:hover { transform: scale(1.2); }
+
+  /* FOOTER */
+  footer { background: #080402; color: rgba(255,255,255,0.5); padding: 60px 60px 30px; }
+  .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 60px; max-width: 1400px; margin: 0 auto 50px; }
+  .footer-brand .logo-text { font-family: 'Cinzel', serif; font-size: 20px; color: var(--gold); letter-spacing: 3px; display: block; margin-bottom: 6px; }
+  .footer-brand .logo-sub { font-size: 9px; letter-spacing: 5px; color: var(--gold-light); text-transform: uppercase; margin-bottom: 20px; display: block; }
+  .footer-brand p { font-size: 13px; line-height: 1.8; max-width: 280px; }
+  .footer-social { display: flex; gap: 12px; margin-top: 24px; }
+  .social-btn { width: 36px; height: 36px; border: 1px solid rgba(201,168,76,0.3); display: flex; align-items: center; justify-content: center; font-size: 14px; text-decoration: none; color: var(--gold); transition: all 0.3s; }
+  .social-btn:hover { background: var(--gold); color: var(--dark); }
+  .footer-col h4 { font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; margin-bottom: 22px; }
+  .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .footer-col ul li a { text-decoration: none; color: rgba(255,255,255,0.5); font-size: 13px; transition: color 0.3s; }
+  .footer-col ul li a:hover { color: var(--gold); }
+  .footer-bottom { border-top: 1px solid rgba(255,255,255,0.05); padding-top: 28px; display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto; font-size: 12px; }
+  .admin-link { color: var(--gold); text-decoration: none; font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 2px; padding: 8px 16px; border: 1px solid rgba(201,168,76,0.4); transition: all 0.3s; }
+  .admin-link:hover { background: var(--gold); color: var(--dark); }
+
+  /* WHATSAPP */
+  .whatsapp-btn { position: fixed; bottom: 30px; right: 30px; z-index: 999; width: 56px; height: 56px; background: #25D366; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; text-decoration: none; box-shadow: 0 4px 20px rgba(37,211,102,0.5); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 4px 20px rgba(37,211,102,0.5); } 50% { box-shadow: 0 4px 40px rgba(37,211,102,0.8), 0 0 0 10px rgba(37,211,102,0.1); } }
+
+  /* LIGHTBOX */
+  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 9999; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .lightbox.open { opacity: 1; pointer-events: all; }
+  .lightbox img { max-width: 90vw; max-height: 85vh; object-fit: contain; border: 1px solid rgba(201,168,76,0.4); }
+  .lightbox-close { position: absolute; top: 24px; right: 30px; color: #fff; font-size: 32px; cursor: pointer; background: none; border: none; line-height: 1; }
+
+  @media (max-width: 1024px) {
+    nav { padding: 16px 30px; } nav.scrolled { padding: 12px 30px; }
+    section { padding: 80px 30px; }
+    .about-grid, .location-grid { grid-template-columns: 1fr; gap: 50px; }
+    .about-images { height: 400px; }
+    .amenities-grid { grid-template-columns: repeat(2, 1fr); }
+    .reviews-grid { grid-template-columns: 1fr 1fr; }
+    .features-split { grid-template-columns: 1fr; } .features-image { height: 400px; }
+    .contact { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr 1fr; gap: 40px; }
+    .gallery-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: auto; }
+    .gallery-item:nth-child(1) { grid-column: span 1; grid-row: span 1; }
+    .booking-bar { flex-wrap: wrap; padding: 0 20px; } .booking-field { min-width: 45%; }
+    .maps-strip { height: auto; flex-direction: column; } .maps-info { width: 100%; padding: 16px 24px; }
+    .review-qr-inner { grid-template-columns: 1fr; } .qr-box { width: 100%; }
+    .menu-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .reviews-grid { grid-template-columns: 1fr; }
+    .amenities-grid { grid-template-columns: 1fr 1fr; }
+    .hero h1 { font-size: 42px; }
+    .hero-ctas { flex-direction: column; align-items: center; }
+    .dist-grid { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .menu-section, .gallery, .review-qr-band { padding: 80px 30px; }
+  }
+
+  /* ═══════════════ CART & CHECKOUT — Phase 2 ════════════════ */
+  .add-to-cart-btn {
+    margin-top: 10px; width: 100%;
+    padding: 8px 0;
+    background: transparent;
+    border: 1px solid rgba(201,168,76,0.4);
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; transition: all 0.25s;
+  }
+  .add-to-cart-btn:hover { background: var(--gold); color: var(--dark); }
+
+  .qty-ctrl { display:flex; align-items:center; gap:0; margin-top:10px; border:1px solid rgba(201,168,76,0.4); width:fit-content; }
+  .qty-ctrl button { background:none; border:none; color:var(--gold); font-size:16px; width:32px; height:32px; cursor:pointer; transition:background 0.2s; }
+  .qty-ctrl button:hover { background:rgba(201,168,76,0.15); }
+  .qty-ctrl span { min-width:28px; text-align:center; font-family:'Cinzel',serif; font-size:13px; color:#fff; }
+
+  /* Floating cart pill */
+  .cart-fab {
+    position: fixed; bottom: 30px; right: 30px; z-index: 500;
+    background: var(--gold); color: var(--dark);
+    border: none; border-radius: 50px;
+    padding: 14px 26px;
+    font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 2px;
+    cursor: pointer; box-shadow: 0 8px 32px rgba(201,168,76,0.45);
+    display: flex; align-items: center; gap: 12px;
+    transition: all 0.3s; transform: translateY(80px); opacity: 0;
+  }
+  .cart-fab.visible { transform: translateY(0); opacity: 1; }
+  .cart-fab:hover { box-shadow: 0 12px 40px rgba(201,168,76,0.6); transform: translateY(-2px); }
+  .cart-fab .cart-count {
+    background: var(--dark); color: var(--gold);
+    border-radius: 50%; width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+  }
+
+  /* Checkout drawer */
+  .checkout-overlay {
+    position: fixed; inset: 0; z-index: 600;
+    background: rgba(10,5,3,0.8); backdrop-filter: blur(6px);
+    opacity: 0; pointer-events: none; transition: opacity 0.35s;
+  }
+  .checkout-overlay.open { opacity: 1; pointer-events: all; }
+  .checkout-drawer {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 420px; max-width: 100vw;
+    background: #100A06;
+    border-left: 1px solid rgba(201,168,76,0.2);
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+  .checkout-overlay.open .checkout-drawer { transform: translateX(0); }
+  .drawer-header {
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid rgba(201,168,76,0.15);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .drawer-header h3 { font-family:'Cinzel',serif; font-size:15px; letter-spacing:3px; color:var(--gold); text-transform:uppercase; }
+  .drawer-close { background:none; border:none; color:rgba(255,255,255,0.4); font-size:22px; cursor:pointer; line-height:1; padding:0; transition:color 0.2s; }
+  .drawer-close:hover { color:#fff; }
+  .drawer-items { flex:1; overflow-y:auto; padding:20px 28px; }
+  .drawer-item {
+    display:flex; gap:14px; align-items:center;
+    padding:14px 0; border-bottom:1px solid rgba(201,168,76,0.08);
+  }
+  .drawer-item-info { flex:1; }
+  .drawer-item-name { font-family:'Cormorant Garamond',serif; font-size:16px; color:rgba(255,255,255,0.9); }
+  .drawer-item-price { font-size:13px; color:var(--gold); margin-top:2px; }
+  .drawer-item-qty { display:flex; align-items:center; gap:0; border:1px solid rgba(201,168,76,0.3); border-radius:2px; }
+  .drawer-item-qty button { background:none; border:none; color:var(--gold); width:28px; height:28px; cursor:pointer; font-size:14px; }
+  .drawer-item-qty span { min-width:24px; text-align:center; color:#fff; font-size:13px; }
+  .drawer-item-remove { background:none; border:none; color:rgba(255,255,255,0.2); cursor:pointer; font-size:16px; padding:0 4px; transition:color 0.2s; }
+  .drawer-item-remove:hover { color:#E07070; }
+  .drawer-summary {
+    padding:20px 28px;
+    border-top:1px solid rgba(201,168,76,0.15);
+    background:rgba(201,168,76,0.03);
+  }
+  .summary-row { display:flex; justify-content:space-between; font-size:13px; color:rgba(255,255,255,0.6); margin-bottom:8px; }
+  .summary-row.total { color:#fff; font-weight:600; font-size:16px; margin-top:12px; padding-top:12px; border-top:1px solid rgba(201,168,76,0.15); }
+  .summary-row.total span:last-child { color:var(--gold); font-family:'Cormorant Garamond',serif; font-size:20px; }
+  .drawer-fields { padding:0 28px 20px; display:flex; flex-direction:column; gap:10px; }
+  .drawer-input {
+    background:rgba(255,255,255,0.04); border:1px solid rgba(201,168,76,0.2);
+    padding:10px 14px; color:#fff;
+    font-family:'Nunito Sans',sans-serif; font-size:13px;
+    outline:none; border-radius:2px; width:100%;
+    transition:border-color 0.2s;
+  }
+  .drawer-input:focus { border-color:var(--gold); }
+  .drawer-input::placeholder { color:rgba(255,255,255,0.25); }
+  .drawer-row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .drawer-pay-btn {
+    margin:0 28px 28px;
+    width:calc(100% - 56px);
+    padding:16px;
+    background:linear-gradient(135deg,#A07830,var(--gold),#A07830);
+    background-size:200%; background-position:right;
+    border:none; color:var(--dark);
+    font-family:'Cinzel',serif; font-size:12px; letter-spacing:3px; text-transform:uppercase;
+    cursor:pointer; font-weight:700;
+    transition:background-position 0.4s, box-shadow 0.3s;
+  }
+  .drawer-pay-btn:hover { background-position:left; box-shadow:0 6px 24px rgba(201,168,76,0.4); }
+  .drawer-pay-btn:disabled { opacity:0.5; cursor:not-allowed; }
+  .order-success {
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+    padding:60px 28px; text-align:center; gap:16px;
+  }
+  .order-success.show { display:flex; }
+  .success-icon { font-size:64px; animation:bounceIn 0.5s ease; }
+  @keyframes bounceIn { 0%{transform:scale(0)} 70%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  .order-success h3 { font-family:'Cinzel',serif; color:var(--gold); font-size:18px; letter-spacing:2px; }
+  .order-success p { color:rgba(255,255,255,0.6); font-size:14px; line-height:1.7; }
+  .order-num { font-family:'Cormorant Garamond',serif; font-size:28px; color:#fff; }
+
+  
+  /* ══════════════ LOYALTY CARD — Phase 3 ══════════════ */
+  .loyalty-section { background: linear-gradient(135deg, #0D0705 0%, #1A0F0A 60%, #2C1810 100%); padding: 100px 60px; position: relative; overflow: hidden; }
+  .loyalty-section::before { content: ''; position: absolute; top: -200px; right: -200px; width: 600px; height: 600px; background: radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 65%); pointer-events: none; }
+  .loyalty-section .section-title { color: #fff; }
+  .loyalty-inner { max-width: 1000px; margin: 0 auto; }
+
+  /* Phone lookup */
+  .loyalty-lookup { display: flex; gap: 0; max-width: 440px; margin: 48px auto 0; }
+  .loyalty-lookup input { flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(201,168,76,0.25); border-right: none; padding: 14px 20px; color: #fff; font-family: 'Nunito Sans', sans-serif; font-size: 14px; outline: none; }
+  .loyalty-lookup input:focus { border-color: var(--gold); background: rgba(201,168,76,0.07); }
+  .loyalty-lookup input::placeholder { color: rgba(255,255,255,0.3); }
+  .loyalty-lookup button { background: var(--gold); color: var(--dark); border: none; padding: 14px 28px; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 2px; cursor: pointer; transition: all 0.3s; white-space: nowrap; }
+  .loyalty-lookup button:hover { background: #E2C97E; }
+
+  /* Card */
+  .loyalty-card-wrap { display: none; margin-top: 48px; animation: fadeUp 0.5s ease; }
+  .loyalty-card-wrap.show { display: block; }
+  .loyalty-card { background: linear-gradient(135deg, #2C1810 0%, #1A0F0A 50%, #3A2010 100%); border: 1px solid rgba(201,168,76,0.35); border-radius: 16px; padding: 32px 36px; position: relative; overflow: hidden; max-width: 680px; margin: 0 auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .loyalty-card::before { content: ''; position: absolute; top: -60px; right: -60px; width: 220px; height: 220px; background: radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%); }
+  .loyalty-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .loyalty-card-brand { font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px; color: rgba(201,168,76,0.6); text-transform: uppercase; }
+  .loyalty-card-name { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: #fff; margin-top: 6px; }
+  .loyalty-tier-badge { padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+  .tier-New      { background: rgba(150,150,150,0.15); color: #aaa; border: 1px solid rgba(150,150,150,0.3); }
+  .tier-Regular  { background: rgba(100,180,100,0.15); color: #7ECF7E; border: 1px solid rgba(100,180,100,0.3); }
+  .tier-VIP      { background: rgba(100,150,220,0.15); color: #80AADD; border: 1px solid rgba(100,150,220,0.3); }
+  .tier-Elite    { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.35); }
+
+  /* Stamp grid */
+  .stamps-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: rgba(201,168,76,0.5); margin-bottom: 14px; font-family: 'Cinzel', serif; }
+  .stamps-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stamp { width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(201,168,76,0.2); display: flex; align-items: center; justify-content: center; font-size: 20px; transition: all 0.3s; }
+  .stamp.earned { border-color: var(--gold); background: rgba(201,168,76,0.15); box-shadow: 0 0 12px rgba(201,168,76,0.2); }
+  .stamp.empty { opacity: 0.3; }
+
+  /* Stats row */
+  .loyalty-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .loyalty-stat { text-align: center; padding: 14px; border: 1px solid rgba(201,168,76,0.12); border-radius: 8px; }
+  .loyalty-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 26px; color: var(--gold); line-height: 1; }
+  .loyalty-stat-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+  /* Actions */
+  .loyalty-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .loyalty-btn { padding: 10px 22px; border: 1px solid rgba(201,168,76,0.35); background: transparent; color: var(--gold); font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 2px; cursor: pointer; transition: all 0.25s; border-radius: 2px; }
+  .loyalty-btn:hover { background: var(--gold); color: var(--dark); }
+  .loyalty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .loyalty-btn.primary { background: var(--gold); color: var(--dark); }
+  .loyalty-btn.primary:hover { background: #E2C97E; }
+
+  /* Birthday input */
+  .bday-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(201,168,76,0.1); }
+  .bday-row label { font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 1px; flex-shrink: 0; }
+  .bday-row input[type=date] { background: rgba(255,255,255,0.04); border: 1px solid rgba(201,168,76,0.2); padding: 7px 12px; color: #fff; font-size: 13px; outline: none; flex: 1; border-radius: 2px; }
+  .bday-row input[type=date]:focus { border-color: var(--gold); }
+  .loyalty-msg { margin-top: 12px; font-size: 13px; color: #7ECF7E; min-height: 20px; text-align: center; }
+
+  
+  /* ── PWA Install Banner ──────────────────────────────────────────────── */
+  #pwa-install-banner { display:none; position:fixed; bottom:80px; left:50%; transform:translateX(-50%); z-index:9999; background:linear-gradient(135deg,#1A0F0A,#2C1810); border:1px solid rgba(201,168,76,0.4); border-radius:12px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.5); width:calc(100% - 40px); max-width:420px; animation:slideUp 0.4s ease; }
+  @keyframes slideUp { from{transform:translateX(-50%) translateY(20px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
+  #pwa-install-banner.show { display:flex; align-items:center; gap:14px; }
+  .pwa-icon { font-size:32px; flex-shrink:0; }
+  .pwa-text { flex:1; }
+  .pwa-text strong { display:block; color:#C9A84C; font-family:'Cinzel',serif; font-size:12px; letter-spacing:2px; margin-bottom:3px; }
+  .pwa-text span { color:rgba(255,255,255,0.55); font-size:12px; }
+  .pwa-actions { display:flex; gap:8px; flex-shrink:0; }
+  .pwa-btn-install { background:#C9A84C; color:#0D0705; border:none; padding:8px 16px; font-family:'Cinzel',serif; font-size:10px; letter-spacing:1.5px; cursor:pointer; border-radius:2px; white-space:nowrap; }
+  .pwa-btn-dismiss { background:transparent; color:rgba(255,255,255,0.4); border:1px solid rgba(255,255,255,0.15); padding:8px 10px; font-size:16px; cursor:pointer; border-radius:2px; line-height:1; }
+  /* ── Offline indicator ──────────────────────────────────────────────── */
+  #offline-bar { display:none; position:fixed; top:0; left:0; right:0; z-index:10000; background:#E84545; color:#fff; text-align:center; padding:8px; font-size:13px; letter-spacing:1px; }
+  #offline-bar.show { display:block; }
+</style>
+</head>
+<body>
+<!-- PWA Offline Bar -->
+<div id="offline-bar">📵 You're offline — some features may be unavailable</div>
+
+<!-- PWA Install Banner -->
+<div id="pwa-install-banner">
+  <div class="pwa-icon">☕</div>
+  <div class="pwa-text">
+    <strong>INSTALL APP</strong>
+    <span>Add Zordic California to your home screen for quick access</span>
+  </div>
+  <div class="pwa-actions">
+    <button class="pwa-btn-install" id="pwa-btn-install">Install</button>
+    <button class="pwa-btn-dismiss" id="pwa-btn-dismiss">✕</button>
+  </div>
+</div>
+
+
+<!-- NAV -->
+<nav id="navbar">
+  <div class="nav-logo">
+    <a href="#" class="logo-text" id="cafe-logo-text">CAFÉ</a>
+    <span class="logo-sub" id="cafe-logo-sub">EST. 2026</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#loyalty" style="color:var(--gold)">🎁 My Card</a>
+        <a href="#menu">Menu</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#location">Location</a></li>
+    <li><a href="#gallery">Gallery</a></li>
+    <li><a href="#reviews">Reviews</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+  <a href="#booking" class="nav-book">Book Table</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg-fallback"></div>
+  <div class="hero-bg" id="hero-bg"></div>
+  <div class="hero-pattern"></div>
+  <div class="building-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-badge" id="cafe-hours">☕ Open Today</div>
+    <h1 id="cafe-hero-title">Welcome to<br><span>Our Café</span></h1>
+    <div class="hero-divider">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="#C9A84C"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+    </div>
+    <p class="hero-sub" id="cafe-subtitle">Loading branch details...</p>
+    <div class="hero-ctas">
+      <a href="#booking" class="btn-primary">Reserve a Table</a>
+      <a id="cafe-wa-btn" href="#" class="btn-outline" target="_blank">📞 Call / WhatsApp</a>
+    </div>
+  </div>
+  <div class="hero-scroll"><span>Scroll</span><div class="scroll-line"></div></div>
+</section>
+
+<!-- MAPS STRIP -->
+<div class="maps-strip">
+  <iframe id="cafe-map-iframe" src="" allowfullscreen loading="lazy"></iframe>
+  <div class="maps-info">
+    <span class="maps-info-icon">📍</span>
+    <div>
+      <h4 id="cafe-map-name">LOADING...</h4>
+      <p id="cafe-map-address">Address loading...</p>
+      <a id="cafe-map-link" href="#" target="_blank">📌 Open in Google Maps →</a>
+    </div>
+  </div>
+</div>
+
+<!-- BOOKING BAR -->
+<div class="booking-bar" id="booking">
+  <div class="booking-field">
+    <label>Your Name</label>
+    <input type="text" id="quick-name" placeholder="Amit Kumar">
+  </div>
+  <div class="booking-field">
+    <label>WhatsApp Phone</label>
+    <input type="tel" id="quick-phone" placeholder="9876543210">
+  </div>
+  <div class="booking-field">
+    <label>Guests</label>
+    <select id="quick-guests">
+      <option value="1">1 Guest</option>
+      <option value="2" selected>2 Guests</option>
+      <option value="3">3 Guests</option>
+      <option value="4">4 Guests</option>
+      <option value="5+">5+ Guests</option>
+    </select>
+  </div>
+  <div class="booking-field">
+    <label>Time / Schedule</label>
+    <input type="text" id="quick-time" placeholder="Tonight at 8 PM">
+  </div>
+  <button class="booking-submit" onclick="quickBook()">Book Table →</button>
+</div>
+
+<!-- ABOUT -->
+<section class="about" id="about">
+  <div class="about-grid">
+    <div class="about-images">
+      <div class="about-img-main">
+        <img src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80" alt="Café Interior">
+      </div>
+      <div class="about-img-accent">
+        <img src="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&q=80" alt="Coffee">
+      </div>
+      <div class="about-gold-block">
+        <span class="num" id="about-gold-num">☕</span>
+        <span class="lbl" id="about-gold-lbl">Brewed Daily</span>
+      </div>
+    </div>
+    <div class="about-text">
+      <p class="section-label">Our Story</p>
+      <h2 class="section-title">A Sanctuary of<br><em>Exquisite Taste</em></h2>
+      <div class="section-divider"><div class="divider-gem"></div></div>
+      <p id="about-p1">Loading café story...</p>
+      <p>Experience our premium ingredients, cozy atmosphere, and friendly staff. Whether catching up on work with free WiFi, meeting friends, or simply savouring a quiet cup — we have the perfect spot for you.</p>
+      <div class="about-stats">
+        <div class="stat"><div class="stat-num" id="stat-menu">50+</div><span class="stat-lbl">Menu Items</span></div>
+        <div class="stat"><div class="stat-num" id="stat-rating">4.8★</div><span class="stat-lbl">Avg Rating</span></div>
+        <div class="stat"><div class="stat-num" id="stat-reviews">100+</div><span class="stat-lbl">Reviews</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MENU -->
+<section class="menu-section" id="menu">
+  <div style="max-width:1400px;margin:0 auto">
+    <p class="section-label">Gastronomy</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:20px">
+      <h2 class="section-title" style="color:#fff">Our Curated <em style="color:var(--gold)">Menu</em></h2>
+      <p style="color:rgba(255,255,255,0.5);font-size:14px;max-width:300px;text-align:right;line-height:1.7">Freshly brewed coffees, crispy bites, hand-crafted mocktails & more.</p>
+    </div>
+    <div id="menu-container" style="margin-top:60px;"></div>
+  </div>
+</section>
+
+<!-- AMENITIES -->
+<section class="amenities" id="features">
+  <div style="max-width:1400px;margin:0 auto">
+    <p class="section-label">Comforts</p>
+    <h2 class="section-title">Cozy <em>Café Features</em></h2>
+  </div>
+  <div class="amenities-grid">
+    <div class="amenity"><span class="amenity-icon">📶</span><h3>Free WiFi</h3><p>Unlimited high-speed internet. Perfect for study, work, or digital nomads.</p></div>
+    <div class="amenity"><span class="amenity-icon">🥗</span><h3>Fresh Veg</h3><p>100% pure vegetarian, fresh local organic ingredients in every dish.</p></div>
+    <div class="amenity"><span class="amenity-icon">🎲</span><h3>Board Games</h3><p>Quality time with friends and family over our curated collection of board games.</p></div>
+    <div class="amenity"><span class="amenity-icon">🚗</span><h3>Easy Parking</h3><p>Ample secure vehicle parking right outside the café entrance.</p></div>
+    <div class="amenity"><span class="amenity-icon">❄️</span><h3>AC Seating</h3><p>Fully air-conditioned, temperature-controlled elegant indoor lounges.</p></div>
+    <div class="amenity"><span class="amenity-icon">🌱</span><h3>Outdoor Seating</h3><p>Breathe fresh air in our cozy plant-filled patio garden seating zone.</p></div>
+    <div class="amenity"><span class="amenity-icon">☕</span><h3>Custom Brew</h3><p>Choose your beans and roasting level for a fully personalised coffee experience.</p></div>
+    <div class="amenity"><span class="amenity-icon">🎂</span><h3>Party Hosting</h3><p>Dedicated spaces for birthdays, kitty parties, and corporate team meets.</p></div>
+  </div>
+</section>
+
+<!-- LOCATION -->
+<section class="location-section" id="location">
+  <div class="location-grid">
+    <div class="location-text">
+      <p class="section-label">Geographical Ease</p>
+      <h2 class="section-title" style="color:#fff">Perfectly <em style="color:var(--gold)">Located</em></h2>
+      <div class="section-divider"><div class="divider-gem"></div></div>
+      <p>Located in the heart of the city, our café is easily accessible from transit hubs, parks, and major corporate zones. The perfect stop before your commute or during a lunch break.</p>
+      <div class="dist-grid">
+        <div class="dist-item"><span class="dist-icon">🚇</span><div><div class="dist-name">Nearest Metro Station</div><div class="dist-km">≈ 500 metres</div></div></div>
+        <div class="dist-item"><span class="dist-icon">💻</span><div><div class="dist-name">Corporate Tech Park</div><div class="dist-km">≈ 1.2 km</div></div></div>
+        <div class="dist-item"><span class="dist-icon">🛍️</span><div><div class="dist-name">Central Shopping Mall</div><div class="dist-km">≈ 800 metres</div></div></div>
+        <div class="dist-item"><span class="dist-icon">🚂</span><div><div class="dist-name">City Railway Station</div><div class="dist-km">≈ 2.5 km</div></div></div>
+      </div>
+    </div>
+    <div class="location-image">
+      <img src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80" alt="Café Location">
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section class="gallery" id="gallery">
+  <div style="max-width:1400px;margin:0 auto">
+    <p class="section-label">Visual Gallery</p>
+    <h2 class="section-title" style="color:#fff">Real Moments from<br><em style="color:var(--gold)">Our Café</em></h2>
+  </div>
+  <div class="gallery-grid">
+    <div class="gallery-item" onclick="openLightbox(this)"><img src="https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=900&q=80" alt="Seating"><div class="gallery-item-overlay"><span>⊕</span></div></div>
+    <div class="gallery-item" onclick="openLightbox(this)"><img src="https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&q=80" alt="Coffee Pour"><div class="gallery-item-overlay"><span>⊕</span></div></div>
+    <div class="gallery-item" onclick="openLightbox(this)"><img src="https://images.unsplash.com/photo-1590490360182-c33d57733427?w=600&q=80" alt="Fries"><div class="gallery-item-overlay"><span>⊕</span></div></div>
+    <div class="gallery-item" onclick="openLightbox(this)"><img src="https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=600&q=80" alt="Workspace"><div class="gallery-item-overlay"><span>⊕</span></div></div>
+    <div class="gallery-item" onclick="openLightbox(this)"><img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&q=80" alt="Pasta"><div class="gallery-item-overlay"><span>⊕</span></div></div>
+    <div class="gallery-item" onclick="openLightbox(this)"><img src="https://images.unsplash.com/photo-1560185893-a55cbc8c57e8?w=600&q=80" alt="Outdoor"><div class="gallery-item-overlay"><span>⊕</span></div></div>
+  </div>
+  <a id="gallery-photos-link" href="#" target="_blank" class="gallery-view-all">📸 View All Photos on Google →</a>
+</section>
+
+<!-- LOYALTY -->
+<section class="loyalty-section" id="loyalty">
+  <div class="loyalty-inner">
+    <p class="section-label" style="color:rgba(201,168,76,0.6);text-align:center">Rewards Programme</p>
+    <h2 class="section-title" style="text-align:center;margin-bottom:8px">Your <em>Loyalty</em> Card</h2>
+    <p style="text-align:center;color:rgba(255,255,255,0.45);font-size:14px;letter-spacing:1px;margin-bottom:0">Earn stamps every visit · Collect points every rupee · Unlock free rewards</p>
+
+    <div class="loyalty-lookup">
+      <input type="tel" id="loyalty-phone" placeholder="Enter your mobile number" maxlength="15" />
+      <button onclick="lookupLoyalty()">FIND MY CARD</button>
+    </div>
+
+    <div class="loyalty-card-wrap" id="loyalty-card-wrap">
+      <div class="loyalty-card">
+        <div class="loyalty-card-header">
+          <div>
+            <div class="loyalty-card-brand" id="lc-branch">ZORDIC CA</div>
+            <div class="loyalty-card-name" id="lc-name">Guest</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px" id="lc-phone"></div>
+          </div>
+          <div class="loyalty-tier-badge" id="lc-tier">New</div>
+        </div>
+
+        <div class="stamps-label">Stamp Card — 10 stamps = 1 free item</div>
+        <div class="stamps-grid" id="stamps-grid"></div>
+
+        <div class="loyalty-stats">
+          <div class="loyalty-stat">
+            <div class="loyalty-stat-val" id="lc-points">0</div>
+            <div class="loyalty-stat-label">Points</div>
+          </div>
+          <div class="loyalty-stat">
+            <div class="loyalty-stat-val" id="lc-visits">0</div>
+            <div class="loyalty-stat-label">Visits</div>
+          </div>
+          <div class="loyalty-stat">
+            <div class="loyalty-stat-val" id="lc-spent">₹0</div>
+            <div class="loyalty-stat-label">Total Spent</div>
+          </div>
+        </div>
+
+        <div class="loyalty-actions">
+          <button class="loyalty-btn primary" id="redeem-stamps-btn" onclick="redeemMyStamps()">&#127873; Redeem Free Item (10 stamps)</button>
+          <button class="loyalty-btn" id="redeem-points-btn" onclick="redeemMyPoints()">&#10024; Use 500 Points</button>
+        </div>
+        <div class="loyalty-msg" id="loyalty-msg"></div>
+
+        <div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(201,168,76,0.1)">
+          <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(201,168,76,0.5);margin-bottom:10px;font-family:'Cinzel',serif">Birthday Gift</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <input type="date" id="bday-input" style="background:rgba(255,255,255,0.06);border:1px solid rgba(201,168,76,0.2);padding:9px 14px;color:#fff;font-family:'Nunito Sans',sans-serif;font-size:13px;outline:none;border-radius:2px" />
+            <button class="loyalty-btn" onclick="saveBirthday()">Save Birthday</button>
+            <span style="font-size:12px;color:rgba(255,255,255,0.3)">Get a free treat on your big day!</span>
+          </div>
+        </div>
+
+        <div style="margin-top:20px">
+          <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(201,168,76,0.5);margin-bottom:10px;font-family:'Cinzel',serif">Recent Activity</div>
+          <div id="loyalty-history" style="font-size:13px;color:rgba(255,255,255,0.45);line-height:1.9"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- REVIEWS -->
+<section class="testimonials" id="reviews">
+  <div style="max-width:1400px;margin:0 auto">
+    <div class="testimonials-header">
+      <div><p class="section-label">Guest Stories</p><h2 class="section-title">What Our <em>Guests</em> Say</h2></div>
+      <div style="text-align:right">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:52px;color:var(--espresso);line-height:1" id="reviews-avg">4.8★</div>
+        <div style="color:var(--gold);font-size:14px;letter-spacing:2px" id="reviews-stars">★★★★★</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px" id="reviews-count">Based on 100+ reviews</div>
+      </div>
+    </div>
+    <div class="reviews-grid" id="reviews-feed"></div>
+    <div class="ota-links">
+      <a id="reviews-gbp-link" href="#" target="_blank" class="ota-btn">⭐ Review Us on Google ↗</a>
+    </div>
+  </div>
+</section>
+
+<!-- GOOGLE REVIEW QR BAND -->
+<div class="review-qr-band">
+  <div class="review-qr-inner">
+    <div class="qr-box">
+      <div class="qr-frame"><div id="qr-code-canvas"></div></div>
+      <div class="qr-label">Scan to Review</div>
+      <div class="qr-scan-hint">Point your phone camera at the QR code to open Google Reviews instantly</div>
+    </div>
+    <div class="qr-text-side">
+      <h3>Loved your visit?<br>Leave us a <em>Google Review</em> ☕</h3>
+      <p>Your review takes less than 60 seconds and means the world to our team — it also helps other coffee lovers find us!</p>
+      <div class="qr-steps">
+        <div class="qr-step"><div class="qr-step-num">1</div>Scan the QR code with your phone camera</div>
+        <div class="qr-step"><div class="qr-step-num">2</div>Tap the link to open our Google Business page</div>
+        <div class="qr-step"><div class="qr-step-num">3</div>Give us stars &amp; share your experience — done!</div>
+      </div>
+      <a id="google-review-btn" href="#" target="_blank" class="btn-google-review">
+        <span style="font-size:20px">⭐</span> Write a Google Review
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- SIGNATURE DRINKS SPLIT -->
+<div class="features-split">
+  <div class="features-image">
+    <img src="https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&q=80" alt="Signature Coffee">
+  </div>
+  <div class="features-content">
+    <p class="section-label">Speciality</p>
+    <h2 class="section-title">Signature Drinks<br><em style="color:var(--gold)">& Kitchen</em></h2>
+    <p>Hand-crafted beverages and fresh vegetarian bites prepared with locally sourced ingredients. Every cup, every plate — made with care and served with warmth.</p>
+    <div class="feature-list">
+      <div class="feature-item"><span>☕</span><span class="feature-item-name">Filter &amp; Pour Over Coffee</span></div>
+      <div class="feature-item"><span>🧋</span><span class="feature-item-name">Signature Mocktails</span></div>
+      <div class="feature-item"><span>🍕</span><span class="feature-item-name">Wood-Fired Snacks</span></div>
+      <div class="feature-item"><span>🥗</span><span class="feature-item-name">Fresh Salads &amp; Bowls</span></div>
+      <div class="feature-item"><span>🍝</span><span class="feature-item-name">Artisan Pasta</span></div>
+      <div class="feature-item"><span>🎂</span><span class="feature-item-name">Desserts &amp; Cakes</span></div>
+    </div>
+    <a href="#menu" class="btn-primary">View Full Menu</a>
+  </div>
+</div>
+
+<!-- CONTACT -->
+<div class="contact" id="contact">
+  <div class="contact-info">
+    <p class="section-label">Get In Touch</p>
+    <h2 class="section-title" style="color:#fff">We'd Love to<br><em>Hear From You</em></h2>
+    <div class="contact-items">
+      <div class="contact-item">
+        <div class="contact-icon">📞</div>
+        <div><div class="contact-label">Phone & WhatsApp</div><div class="contact-value" id="contact-phone">Loading...</div></div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon">⏰</div>
+        <div><div class="contact-label">Opening Hours</div><div class="contact-value" id="contact-hours">Loading...</div></div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon">📍</div>
+        <div><div class="contact-label">Address</div><div class="contact-value" id="contact-address">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="contact-form-wrap">
+    <h2>Bookings & Feedback</h2>
+    <div class="form-tabs">
+      <button class="form-tab-btn active" id="tab-book" onclick="switchTab('book')">📅 Reserve Table</button>
+      <button class="form-tab-btn" id="tab-feed" onclick="switchTab('feed')">⭐ Leave Feedback</button>
+    </div>
+    <!-- Reservation -->
+    <form id="form-book" onsubmit="submitReservation(event)">
+      <div class="form-group"><label>Your Name</label><input type="text" id="book-name" required placeholder="E.g., Amit Kumar"></div>
+      <div class="form-row">
+        <div class="form-group"><label>WhatsApp Phone</label><input type="tel" id="book-phone" required placeholder="9876543210"></div>
+        <div class="form-group"><label>No. of Guests</label><input type="number" id="book-guests" min="1" max="20" value="2" required></div>
+      </div>
+      <div class="form-group"><label>Date & Time</label><input type="text" id="book-time" required placeholder="E.g., Tonight at 8:00 PM"></div>
+      <button type="submit" class="btn-primary" style="width:100%;padding:16px;border:none;cursor:pointer;font-size:12px;">🚀 Submit Reservation</button>
+    </form>
+    <!-- Feedback -->
+    <form id="form-feed" onsubmit="submitFeedback(event)" style="display:none">
+      <div class="form-group"><label>Your Name</label><input type="text" id="feed-name" required placeholder="E.g., Sneha Kapoor"></div>
+      <div class="form-group"><label>WhatsApp (Optional)</label><input type="tel" id="feed-phone" placeholder="9999988888"></div>
+      <div class="form-group">
+        <label>Your Rating</label>
+        <div class="star-selector" id="star-selector">
+          <span data-r="1" onclick="setRating(1)">★</span>
+          <span data-r="2" onclick="setRating(2)">★</span>
+          <span data-r="3" onclick="setRating(3)">★</span>
+          <span data-r="4" onclick="setRating(4)">★</span>
+          <span data-r="5" onclick="setRating(5)">★</span>
+        </div>
+        <input type="hidden" id="feed-rating" value="5">
+      </div>
+      <div class="form-group"><label>Your Review</label><textarea id="feed-comment" required placeholder="Tell us about your visit..."></textarea></div>
+      <button type="submit" class="btn-primary" style="width:100%;padding:16px;border:none;cursor:pointer;font-size:12px;">⭐ Submit Feedback</button>
+    </form>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <span class="logo-text" id="footer-logo">CAFÉ</span>
+      <span class="logo-sub" id="footer-sub">Customer Portal</span>
+      <p>Curated coffees, vegetarian delights, and cozy spaces — your neighbourhood café powered by AI.</p>
+      <div class="footer-social">
+        <a href="#" class="social-btn">📱</a>
+        <a href="#" class="social-btn">📸</a>
+        <a id="footer-wa" href="#" class="social-btn" target="_blank">💬</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Navigate</h4>
+      <ul>
+        <li><a href="#about">Our Story</a></li>
+        <li><a href="#menu">Menu</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#location">Location</a></li>
+        <li><a href="#gallery">Gallery</a></li>
+        <li><a href="#reviews">Reviews</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Connect</h4>
+      <ul>
+        <li><a href="#contact">Contact Us</a></li>
+        <li><a href="#booking">Book a Table</a></li>
+        <li><a id="footer-wa-link" href="#" target="_blank">WhatsApp Chat ↗</a></li>
+        <li><a id="footer-review-link" href="#" target="_blank">Google Review ↗</a></li>
+        <li><a id="footer-admin" href="#">Staff Login</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 Zordic SaaS. All rights reserved.</span>
+    <a href="/website.html" target="_blank" style="color:var(--gold);text-decoration:none;font-family:'Cinzel',serif;font-size:10px;letter-spacing:2px;">☕ Powered by CaféGrow AI</a>
+    <a id="footer-admin-link" href="#" class="admin-link">🔐 Staff Login</a>
+  </div>
+</footer>
+
+<a href="#" class="whatsapp-btn" id="wa-float" target="_blank" title="Chat on WhatsApp">💬</a>
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  // ── Branch ID from URL ──
+  const branchId = window.location.pathname.split('/').filter(Boolean).pop() || 'indiranagar';
+  let selectedRating = 5;
+
+  // ── Navbar scroll ──
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 60);
+  });
+
+  // ── Lightbox ──
+  function openLightbox(el) {
+    document.getElementById('lightbox-img').src = el.querySelector('img').src;
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+  // ── Form tabs ──
+  function switchTab(tab) {
+    document.getElementById('form-book').style.display = tab === 'book' ? 'block' : 'none';
+    document.getElementById('form-feed').style.display = tab === 'feed' ? 'block' : 'none';
+    document.getElementById('tab-book').classList.toggle('active', tab === 'book');
+    document.getElementById('tab-feed').classList.toggle('active', tab === 'feed');
+  }
+
+  // ── Quick booking bar ──
+  function quickBook() {
+    const n = document.getElementById('quick-name').value;
+    const p = document.getElementById('quick-phone').value;
+    const t = document.getElementById('quick-time').value;
+    if (!n || !p || !t) { showToast('Please fill Name, Phone and Time.', true); return; }
+    document.getElementById('book-name').value = n;
+    document.getElementById('book-phone').value = p;
+    document.getElementById('book-guests').value = document.getElementById('quick-guests').value;
+    document.getElementById('book-time').value = t;
+    switchTab('book');
+    document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // ── Star rating ──
+  function setRating(r) {
+    selectedRating = r;
+    document.getElementById('feed-rating').value = r;
+    document.querySelectorAll('#star-selector span').forEach(s => {
+      s.style.color = parseInt(s.dataset.r) <= r ? 'var(--gold)' : 'rgba(201,168,76,0.25)';
+    });
+  }
+
+  // ── Load branch details ──
+  async function loadBranch() {
+    try {
+      const list = await fetch('/api/businesses').then(r => r.json());
+      const b = list.find(x => x.id === branchId) || list[0];
+      if (!b) return;
+
+      window._branchName = b.name;
+      document.title = b.name + ' — Customer Portal';
+
+      // ── Phase 7: Per-branch full UI theme ────────────────────────────────
+      const THEMES = {
+        espresso:   { '--gold':'#C9A84C','--gold-light':'#E8C97A','--gold-pale':'#F5E9C9','--espresso':'#7B3F1A','--espresso-deep':'#3D1E0A','--cream':'#FAF5EC','--dark':'#120A06','--text':'#3A2010','--muted':'#7A6050','--hero-image':"url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1600&q=80')" },
+        ocean:      { '--gold':'#3B82F6','--gold-light':'#93C5FD','--gold-pale':'#DBEAFE','--espresso':'#1E40AF','--espresso-deep':'#1E3A8A','--cream':'#EFF6FF','--dark':'#0C1A35','--text':'#1E3A5F','--muted':'#5B7EA0','--hero-image':"url('https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=1600&q=80')" },
+        forest:     { '--gold':'#16A34A','--gold-light':'#4ADE80','--gold-pale':'#DCFCE7','--espresso':'#14532D','--espresso-deep':'#052E16','--cream':'#F0FDF4','--dark':'#071A0E','--text':'#14532D','--muted':'#4A7A5A','--hero-image':"url('https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=1600&q=80')" },
+        cherry:     { '--gold':'#E11D48','--gold-light':'#FB7185','--gold-pale':'#FFE4E6','--espresso':'#9F1239','--espresso-deep':'#4C0519','--cream':'#FFF5F7','--dark':'#1A0510','--text':'#4C0519','--muted':'#9F4A5F','--hero-image':"url('https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=1600&q=80')" },
+        lavender:   { '--gold':'#9333EA','--gold-light':'#C084FC','--gold-pale':'#F3E8FF','--espresso':'#6B21A8','--espresso-deep':'#3B0764','--cream':'#FAFAFA','--dark':'#120826','--text':'#3B0764','--muted':'#7C4A9A','--hero-image':"url('https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?w=1600&q=80')" },
+        terracotta: { '--gold':'#C2410C','--gold-light':'#EA580C','--gold-pale':'#FED7AA','--espresso':'#9A3412','--espresso-deep':'#431407','--cream':'#FFF7ED','--dark':'#1C0A03','--text':'#431407','--muted':'#92400E','--hero-image':"url('https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=1600&q=80')" },
+        emerald:    { '--gold':'#059669','--gold-light':'#34D399','--gold-pale':'#D1FAE5','--espresso':'#065F46','--espresso-deep':'#022C22','--cream':'#ECFDF5','--dark':'#022C22','--text':'#064E3B','--muted':'#4A9A7A','--hero-image':"url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80')" },
+        midnight:   { '--gold':'#94A3B8','--gold-light':'#CBD5E1','--gold-pale':'#F1F5F9','--espresso':'#475569','--espresso-deep':'#1E293B','--cream':'#F8FAFC','--dark':'#0F172A','--text':'#1E293B','--muted':'#64748B','--hero-image':"url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=1600&q=80')" },
+      };
+      const themeName = b.theme || 'espresso';
+      const theme = THEMES[themeName] || THEMES.espresso;
+      const root = document.documentElement;
+      Object.entries(theme).forEach(([k, v]) => root.style.setProperty(k, v));
+      window._brandColor = theme['--gold'];
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) themeMeta.content = theme['--dark'];
+      // ─────────────────────────────────────────────────────────────────────
+      document.getElementById('cafe-logo-text').innerText = b.name;
+      document.getElementById('footer-logo').innerText = b.name;
+      const words = b.name.split(' ');
+      document.getElementById('cafe-hero-title').innerHTML = words[0] + '<br><span>' + words.slice(1).join(' ') + '</span>';
+      document.getElementById('cafe-hours').innerText = '⏰ Open: ' + b.timings;
+      document.getElementById('cafe-subtitle').innerText = b.location;
+      document.getElementById('contact-phone').innerText = b.contact;
+      document.getElementById('contact-hours').innerText = b.timings;
+      document.getElementById('contact-address').innerText = b.location;
+      document.getElementById('cafe-map-name').innerText = b.name.toUpperCase();
+      document.getElementById('cafe-map-address').innerText = b.location;
+      document.getElementById('cafe-map-iframe').src = b.map || '';
+      document.getElementById('cafe-map-link').href = b.review || '#';
+      document.getElementById('gallery-photos-link').href = b.review || '#';
+      document.getElementById('reviews-gbp-link').href = b.review || '#';
+      document.getElementById('footer-review-link').href = b.review || '#';
+      document.getElementById('footer-admin-link').href = '/manager/' + b.id;
+      document.getElementById('footer-admin').href = '/manager/' + b.id;
+
+      const waUrl = 'https://wa.me/' + b.contact.replace(/\+/g,'').replace(/ /g,'') + '?text=' + encodeURIComponent('Hello, I want to book a table at ' + b.name);
+      document.getElementById('wa-float').href = waUrl;
+      document.getElementById('cafe-wa-btn').href = waUrl;
+      document.getElementById('footer-wa').href = waUrl;
+      document.getElementById('footer-wa-link').href = waUrl;
+
+      // Hero background per branch type
+      const heroImages = {
+        koramangala: "url('https://images.unsplash.com/photo-1511920170033-f8396924c348?w=1600&q=80')",
+        indiranagar:  "url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1600&q=80')"
+      };
+      const heroImg = heroImages[b.id] || "url('https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=1600&q=80')";
+      document.getElementById('hero-bg').style.backgroundImage =
+        'linear-gradient(180deg, rgba(18,10,6,0.55) 0%, rgba(18,10,6,0.30) 40%, rgba(18,10,6,0.78) 100%), ' + heroImg;
+
+      document.getElementById('about-p1').innerText = b.id.includes('koramangala')
+        ? 'Welcome to ' + b.name + ', Koramangala\'s premier high-tech café. Designed for digital nomads and tech teams — high-speed fibre WiFi, charging on every desk, and freshly brewed robusta.'
+        : b.id.includes('indiranagar')
+        ? 'Welcome to ' + b.name + ', Indiranagar. A sanctuary of premium coffee aromas, warm wooden interiors, and slow-brewed hand-dripped filter cups. Experience Bangalore café culture at its finest.'
+        : 'Welcome to ' + b.name + '. A serene garden café retreat with lush plants, organic vegetarian dishes, and fresh bakery selections — the perfect spot to unwind and recharge.';
+
+      // QR Code
+      const reviewUrl = b.review || 'https://search.google.com/local/writereview?placeid=' + b.id;
+      document.getElementById('google-review-btn').href = reviewUrl;
+      const qrEl = document.getElementById('qr-code-canvas');
+      qrEl.innerHTML = '';
+      new QRCode(qrEl, { text: reviewUrl, width: 180, height: 180, colorDark: '#120A06', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
+
+    } catch (err) { console.error('Branch load error', err); }
+  }
+
+  // ── Load menu ──
+  async function loadMenu() {
+    try {
+      const menu = await fetch('/api/businesses/' + branchId + '/menu').then(r => r.json());
+      const container = document.getElementById('menu-container');
+      container.innerHTML = '';
+      const cats = [...new Set(menu.map(i => i.category))];
+      cats.forEach(cat => {
+        const sec = document.createElement('div');
+        sec.className = 'menu-category-section';
+        sec.innerHTML = '<div class="menu-category-title">' + cat + '</div>';
+        const grid = document.createElement('div');
+        grid.className = 'menu-grid';
+        menu.filter(i => i.category === cat).forEach(item => {
+          const el = document.createElement('div');
+          el.className = 'menu-item';
+          const disc = item.discount > 0;
+          const discPrice = disc ? Math.round(item.price * (1 - item.discount / 100)) : item.price;
+          el.style.flexDirection = 'column';
+          el.style.alignItems = 'flex-start';
+          const itemData = JSON.stringify({id:item.id, name:item.name, price:item.price, discount:item.discount||0});
+          el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;gap:16px">' +
+            '<div style="flex:1"><div class="menu-item-name">' + item.name + '</div>' +
+            (item.description ? '<div class="menu-item-desc">' + item.description + '</div>' : '') + '</div>' +
+            '<div class="menu-price-wrap" style="flex-shrink:0">' +
+            (disc ? '<span class="old-price">₹' + item.price + '</span>' : '') +
+            '<span class="price-value">₹' + discPrice + '</span>' +
+            (disc ? '<span class="discount-pill">' + item.discount + '% OFF</span>' : '') + '</div>' +
+            '</div>' +
+            '<button class="add-to-cart-btn" onclick=\'addToCart(\'' + encodeURIComponent(itemData) + '\')\'>+ Add to Cart</button>';
+          grid.appendChild(el);
+        });
+        sec.appendChild(grid);
+        container.appendChild(sec);
+      });
+      const el = document.getElementById('stat-menu');
+      if (el) el.innerText = menu.length + '+';
+      if (!menu.length) container.innerHTML = '<p style="color:rgba(255,255,255,0.4);padding:40px 0">Menu coming soon.</p>';
+    } catch (err) { console.error('Menu error', err); }
+  }
+
+  // ── Load feedback ──
+  async function loadFeedback() {
+    try {
+      const feedback = await fetch('/api/businesses/' + branchId + '/feedback').then(r => r.json());
+      const container = document.getElementById('reviews-feed');
+      container.innerHTML = '';
+      feedback.slice().reverse().slice(0, 3).forEach(f => {
+        const el = document.createElement('div');
+        el.className = 'review-card';
+        const stars = Array.from({length:5}, (_,i) => i < f.rating ? '★' : '☆').join('');
+        const init = (f.customerName || 'G').charAt(0).toUpperCase();
+        el.innerHTML = '<div class="stars">' + stars + '</div>' +
+          '<p class="review-text">"' + f.comment + '"</p>' +
+          '<div class="reviewer"><div class="reviewer-avatar">' + init + '</div>' +
+          '<div><div class="reviewer-name">' + f.customerName + '</div>' +
+          '<div class="reviewer-loc">' + (f.source || 'web') + ' review</div></div></div>';
+        container.appendChild(el);
+      });
+      if (feedback.length) {
+        const avg = (feedback.reduce((s,r) => s + r.rating, 0) / feedback.length).toFixed(1);
+        document.getElementById('reviews-avg').innerText = avg + '★';
+        document.getElementById('reviews-count').innerText = 'Based on ' + feedback.length + ' reviews';
+        document.getElementById('stat-rating').innerText = avg + '★';
+        document.getElementById('stat-reviews').innerText = feedback.length + '+';
+        document.getElementById('reviews-stars').innerText = Array.from({length:5},(_,i)=>i<Math.round(avg)?'★':'☆').join('');
+      } else {
+        container.innerHTML = '<p style="grid-column:1/-1;padding:40px 0;color:var(--muted);font-family:\'Cormorant Garamond\',serif;font-size:18px;font-style:italic">No reviews yet — be the first!</p>';
+      }
+    } catch (err) { console.error('Feedback error', err); }
+  }
+
+  // ── Submit reservation ──
+  async function submitReservation(e) {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/businesses/' + branchId + '/reservations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('book-name').value,
+          phone: document.getElementById('book-phone').value,
+          guests: document.getElementById('book-guests').value,
+          datetime: document.getElementById('book-time').value
+        })
+      });
+      if (res.ok) {
+        showToast('🎉 Table reserved! We will confirm via WhatsApp shortly.', false);
+        document.getElementById('form-book').reset();
+      }
+    } catch (err) { console.error('Reservation error', err); }
+  }
+
+  // ── Submit feedback ──
+  async function submitFeedback(e) {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/businesses/' + branchId + '/feedback', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: document.getElementById('feed-name').value,
+          phone: document.getElementById('feed-phone').value || 'web_user',
+          rating: document.getElementById('feed-rating').value,
+          comment: document.getElementById('feed-comment').value
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showToast(data.feedback?.couponCode ? '❤️ Thank you! Reward code: ' + data.feedback.couponCode + ' — 15% off!' : '❤️ Thank you! Review saved.', false);
+        document.getElementById('form-feed').reset();
+        setRating(5);
+        loadFeedback();
+      }
+    } catch(err) { console.error('Feedback error', err); }
+  }
+
+  // ── Scroll animations ──
+  const obs = new IntersectionObserver(entries => entries.forEach(e => {
+    if (e.isIntersecting) { e.target.style.opacity = '1'; e.target.style.transform = 'translateY(0)'; }
+  }), { threshold: 0.1 });
+  document.querySelectorAll('.amenity, .review-card, .dist-item, .gallery-item').forEach(el => {
+    el.style.opacity = '0'; el.style.transform = 'translateY(28px)';
+    el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    obs.observe(el);
+  });
+
+  // ── Init ──
+  window.addEventListener('load', () => { loadBranch(); loadMenu(); loadFeedback(); });
+
+  // ═══════════════ CART ENGINE — Phase 2 ══════════════════════════════════
+  let cart = {};  // { itemId: { id, name, price, discountedPrice, discount, qty } }
+
+  function addToCart(item) {
+    // Accept either object or URI-encoded JSON string
+    if (typeof item === 'string') {
+      try { item = JSON.parse(decodeURIComponent(item)); } catch(e) { return; }
+    }
+    const key = String(item.id);
+    if (cart[key]) {
+      cart[key].qty++;
+    } else {
+      const disc = item.discount || 0;
+      cart[key] = {
+        id: item.id, name: item.name,
+        price: item.price,
+        discountedPrice: Math.round(item.price * (1 - disc/100)),
+        discount: disc,
+        qty: 1
+      };
+    }
+    updateCartUI();
+    showCartToast(item.name);
+  }
+
+  function removeFromCart(id) {
+    delete cart[String(id)];
+    updateCartUI();
+    renderDrawerItems();
+  }
+
+  function setQty(id, qty) {
+    const key = String(id);
+    if (qty <= 0) { removeFromCart(id); return; }
+    if (cart[key]) { cart[key].qty = qty; updateCartUI(); renderDrawerItems(); }
+  }
+
+  function cartItems() { return Object.values(cart); }
+  function cartCount() { return cartItems().reduce((s,i) => s+i.qty, 0); }
+
+  function cartTotals() {
+    let subtotal=0, discount=0;
+    cartItems().forEach(i => {
+      subtotal += i.price * i.qty;
+      discount += (i.price - i.discountedPrice) * i.qty;
+    });
+    const tax   = parseFloat(((subtotal - discount) * 0.05).toFixed(2));
+    const total = parseFloat((subtotal - discount + tax).toFixed(2));
+    return { subtotal, discount, tax, total };
+  }
+
+  function updateCartUI() {
+    const n = cartCount();
+    const fab = document.getElementById('cart-fab');
+    const cnt = document.getElementById('cart-count');
+    if (fab) { fab.classList.toggle('visible', n > 0); }
+    if (cnt) cnt.textContent = n;
+
+    // Update summary
+    const t = cartTotals();
+    const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    set('sum-subtotal', '₹' + t.subtotal.toFixed(0));
+    set('sum-discount', '–₹' + t.discount.toFixed(0));
+    set('sum-tax',      '₹' + t.tax.toFixed(0));
+    set('sum-total',    '₹' + t.total.toFixed(0));
+  }
+
+  function renderDrawerItems() {
+    const container = document.getElementById('drawer-items');
+    if (!container) return;
+    const items = cartItems();
+    if (!items.length) { container.innerHTML = '<p style="color:rgba(255,255,255,0.3);text-align:center;padding:40px 0">Your cart is empty.</p>'; return; }
+    container.innerHTML = items.map(item => `
+      <div class="drawer-item">
+        <div class="drawer-item-info">
+          <div class="drawer-item-name">${item.name}</div>
+          <div class="drawer-item-price">₹${item.discountedPrice} × ${item.qty} = ₹${(item.discountedPrice*item.qty).toFixed(0)}</div>
+        </div>
+        <div class="drawer-item-qty">
+          <button onclick="setQty('${item.id}', ${item.qty-1})">−</button>
+          <span>${item.qty}</span>
+          <button onclick="setQty('${item.id}', ${item.qty+1})">+</button>
+        </div>
+        <button class="drawer-item-remove" onclick="removeFromCart('${item.id}')">✕</button>
+      </div>
+    `).join('');
+    updateCartUI();
+  }
+
+  function openCheckout() {
+    renderDrawerItems();
+    document.getElementById('checkout-overlay').classList.add('open');
+    document.getElementById('order-success').classList.remove('show');
+    document.getElementById('order-form').style.display = 'flex';
+    document.getElementById('order-form').style.flexDirection = 'column';
+  }
+
+  function closeCheckout() {
+    document.getElementById('checkout-overlay').classList.remove('open');
+  }
+
+  function closeOnBackdrop(e) {
+    if (e.target === document.getElementById('checkout-overlay')) closeCheckout();
+  }
+
+  function resetCart() {
+    cart = {};
+    updateCartUI();
+  }
+
+  function showCartToast(name) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1A0F0A;border:1px solid rgba(201,168,76,0.4);color:#fff;padding:10px 22px;font-size:13px;z-index:999;border-radius:2px;animation:fadeUp 0.3s ease;pointer-events:none';
+    t.innerHTML = '✓ <strong>' + name + '</strong> added to cart';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2200);
+  }
+
+  async function placeOrder() {
+    const name  = document.getElementById('cust-name').value.trim();
+    const phone = document.getElementById('cust-phone').value.trim();
+    const table = document.getElementById('cust-table').value.trim();
+    const type  = document.getElementById('order-type').value;
+    if (!name) { document.getElementById('cust-name').focus(); return; }
+    if (!cartCount()) return;
+
+    const btn = document.getElementById('pay-btn');
+    btn.disabled = true;
+    btn.textContent = 'Placing Order…';
+
+    const items = cartItems().map(i => ({ id:i.id, name:i.name, price:i.price, qty:i.qty }));
+    try {
+      const res = await fetch('/api/businesses/' + branchId + '/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerName:name, customerPhone:phone, tableNo:table,
+          orderType:type, items, paymentMethod:'cash' })
+      });
+      const order = await res.json();
+      if (!res.ok) throw new Error(order.error || 'Order failed');
+
+      // Show success
+      document.getElementById('order-num').textContent = '#' + (order.id||'').slice(-6).toUpperCase();
+      document.getElementById('order-form').style.display = 'none';
+      document.getElementById('order-success').classList.add('show');
+      resetCart();
+
+      // ── Phase 5C: Subscribe to push notifications for this order ──────────
+      subscribePushForOrder(phone).catch(() => {/* non-fatal */});
+    } catch(e) {
+      showToast('Could not place order: ' + e.message, true);
+      btn.disabled = false;
+      btn.textContent = 'Place Order';
+    }
+  }
+
+  // ── Push subscription helper ─────────────────────────────────────────────
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw     = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  async function subscribePushForOrder(phone) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      // 1. Ask for notification permission
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+
+      // 2. Get VAPID public key from server
+      const keyRes = await fetch('/api/push/vapid-public');
+      if (!keyRes.ok) return;
+      const { key: publicKey, enabled } = await keyRes.json();
+      if (!enabled || !publicKey) return;
+
+      // 3. Get (or create) service worker registration
+      const reg = await navigator.serviceWorker.ready;
+
+      // 4. Subscribe to push
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+
+      // 5. Send subscription + phone to server
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: phone.replace(/\D/g,'').slice(-10),
+          businessId: branchId,
+          subscription
+        })
+      });
+      console.log('[PWA] Push subscription registered for', phone);
+    } catch(e) {
+      console.warn('[PWA] Push subscribe failed:', e.message);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
+
+
+  // ══════════════ LOYALTY ENGINE — Phase 3 ══════════════════════════════════
+  let loyaltyPhone = null;
+  let loyaltyCard  = null;
+
+  async function lookupLoyalty() {
+    const phone = document.getElementById('loyalty-phone').value.trim().replace(/\D/g,'');
+    if (phone.length < 10) { showLoyaltyMsg('Please enter a valid phone number', '#E07070'); return; }
+    loyaltyPhone = phone;
+    try {
+      const res  = await fetch('/api/businesses/' + branchId + '/loyalty/lookup', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ phone, name: 'Guest' })
+      });
+      const data = await res.json();
+      loyaltyCard = data.card;
+      renderLoyaltyCard(data.card, data.history || []);
+      document.getElementById('loyalty-card-wrap').classList.add('show');
+    } catch(e) { showLoyaltyMsg('Could not load card. Is the server running?', '#E07070'); }
+  }
+
+  function renderLoyaltyCard(card, history) {
+    if (!card) return;
+    document.getElementById('lc-name').textContent = card.name || card.customer_name || 'Guest';
+    const branchEl = document.getElementById('lc-branch'); if(branchEl) branchEl.textContent = (window._branchName||'ZORDIC CA').toUpperCase();
+    const phoneEl  = document.getElementById('lc-phone');  if(phoneEl)  phoneEl.textContent  = loyaltyPhone ? '+91 ' + loyaltyPhone.slice(-10) : '';
+    const tierEl = document.getElementById('lc-tier');
+    tierEl.textContent = card.tier || 'New';
+    tierEl.className = 'loyalty-tier-badge tier-' + (card.tier || 'New');
+    document.getElementById('lc-points').textContent = card.points || 0;
+    document.getElementById('lc-visits').textContent = card.visits || 0;
+    document.getElementById('lc-spent').textContent  = '\u20b9' + Math.round(card.total_spent || 0).toLocaleString('en-IN');
+
+    // Stamps
+    const grid = document.getElementById('stamps-grid');
+    grid.innerHTML = '';
+    const stamps = card.stamps || 0;
+    for (let i = 0; i < 10; i++) {
+      const s = document.createElement('div');
+      s.className = 'stamp ' + (i < stamps ? 'earned' : 'empty');
+      s.textContent = i < stamps ? '☕' : '○';
+      grid.appendChild(s);
+    }
+
+    // Buttons
+    const redeemStBtn = document.getElementById('redeem-stamps-btn');
+    const redeemPtBtn = document.getElementById('redeem-points-btn');
+    redeemStBtn.disabled = stamps < 10;
+    redeemStBtn.textContent = stamps >= 10 ? '🎁 Redeem Free Item (' + stamps + '/10)' : '🎁 Collect ' + (10 - stamps) + ' more stamps';
+    redeemPtBtn.disabled = (card.points || 0) < 100;
+    redeemPtBtn.textContent = (card.points||0) >= 100 ? '💰 Use ' + card.points + ' Points' : '💰 Need 100+ points';
+
+    // Birthday
+    if (card.birthday) {
+      const parts = card.birthday.split('-');
+      const yr = new Date().getFullYear();
+      const bdayVal = parts.length === 3 ? card.birthday : yr + '-' + card.birthday;
+      document.getElementById('bday-input').value = bdayVal;
+    }
+
+    // History
+    const histEl = document.getElementById('loyalty-history');
+    histEl.innerHTML = history.length ? history.map(h =>
+      '<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(201,168,76,0.08);font-size:13px">' +
+        '<span style="color:rgba(255,255,255,0.6)">' + (h.description||h.type) + '</span>' +
+        '<span style="color:' + (h.points > 0 ? '#7ECF7E' : '#E07070') + '">' +
+          (h.points > 0 ? '+' : '') + h.points + ' pts' +
+        '</span>' +
+      '</div>'
+    ).join('') : '<div style="color:rgba(255,255,255,0.3);font-size:13px">No activity yet.</div>';
+  }
+
+  // Redemption is completed by staff at the counter (the redeem API endpoints
+  // require a staff login — otherwise anyone knowing a phone number could drain
+  // someone else's rewards remotely). These buttons show the customer what to do.
+  function redeemMyStamps() {
+    if (!loyaltyPhone || !loyaltyCard) return;
+    if ((loyaltyCard.stamps || 0) < 10) { showLoyaltyMsg('Collect 10 stamps to unlock a free item!', '#E07070'); return; }
+    showLoyaltyMsg('🎁 Free item unlocked! Show this card at the counter and our staff will redeem it for you.', '#7ECF7E');
+  }
+
+  function redeemMyPoints() {
+    if (!loyaltyPhone || !loyaltyCard) return;
+    if ((loyaltyCard.points || 0) < 100) { showLoyaltyMsg('Need at least 100 points to redeem', '#E07070'); return; }
+    showLoyaltyMsg('💰 You have ' + loyaltyCard.points + ' points! Show this card at the counter to apply your discount.', '#7ECF7E');
+  }
+
+  async function saveBirthday() {
+    if (!loyaltyPhone) return;
+    const bday = document.getElementById('bday-input').value;
+    if (!bday) return;
+    await fetch('/api/businesses/' + branchId + '/loyalty/birthday', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: loyaltyPhone, birthday: bday })
+    });
+    showLoyaltyMsg('🎂 Birthday saved! Expect a surprise on your day.', '#7ECF7E');
+  }
+
+  function showToast(msg, isError) {
+    let t = document.getElementById('cafe-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'cafe-toast';
+      t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90vw;text-align:center';
+      document.body.appendChild(t);
+    }
+    t.style.background = isError ? '#c0392b' : '#2a9d8f';
+    t.textContent = msg;
+    t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+  }
+
+  function showLoyaltyMsg(msg, color) {
+    const el = document.getElementById('loyalty-msg');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || '#7ECF7E';
+    setTimeout(() => { if(el) el.textContent = ''; }, 4000);
+  }
+
+  // Enter key on phone input
+  document.addEventListener('DOMContentLoaded', () => {
+    const ph = document.getElementById('loyalty-phone');
+    if (ph) ph.addEventListener('keydown', e => { if(e.key==='Enter') lookupLoyalty(); });
+  });
+
+  // Auto-award points when order is placed (hook into placeOrder success)
+  const _origPlaceOrder = typeof placeOrder !== 'undefined' ? placeOrder : null;
+  // ══════════════════════════════════════════════════════════════════════════
+
+</script>
+
+<!-- ── Cart FAB ── -->
+<button class="cart-fab" id="cart-fab" onclick="openCheckout()">
+  🛒 <span>View Cart</span>
+  <div class="cart-count" id="cart-count">0</div>
+</button>
+
+<!-- ── Checkout Drawer ── -->
+<div class="checkout-overlay" id="checkout-overlay" onclick="closeOnBackdrop(event)">
+  <div class="checkout-drawer">
+    <div class="drawer-header">
+      <h3>Your Order</h3>
+      <button class="drawer-close" onclick="closeCheckout()">✕</button>
+    </div>
+
+    <div id="order-success" class="order-success">
+      <div class="success-icon">☕</div>
+      <h3>Order Placed!</h3>
+      <p>Your order <span class="order-num" id="order-num"></span><br>is being prepared.</p>
+      <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:8px">We'll notify you when it's ready.</p>
+      <button class="add-to-cart-btn" style="width:200px;margin-top:16px" onclick="closeCheckout();resetCart()">Back to Menu</button>
+    </div>
+
+    <div id="order-form" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+      <div class="drawer-items" id="drawer-items" style="flex:1;overflow-y:auto"></div>
+      <div class="drawer-summary">
+        <div class="summary-row"><span>Subtotal</span><span id="sum-subtotal">₹0</span></div>
+        <div class="summary-row"><span>Discount</span><span id="sum-discount" style="color:#52b788">–₹0</span></div>
+        <div class="summary-row"><span>GST (5%)</span><span id="sum-tax">₹0</span></div>
+        <div class="summary-row total"><span>Total</span><span id="sum-total">₹0</span></div>
+      </div>
+      <div class="drawer-fields">
+        <input class="drawer-input" id="cust-name" placeholder="Your name *" />
+        <div class="drawer-row2">
+          <input class="drawer-input" id="cust-phone" placeholder="Phone number" />
+          <input class="drawer-input" id="cust-table" placeholder="Table no. (optional)" />
+        </div>
+        <select class="drawer-input" id="order-type">
+          <option value="dine_in">Dine In</option>
+          <option value="takeaway">Takeaway</option>
+        </select>
+      </div>
+      <button class="drawer-pay-btn" id="pay-btn" onclick="placeOrder()">Place Order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// Phase 5 — PWA: Service Worker + Install Prompt + Offline Detection
+// ══════════════════════════════════════════════════════════════════════════════
+(function initPWA() {
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('[SW] Registered, scope:', reg.scope))
+        .catch(err => console.warn('[SW] Registration failed:', err));
+    });
+  }
+
+  // Offline / online detection
+  const offlineBar = document.getElementById('offline-bar');
+  function updateOnlineStatus() {
+    if (offlineBar) offlineBar.classList.toggle('show', !navigator.onLine);
+  }
+  window.addEventListener('online',  updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
+
+  // Install prompt
+  let deferredPrompt = null;
+  const banner   = document.getElementById('pwa-install-banner');
+  const btnInst  = document.getElementById('pwa-btn-install');
+  const btnDiss  = document.getElementById('pwa-btn-dismiss');
+
+  // Only show if not already installed and not dismissed recently
+  const dismissed = localStorage.getItem('pwa-banner-dismissed');
+  const installed = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!installed && (!dismissed || Date.now() - parseInt(dismissed) > 7*24*60*60*1000)) {
+      setTimeout(() => { if(banner) banner.classList.add('show'); }, 3000);
+    }
+  });
+
+  if (btnInst) btnInst.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    banner.classList.remove('show');
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log('[PWA] Install outcome:', outcome);
+    deferredPrompt = null;
+  });
+
+  if (btnDiss) btnDiss.addEventListener('click', () => {
+    banner.classList.remove('show');
+    localStorage.setItem('pwa-banner-dismissed', Date.now().toString());
+  });
+
+  // Track install
+  window.addEventListener('appinstalled', () => {
+    console.log('[PWA] App installed!');
+    if (banner) banner.classList.remove('show');
+    deferredPrompt = null;
+  });
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+</script>
+</body>
+</html>

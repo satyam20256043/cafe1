@@ -11,6 +11,38 @@
     "name": "Priya Patel",
     "guests": 2,
     "datetime": "Saturday 8:00 PM",
+    "status": "rejected"
+  },
+  {
+    "id": "r_1779633740244",
+    "name": "Loyalty Test Customer",
+    "phone": "9900990099",
+    "guests": 2,
+    "datetime": "Tonight at 8 PM",
+    "status": "rejected"
+  },
+  {
+    "id": "r_1779736393303",
+    "name": "King",
+    "phone": "275586610126859",
+    "guests": 7,
+    "datetime": "23",
+    "status": "approved"
+  },
+  {
+    "id": "r_1779736755913",
+    "name": "Kalu",
+    "phone": "275586610126859",
+    "guests": 2,
+    "datetime": "Tonight , 24 at 8:00 pm",
+    "status": "rejected"
+  },
+  {
+    "id": "r_1781160675876",
+    "name": "Verify Test",
+    "phone": "9876500001",
+    "guests": 2,
+    "datetime": "2026-06-15T19:00",
     "status": "pending"
   }
 ]

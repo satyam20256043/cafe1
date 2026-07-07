@@ -1,0 +1,29 @@
+[
+  {
+    "id": "ord_1780122261370",
+    "businessId": "indiranagar",
+    "customerName": "Test Customer",
+    "customerPhone": "9876543210",
+    "tableNo": "5",
+    "orderType": "dine_in",
+    "items": [
+      {
+        "id": "1",
+        "name": "Cold Coffee",
+        "price": 149,
+        "discount": 0,
+        "qty": 2,
+        "lineTotal": 298
+      }
+    ],
+    "subtotal": 298,
+    "discount": 0,
+    "tax": 14.9,
+    "total": 312.9,
+    "notes": "Extra cold please",
+    "paymentMethod": "cash",
+    "status": "ready",
+    "payment_status": "pending",
+    "created_at": "2026-05-30T06:24:21.370Z"
+  }
+]

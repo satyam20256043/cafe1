@@ -1,0 +1,18 @@
+{
+  "baseUrl": "https://cafehq.in",
+  "whatsapp": {
+    "phoneNumberId": "123456789",
+    "accessToken": "EAAtest_secret_token",
+    "verifyToken": "cafehq_hook"
+  },
+  "gemini": {
+    "apiKey": "AIzaSyTESTKEY"
+  },
+  "vapid": {
+    "public": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZ1YAHQvTWyN6BpbslmA9YRbaWeyOkszr8_kakJo63RQKvPbnHSWZ97KHnsZeXf4DowMAyZFb6x9Dhe0wRzTo8Q",
+    "private": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgoql0RcMl7kzgHsEGPc_p7WhuVGPqzps-7g2iRkDg-SOhRANCAARnVgAdC9NbI3oGluyWYD1hFtpZ7I6SzOvz-RqQmjrdFAq89ucdJZn3soeexl5d_gOjAwDJkVvrH0OF7TBHNOjx",
+    "email": "mailto:admin@cafehq.com"
+  },
+  "updatedAt": "2026-06-09T10:26:02.554Z",
+  "updatedBy": "admin"
+}

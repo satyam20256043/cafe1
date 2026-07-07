@@ -1,0 +1,1067 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// db.js — SQLite Database Module for Café Command HQ
+// Place this file in your project root (same folder as server.js)
+// ─────────────────────────────────────────────────────────────────────────────
+const Database = require('better-sqlite3');
+const path = require('path');
+const fs = require('fs');
+
+const DATA_DIR = path.join(__dirname, 'data');
+const DB_PATH  = path.join(DATA_DIR, 'cafe_hq.db');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const db = new Database(DB_PATH);
+db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
+
+// ── Schema ────────────────────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS businesses (
+    id       TEXT PRIMARY KEY,
+    name     TEXT NOT NULL,
+    location TEXT,
+    timings  TEXT,
+    contact  TEXT,
+    map      TEXT,
+    wifi     TEXT,
+    review   TEXT,
+    status   TEXT DEFAULT 'online',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS staff (
+    id            TEXT PRIMARY KEY,
+    business_id   TEXT NOT NULL,
+    name          TEXT NOT NULL,
+    username      TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role          TEXT DEFAULT 'owner',
+    active        INTEGER DEFAULT 1,
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(business_id, username)
+  );
+  -- Add missing columns to existing DBs
+  -- (SQLite ignores errors from ALTER TABLE in db.exec only via pragma)
+
+  CREATE TABLE IF NOT EXISTS customers (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id  TEXT NOT NULL,
+    phone        TEXT NOT NULL,
+    name         TEXT,
+    visits       INTEGER DEFAULT 0,
+    last_intent  TEXT,
+    loyalty_tier TEXT DEFAULT 'New',
+    tags         TEXT DEFAULT '[]',
+    notes        TEXT,
+    total_spent  REAL DEFAULT 0,
+    birthday     TEXT,
+    last_seen    DATETIME,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(business_id, phone)
+  );
+
+  CREATE TABLE IF NOT EXISTS menu_items (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    category    TEXT DEFAULT 'General',
+    price       REAL NOT NULL,
+    discount    INTEGER DEFAULT 0,
+    description TEXT,
+    available   INTEGER DEFAULT 1
+  );
+
+  CREATE TABLE IF NOT EXISTS reservations (
+    id          TEXT PRIMARY KEY,
+    business_id TEXT NOT NULL,
+    name        TEXT,
+    phone       TEXT,
+    guests      INTEGER DEFAULT 1,
+    datetime    TEXT,
+    status      TEXT DEFAULT 'pending',
+    notes       TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS feedback (
+    id            TEXT PRIMARY KEY,
+    business_id   TEXT NOT NULL,
+    customer_name TEXT,
+    phone         TEXT,
+    rating        INTEGER DEFAULT 5,
+    comment       TEXT,
+    source        TEXT DEFAULT 'web',
+    coupon_code   TEXT,
+    reply         TEXT,
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS offers (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id       TEXT NOT NULL,
+    phone             TEXT,
+    customer_name     TEXT,
+    requested_item    TEXT,
+    status            TEXT DEFAULT 'pending',
+    approved_discount INTEGER DEFAULT 0,
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    business_id       TEXT PRIMARY KEY,
+    auto_pilot_active INTEGER DEFAULT 0,
+    gbp_linked        INTEGER DEFAULT 0,
+    gbp_place_id      TEXT,
+    loyalty_enabled   INTEGER DEFAULT 1,
+    loyalty_ratio     INTEGER DEFAULT 10,
+    points_per_visit  INTEGER DEFAULT 5
+  );
+
+  -- loyalty_points: see Phase 3 schema block below
+
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id TEXT,
+    staff_id    INTEGER,
+    staff_name  TEXT,
+    action      TEXT,
+    details     TEXT,
+    ip          TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS backups (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename   TEXT,
+    size_kb    INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+
+// ── Safe column migrations (handles existing DBs missing columns) ─────────────
+(function migrateColumns() {
+  const cols = [
+    // Staff
+    ['staff',  'active',              'INTEGER DEFAULT 1'],
+    ['staff',  'created_at',          "DATETIME DEFAULT CURRENT_TIMESTAMP"],
+    // Orders
+    ['orders', 'table_no',            'TEXT'],
+    ['orders', 'order_type',          "TEXT DEFAULT 'dine_in'"],
+    ['orders', 'discount',            'REAL DEFAULT 0'],
+    ['orders', 'tax',                 'REAL DEFAULT 0'],
+    ['orders', 'payment_status',      "TEXT DEFAULT 'pending'"],
+    ['orders', 'payment_method',      "TEXT DEFAULT 'cash'"],
+    ['orders', 'razorpay_order_id',   'TEXT'],
+    ['orders', 'razorpay_payment_id', 'TEXT'],
+    ['orders', 'notes',               'TEXT'],
+    ['orders', 'updated_at',          'DATETIME DEFAULT CURRENT_TIMESTAMP'],
+    // Loyalty Phase 3 columns (for DBs created before Phase 3)
+    ['loyalty_points', 'customer_name',    'TEXT'],
+    ['loyalty_points', 'stamps',           'INTEGER DEFAULT 0'],
+    ['loyalty_points', 'total_stamps',     'INTEGER DEFAULT 0'],
+    ['loyalty_points', 'redeemed_stamps',  'INTEGER DEFAULT 0'],
+    ['loyalty_points', 'tier',             "TEXT DEFAULT 'New'"],
+    ['loyalty_points', 'birthday',         'TEXT'],
+    ['loyalty_points', 'total_spent',      'REAL DEFAULT 0'],
+    ['loyalty_points', 'visits',           'INTEGER DEFAULT 0'],
+    ['loyalty_points', 'last_visit',       'DATETIME'],
+  ];
+  cols.forEach(([tbl, col, def]) => {
+    try { db.prepare(`ALTER TABLE ${tbl} ADD COLUMN ${col} ${def}`).run(); }
+    catch(e) { /* column already exists or table not yet created — ignore */ }
+  });
+  // Ensure loyalty_transactions table exists (for old DBs)
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id          TEXT PRIMARY KEY,
+      business_id TEXT NOT NULL,
+      phone       TEXT NOT NULL,
+      type        TEXT NOT NULL,
+      points      INTEGER DEFAULT 0,
+      stamps      INTEGER DEFAULT 0,
+      description TEXT,
+      order_id    TEXT,
+      created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+  } catch(e) {}
+  // Ensure existing staff rows have active=1
+  try { db.prepare('UPDATE staff SET active=1 WHERE active IS NULL').run(); } catch {}
+})();
+
+// ── Prepared statements ───────────────────────────────────────────────────────
+const stmts = {
+  // Businesses
+  getAllBusinesses:    db.prepare('SELECT * FROM businesses ORDER BY created_at'),
+  getBusinessById:    db.prepare('SELECT * FROM businesses WHERE id = ?'),
+  insertBusiness:     db.prepare('INSERT OR REPLACE INTO businesses (id,name,location,timings,contact,map,wifi,review,status) VALUES (?,?,?,?,?,?,?,?,?)'),
+  updateBusiness:     db.prepare('UPDATE businesses SET name=?,location=?,timings=?,contact=?,map=?,wifi=?,review=?,status=? WHERE id=?'),
+
+  // Staff
+  getStaffByUsername: db.prepare('SELECT * FROM staff WHERE username = ?'),
+  getStaffByBranch:   db.prepare('SELECT * FROM staff WHERE business_id = ?'),
+  insertStaff:        db.prepare('INSERT INTO staff (business_id,username,password_hash,name,role) VALUES (?,?,?,?,?)'),
+  updateStaffPassword:db.prepare('UPDATE staff SET password_hash=? WHERE id=?'),
+
+  // Customers
+  getCustomers:       db.prepare('SELECT * FROM customers WHERE business_id=? ORDER BY visits DESC'),
+  getCustomer:        db.prepare('SELECT * FROM customers WHERE business_id=? AND phone=?'),
+  upsertCustomer:     db.prepare(`INSERT INTO customers (business_id,phone,name,visits,last_intent,loyalty_tier,tags,last_seen)
+                                  VALUES (?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+                                  ON CONFLICT(business_id,phone) DO UPDATE SET
+                                  name=COALESCE(excluded.name,name),
+                                  visits=visits+excluded.visits,
+                                  last_intent=COALESCE(excluded.last_intent,last_intent),
+                                  loyalty_tier=excluded.loyalty_tier,
+                                  last_seen=CURRENT_TIMESTAMP`),
+
+  // Menu
+  getMenu:            db.prepare('SELECT * FROM menu_items WHERE business_id=? ORDER BY category,name'),
+  insertMenuItem:     db.prepare('INSERT INTO menu_items (business_id,name,category,price,discount,description) VALUES (?,?,?,?,?,?)'),
+  updateMenuItem:     db.prepare('UPDATE menu_items SET name=?,category=?,price=?,discount=?,description=?,available=? WHERE id=? AND business_id=?'),
+  deleteMenuItem:     db.prepare('DELETE FROM menu_items WHERE id=? AND business_id=?'),
+
+  // Reservations
+  getReservations:    db.prepare('SELECT * FROM reservations WHERE business_id=? ORDER BY created_at DESC'),
+  insertReservation:  db.prepare('INSERT INTO reservations (id,business_id,name,phone,guests,datetime) VALUES (?,?,?,?,?,?)'),
+  updateReservation:  db.prepare('UPDATE reservations SET status=? WHERE id=? AND business_id=?'),
+
+  // Feedback
+  getFeedback:        db.prepare('SELECT * FROM feedback WHERE business_id=? ORDER BY created_at DESC'),
+  insertFeedback:     db.prepare('INSERT INTO feedback (id,business_id,customer_name,phone,rating,comment,source,coupon_code) VALUES (?,?,?,?,?,?,?,?)'),
+  updateFeedbackReply:db.prepare('UPDATE feedback SET reply=? WHERE id=? AND business_id=?'),
+
+  // Offers
+  getOffers:          db.prepare('SELECT * FROM offers WHERE business_id=? ORDER BY created_at DESC'),
+  insertOffer:        db.prepare('INSERT INTO offers (business_id,phone,customer_name,requested_item) VALUES (?,?,?,?)'),
+  updateOffer:        db.prepare('UPDATE offers SET status=?,approved_discount=? WHERE id=? AND business_id=?'),
+
+  // Settings
+  getSettings:        db.prepare('SELECT * FROM settings WHERE business_id=?'),
+  upsertSettings:     db.prepare(`INSERT INTO settings (business_id,auto_pilot_active,loyalty_enabled) VALUES (?,?,1)
+                                  ON CONFLICT(business_id) DO UPDATE SET auto_pilot_active=excluded.auto_pilot_active`),
+
+  // Loyalty (basic lookup only — full loyalty handled by Phase 3 helpers)
+  getLoyalty:         db.prepare('SELECT * FROM loyalty_points WHERE business_id=? AND phone=?'),
+
+  // Audit log
+  insertAudit:        db.prepare('INSERT INTO audit_log (business_id,staff_id,staff_name,action,details,ip) VALUES (?,?,?,?,?,?)'),
+  getAuditLog:        db.prepare('SELECT * FROM audit_log WHERE business_id=? ORDER BY created_at DESC LIMIT 100'),
+
+  // Analytics
+  getAnalytics:       db.prepare(`SELECT
+    (SELECT COUNT(*) FROM reservations WHERE business_id=? AND date(created_at)=date('now')) as today_reservations,
+    (SELECT COUNT(*) FROM feedback    WHERE business_id=? AND date(created_at)=date('now')) as today_feedback,
+    (SELECT COUNT(*) FROM customers   WHERE business_id=?)                                  as total_customers,
+    (SELECT ROUND(AVG(rating),1) FROM feedback WHERE business_id=?)                        as avg_rating,
+    (SELECT COUNT(*) FROM customers WHERE business_id=? AND loyalty_tier IN ('VIP','Elite')) as vip_count`),
+};
+
+// ── Helper: migrate existing JSON data to SQLite ──────────────────────────────
+function migrateFromJSON() {
+  const BUSINESSES_FILE = path.join(DATA_DIR, 'businesses.json');
+  if (!fs.existsSync(BUSINESSES_FILE)) return;
+
+  const existing = stmts.getAllBusinesses.all();
+  if (existing.length > 0) return; // already migrated
+
+  console.log('[DB] Migrating JSON data to SQLite...');
+  try {
+    const businesses = JSON.parse(fs.readFileSync(BUSINESSES_FILE, 'utf-8'));
+    const migrateTx = db.transaction(() => {
+      businesses.forEach(b => {
+        stmts.insertBusiness.run(b.id, b.name, b.location, b.timings, b.contact, b.map||'', b.wifi||'', b.review||'', b.status||'online');
+
+        // Menu
+        const menuFile = path.join(DATA_DIR, b.id, 'menu.json');
+        if (fs.existsSync(menuFile)) {
+          const menu = JSON.parse(fs.readFileSync(menuFile, 'utf-8'));
+          menu.forEach(item => stmts.insertMenuItem.run(b.id, item.name, item.category||'General', item.price||0, item.discount||0, item.description||''));
+        }
+        // Reservations
+        const resFile = path.join(DATA_DIR, b.id, 'reservations.json');
+        if (fs.existsSync(resFile)) {
+          const res = JSON.parse(fs.readFileSync(resFile, 'utf-8'));
+          res.forEach(r => stmts.insertReservation.run(r.id||`res_${Date.now()}_${Math.random()}`, b.id, r.name, r.phone, r.guests||1, r.datetime));
+        }
+        // Feedback
+        const fbFile = path.join(DATA_DIR, b.id, 'feedback.json');
+        if (fs.existsSync(fbFile)) {
+          const fb = JSON.parse(fs.readFileSync(fbFile, 'utf-8'));
+          fb.forEach(f => stmts.insertFeedback.run(f.id||`fb_${Date.now()}_${Math.random()}`, b.id, f.customerName, f.phone, f.rating||5, f.comment, f.source||'web', f.couponCode||null));
+        }
+        // CRM
+        const crmFile = path.join(DATA_DIR, b.id, 'customer_profiles.json');
+        if (fs.existsSync(crmFile)) {
+          const crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8'));
+          crm.forEach(c => stmts.upsertCustomer.run(b.id, c.phone, c.name||'', c.visits||0, c.lastIntent||'', c.loyaltyTier||'New', JSON.stringify(c.tags||[])));
+        }
+        // Settings
+        const setFile = path.join(DATA_DIR, b.id, 'settings.json');
+        if (fs.existsSync(setFile)) {
+          const s = JSON.parse(fs.readFileSync(setFile, 'utf-8'));
+          stmts.upsertSettings.run(b.id, s.autoPilotActive ? 1 : 0);
+        } else {
+          stmts.upsertSettings.run(b.id, 0);
+        }
+      });
+    });
+    migrateTx();
+    console.log(`[DB] Migration complete — ${businesses.length} branches imported.`);
+  } catch (err) {
+    console.error('[DB] Migration error:', err.message);
+  }
+}
+
+// ── Helper: analytics ─────────────────────────────────────────────────────────
+function getAnalytics(businessId) {
+  return stmts.getAnalytics.get(businessId, businessId, businessId, businessId, businessId);
+}
+
+// ── Helper: loyalty tier ─────────────────────────────────────────────────────
+function getLoyaltyTier(visits) {
+  if (visits >= 10) return 'Elite';
+  if (visits >= 5)  return 'VIP';
+  if (visits >= 2)  return 'Regular';
+  return 'New';
+}
+
+// ── Helper: audit log ────────────────────────────────────────────────────────
+function audit(businessId, staffId, staffName, action, details, ip='') {
+  stmts.insertAudit.run(businessId, staffId, staffName, action, typeof details==='object'?JSON.stringify(details):details, ip);
+}
+
+// Run migration on startup
+migrateFromJSON();
+
+module.exports = { db, raw: db, stmts, getAnalytics, getLoyaltyTier, audit };
+
+// ── Raw DB access (for backup.js) ────────────────────────────────────────────
+function raw() { return db; }
+
+// ── Additional staff helpers (needed by auth.js) ─────────────────────────────
+function getStaffByUsername(businessId, username) {
+  return db.prepare('SELECT * FROM staff WHERE business_id=? AND username=? LIMIT 1')
+           .get(businessId, username);
+}
+function getStaffById(id) {
+  return db.prepare('SELECT * FROM staff WHERE id=? LIMIT 1').get(id);
+}
+function listStaff(businessId) {
+  return db.prepare('SELECT * FROM staff WHERE business_id=? ORDER BY role, name').all(businessId);
+}
+function createStaff({ businessId, name, username, passwordHash, role }) {
+  const textId = `staff_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+  let finalId;
+  try {
+    // Try TEXT primary key (Phase 1+ schema)
+    db.prepare(`INSERT INTO staff (id,business_id,name,username,password_hash,role,active,created_at)
+                VALUES (?,?,?,?,?,?,1,datetime('now'))`)
+      .run(textId, businessId, name, username, passwordHash, role);
+    finalId = textId;
+  } catch(e) {
+    if (e.message && (e.message.includes('datatype mismatch') || e.message.includes('UNIQUE'))) {
+      // Old schema: INTEGER PK AUTOINCREMENT — don't specify id
+      db.prepare(`INSERT OR IGNORE INTO staff (business_id,name,username,password_hash,role,active)
+                  VALUES (?,?,?,?,?,1)`)
+        .run(businessId, name, username, passwordHash, role);
+      const row = db.prepare('SELECT id FROM staff WHERE business_id=? AND username=? LIMIT 1').get(businessId, username);
+      finalId = row ? row.id : null;
+    } else throw e;
+  }
+  return getStaffById(finalId);
+}
+function updateStaffPassword(id, passwordHash) {
+  db.prepare('UPDATE staff SET password_hash=? WHERE id=?').run(passwordHash, id);
+}
+function setStaffActive(id, active) {
+  db.prepare('UPDATE staff SET active=? WHERE id=?').run(active ? 1 : 0, id);
+}
+function logBackup({ filename, path: bPath, sizeMb, status }) {
+  db.prepare(`INSERT INTO backups (id,filename,path,size_mb,status,created_at)
+              VALUES (?,?,?,?,?,datetime('now'))`)
+    .run(`bk_${Date.now()}`, filename, bPath, sizeMb, status);
+}
+
+// Re-export with all helpers
+Object.assign(module.exports, {
+  raw, getStaffByUsername, getStaffById, listStaff,
+  createStaff, updateStaffPassword, setStaffActive, logBackup,
+  migrateFromJSON,
+});
+
+// ── Phase 2: Orders schema migration ─────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS orders (
+    id            TEXT PRIMARY KEY,
+    business_id   TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    customer_phone TEXT,
+    table_no      TEXT,
+    order_type    TEXT DEFAULT 'dine_in',  -- dine_in | takeaway | delivery
+    items         TEXT NOT NULL,           -- JSON array
+    subtotal      REAL NOT NULL DEFAULT 0,
+    discount      REAL NOT NULL DEFAULT 0,
+    tax           REAL NOT NULL DEFAULT 0,
+    total         REAL NOT NULL DEFAULT 0,
+    status        TEXT DEFAULT 'pending',  -- pending|confirmed|preparing|ready|served|cancelled
+    payment_status TEXT DEFAULT 'pending', -- pending|paid|failed|refunded
+    payment_method TEXT DEFAULT 'cash',   -- cash|razorpay|upi
+    razorpay_order_id  TEXT,
+    razorpay_payment_id TEXT,
+    notes         TEXT,
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(business_id) REFERENCES businesses(id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_orders_business ON orders(business_id, created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_orders_status   ON orders(business_id, status);
+`);
+
+// ── Order helpers ─────────────────────────────────────────────────────────────
+function createOrder({ businessId, customerName, customerPhone, tableNo, orderType, items, subtotal, discount, tax, total, notes, paymentMethod }) {
+  const id = `ord_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+  db.prepare(`
+    INSERT INTO orders
+      (id,business_id,customer_name,customer_phone,table_no,order_type,items,subtotal,discount,tax,total,notes,payment_method,status,payment_status,created_at,updated_at)
+    VALUES
+      (?,?,?,?,?,?,?,?,?,?,?,?,?,'pending','pending',datetime('now'),datetime('now'))
+  `).run(id, businessId, customerName, customerPhone||'', tableNo||'', orderType||'dine_in',
+         JSON.stringify(items), subtotal, discount||0, tax, total, notes||'', paymentMethod||'cash');
+  return getOrderById(id);
+}
+
+function getOrderById(id) {
+  const o = db.prepare('SELECT * FROM orders WHERE id=?').get(id);
+  if (o) o.items = JSON.parse(o.items || '[]');
+  return o;
+}
+
+function listOrders(businessId, { status, limit=50, offset=0 } = {}) {
+  let q = 'SELECT * FROM orders WHERE business_id=?';
+  const params = [businessId];
+  if (status) { q += ' AND status=?'; params.push(status); }
+  q += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+  return db.prepare(q).all(...params).map(o => ({ ...o, items: JSON.parse(o.items||'[]') }));
+}
+
+function updateOrderStatus(id, status) {
+  db.prepare("UPDATE orders SET status=?, updated_at=datetime('now') WHERE id=?").run(status, id);
+  return getOrderById(id);
+}
+
+function updateOrderPayment(id, { paymentStatus, paymentMethod, razorpayOrderId, razorpayPaymentId }) {
+  db.prepare(`UPDATE orders SET payment_status=?, payment_method=?,
+    razorpay_order_id=COALESCE(?,razorpay_order_id),
+    razorpay_payment_id=COALESCE(?,razorpay_payment_id),
+    updated_at=datetime('now') WHERE id=?`)
+    .run(paymentStatus, paymentMethod, razorpayOrderId||null, razorpayPaymentId||null, id);
+  return getOrderById(id);
+}
+
+function getRevenueStats(businessId) {
+  const row = db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN date(created_at)=date('now') AND payment_status='paid' THEN total ELSE 0 END),0)          AS today_revenue,
+      COUNT(CASE WHEN date(created_at)=date('now') THEN 1 END)                                                          AS today_orders,
+      COALESCE(SUM(CASE WHEN date(created_at)>=date('now','-7 days') AND payment_status='paid' THEN total ELSE 0 END),0) AS week_revenue,
+      COUNT(CASE WHEN date(created_at)>=date('now','-7 days') THEN 1 END)                                               AS week_orders,
+      COALESCE(SUM(CASE WHEN strftime('%Y-%m',created_at)=strftime('%Y-%m','now') AND payment_status='paid' THEN total ELSE 0 END),0) AS month_revenue,
+      COUNT(CASE WHEN strftime('%Y-%m',created_at)=strftime('%Y-%m','now') THEN 1 END)                                  AS month_orders,
+      COUNT(CASE WHEN status='pending' THEN 1 END)                                                                       AS pending_count,
+      COUNT(CASE WHEN status='preparing' THEN 1 END)                                                                     AS preparing_count
+    FROM orders WHERE business_id=?
+  `).get(businessId);
+  return row;
+}
+
+function getDailyRevenue(businessId, days=14) {
+  return db.prepare(`
+    SELECT date(created_at) AS day,
+           COUNT(*) AS orders,
+           COALESCE(SUM(CASE WHEN payment_status='paid' THEN total ELSE 0 END),0) AS revenue
+    FROM orders WHERE business_id=? AND date(created_at)>=date('now','-'||?||' days')
+    GROUP BY date(created_at) ORDER BY day ASC
+  `).all(businessId, days);
+}
+
+function getTopItems(businessId, limit=5) {
+  // Parse JSON items and aggregate — done in JS since SQLite JSON_EACH requires extension
+  const orders = db.prepare(
+    "SELECT items FROM orders WHERE business_id=? AND payment_status='paid'"
+  ).all(businessId);
+  const counts = {};
+  orders.forEach(o => {
+    try {
+      JSON.parse(o.items).forEach(item => {
+        counts[item.name] = (counts[item.name]||0) + (item.qty||1);
+      });
+    } catch {}
+  });
+  return Object.entries(counts)
+    .sort((a,b) => b[1]-a[1])
+    .slice(0, limit)
+    .map(([name,qty]) => ({ name, qty }));
+}
+
+Object.assign(module.exports, {
+  createOrder, getOrderById, listOrders,
+  updateOrderStatus, updateOrderPayment,
+  getRevenueStats, getDailyRevenue, getTopItems,
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Phase 3 — Loyalty Points Engine
+// ══════════════════════════════════════════════════════════════════════════════
+db.exec(`
+  CREATE TABLE IF NOT EXISTS loyalty_points (
+    id          TEXT PRIMARY KEY,
+    business_id TEXT NOT NULL,
+    phone       TEXT NOT NULL,
+    customer_name TEXT,
+    points      INTEGER DEFAULT 0,
+    stamps      INTEGER DEFAULT 0,
+    tier        TEXT DEFAULT 'New',
+    birthday    TEXT,
+    total_spent REAL DEFAULT 0,
+    visits      INTEGER DEFAULT 0,
+    last_visit  DATETIME,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(business_id, phone)
+  );
+
+  CREATE TABLE IF NOT EXISTS loyalty_transactions (
+    id          TEXT PRIMARY KEY,
+    business_id TEXT NOT NULL,
+    phone       TEXT NOT NULL,
+    type        TEXT NOT NULL,  -- earned | redeemed | adjusted | stamp
+    points      INTEGER DEFAULT 0,
+    stamps      INTEGER DEFAULT 0,
+    description TEXT,
+    order_id    TEXT,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_loyalty_biz   ON loyalty_points(business_id);
+  CREATE INDEX IF NOT EXISTS idx_loyalty_phone ON loyalty_points(business_id, phone);
+  CREATE INDEX IF NOT EXISTS idx_loyalty_bday  ON loyalty_points(birthday);
+`);
+
+// ── Loyalty helpers ───────────────────────────────────────────────────────────
+const POINTS_PER_RUPEE = 1;      // 1 point per ₹1 spent
+const STAMPS_PER_VISIT = 1;      // 1 stamp per visit
+const STAMPS_FOR_FREE  = 10;     // 10 stamps = free item
+const POINTS_FOR_FREE  = 500;    // 500 points = ₹50 off
+
+function loyaltyTier(points, visits) {
+  if (visits >= 20 || points >= 2000) return 'Elite';
+  if (visits >= 10 || points >= 1000) return 'VIP';
+  if (visits >=  3 || points >=  200) return 'Regular';
+  return 'New';
+}
+
+function getLoyaltyCard(businessId, phone) {
+  return db.prepare('SELECT * FROM loyalty_points WHERE business_id=? AND phone=?').get(businessId, phone);
+}
+
+function getOrCreateCard(businessId, phone, name) {
+  let card = getLoyaltyCard(businessId, phone);
+  if (!card) {
+    const textId = `loy_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+    try {
+      // Phase 3 schema: TEXT primary key + full columns
+      db.prepare(`INSERT INTO loyalty_points
+        (id,business_id,phone,customer_name,points,stamps,tier,visits,last_visit)
+        VALUES (?,?,?,?,0,0,'New',0,datetime('now'))`)
+        .run(textId, businessId, phone, name || 'Customer');
+    } catch(e) {
+      if (e.message && (e.message.includes('datatype mismatch') || e.message.includes('no column'))) {
+        // Old schema: INTEGER PK AUTOINCREMENT — let DB auto-assign id
+        try {
+          db.prepare(`INSERT OR IGNORE INTO loyalty_points (business_id,phone,customer_name,points)
+            VALUES (?,?,?,0)`)
+            .run(businessId, phone, name || 'Customer');
+        } catch(e2) {
+          // Absolute fallback — minimal insert
+          db.prepare(`INSERT OR IGNORE INTO loyalty_points (business_id,phone) VALUES (?,?)`)
+            .run(businessId, phone);
+        }
+      } else throw e;
+    }
+    card = getLoyaltyCard(businessId, phone);
+  }
+  // Update name if missing
+  if (card && name && !card.customer_name) {
+    try { db.prepare('UPDATE loyalty_points SET customer_name=? WHERE business_id=? AND phone=?').run(name, businessId, phone); }
+    catch(e) {}
+    card = getLoyaltyCard(businessId, phone);
+  }
+  return card;
+}
+
+function awardPoints(businessId, phone, name, amountSpent, orderId) {
+  const card   = getOrCreateCard(businessId, phone, name);
+  const earned = Math.floor(amountSpent * POINTS_PER_RUPEE);
+  const newPts = card.points + earned;
+  const newVis = card.visits + 1;
+  const newStamps = Math.min(card.stamps + STAMPS_PER_VISIT, 99);
+  const tier   = loyaltyTier(newPts, newVis);
+
+  db.prepare(`UPDATE loyalty_points SET
+    points=?, stamps=?, tier=?, visits=?, total_spent=total_spent+?,
+    customer_name=COALESCE(?,customer_name), last_visit=datetime('now')
+    WHERE business_id=? AND phone=?`)
+    .run(newPts, newStamps, tier, newVis, amountSpent, name||null, businessId, phone);
+
+  // Log transaction
+  const txId = `ltx_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+  db.prepare(`INSERT INTO loyalty_transactions
+    (id,business_id,phone,type,points,stamps,description,order_id)
+    VALUES (?,?,?,?,?,?,?,?)`)
+    .run(txId, businessId, phone, 'earned', earned, STAMPS_PER_VISIT,
+      `Earned ${earned} pts + 1 stamp on ₹${amountSpent} order`, orderId||null);
+
+  return getLoyaltyCard(businessId, phone);
+}
+
+// Award a fixed bonus (no order, no stamp) — used for 5-star reviews, referrals, etc.
+function getLoyaltyTransactions(businessId, phone, limit) {
+  const p = phone.replace(/[^0-9]/g,'').slice(-10);
+  const rows = db.prepare(
+    `SELECT * FROM loyalty_transactions WHERE business_id=? AND phone=?
+     ORDER BY created_at DESC LIMIT ?`
+  ).all(businessId, p, limit || 20);
+  return rows;
+}
+
+function awardBonusPoints(businessId, phone, name, bonusPoints, description) {
+  const card   = getOrCreateCard(businessId, phone, name);
+  const newPts = card.points + bonusPoints;
+  const tier   = loyaltyTier(newPts, card.visits);
+
+  db.prepare(`UPDATE loyalty_points SET
+    points=?, tier=?, customer_name=COALESCE(?,customer_name)
+    WHERE business_id=? AND phone=?`)
+    .run(newPts, tier, name||null, businessId, phone);
+
+  // Log transaction
+  const txId = `ltx_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+  db.prepare(`INSERT INTO loyalty_transactions
+    (id,business_id,phone,type,points,stamps,description,order_id)
+    VALUES (?,?,?,?,?,?,?,?)`)
+    .run(txId, businessId, phone, 'bonus', bonusPoints, 0,
+      description || `Bonus +${bonusPoints} pts`, null);
+
+  return getLoyaltyCard(businessId, phone);
+}
+
+function redeemStamps(businessId, phone) {
+  const card = getLoyaltyCard(businessId, phone);
+  if (!card || card.stamps < STAMPS_FOR_FREE) {
+    return { success: false, message: `Need ${STAMPS_FOR_FREE} stamps. You have ${card?.stamps||0}.` };
+  }
+  db.prepare('UPDATE loyalty_points SET stamps=stamps-? WHERE business_id=? AND phone=?')
+    .run(STAMPS_FOR_FREE, businessId, phone);
+  const txId = `ltx_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+  db.prepare(`INSERT INTO loyalty_transactions
+    (id,business_id,phone,type,stamps,description) VALUES (?,?,?,?,?,?)`)
+    .run(txId, businessId, phone, 'redeemed', -STAMPS_FOR_FREE, '10 stamps redeemed — free item!');
+  return { success: true, message: '🎉 Free item unlocked!' };
+}
+
+function redeemPoints(businessId, phone, pointsToRedeem) {
+  const card = getLoyaltyCard(businessId, phone);
+  if (!card || card.points < pointsToRedeem) {
+    return { success: false, message: `Not enough points. Have ${card?.points||0}, need ${pointsToRedeem}.` };
+  }
+  db.prepare('UPDATE loyalty_points SET points=points-? WHERE business_id=? AND phone=?')
+    .run(pointsToRedeem, businessId, phone);
+  const discount = Math.floor(pointsToRedeem / (POINTS_PER_RUPEE * 10));
+  const txId = `ltx_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+  db.prepare(`INSERT INTO loyalty_transactions
+    (id,business_id,phone,type,points,description) VALUES (?,?,?,?,?,?)`)
+    .run(txId, businessId, phone, 'redeemed', -pointsToRedeem,
+      `${pointsToRedeem} pts redeemed — ₹${discount} discount`);
+  return { success: true, discount, message: `₹${discount} discount applied!` };
+}
+
+function updateBirthday(businessId, phone, birthday) {
+  db.prepare('UPDATE loyalty_points SET birthday=? WHERE business_id=? AND phone=?')
+    .run(birthday, businessId, phone);
+}
+
+function getLoyaltyLeaderboard(businessId, limit=20) {
+  return db.prepare(`SELECT * FROM loyalty_points
+    WHERE business_id=? ORDER BY points DESC LIMIT ?`).all(businessId, limit);
+}
+
+function getUpcomingBirthdays(businessId, days=7) {
+  // Match birthday (MM-DD) within next N days
+  const rows = db.prepare(`SELECT * FROM loyalty_points WHERE business_id=? AND birthday IS NOT NULL`)
+    .all(businessId);
+  const today = new Date();
+  return rows.filter(r => {
+    if (!r.birthday) return false;
+    const parts = r.birthday.split('-');
+    if (parts.length < 2) return false;
+    const [, mm, dd] = parts.length === 3 ? parts : ['', parts[0], parts[1]];
+    const bday = new Date(today.getFullYear(), parseInt(mm)-1, parseInt(dd));
+    if (bday < today) bday.setFullYear(today.getFullYear()+1);
+    const diff = (bday - today) / (1000*60*60*24);
+    return diff >= 0 && diff <= days;
+  }).sort((a,b) => {
+    const toDate = s => { const p=s.split('-'); return new Date(2000,parseInt(p[p.length-2])-1,parseInt(p[p.length-1])); };
+    return toDate(a.birthday) - toDate(b.birthday);
+  });
+}
+
+function getLoyaltyHistory(businessId, phone, limit=10) {
+  return db.prepare(`SELECT * FROM loyalty_transactions
+    WHERE business_id=? AND phone=? ORDER BY created_at DESC LIMIT ?`)
+    .all(businessId, phone, limit);
+}
+
+Object.assign(module.exports, {
+  getLoyaltyCard, getOrCreateCard, awardPoints, awardBonusPoints, getLoyaltyTransactions,
+  redeemStamps, redeemPoints, updateBirthday,
+  getLoyaltyLeaderboard, getUpcomingBirthdays, getLoyaltyHistory,
+  STAMPS_FOR_FREE, POINTS_FOR_FREE,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Customer Psychology Engine — visit tracking + AI offer generation
+// ─────────────────────────────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS customer_visits (
+    id          TEXT PRIMARY KEY,
+    business_id TEXT NOT NULL,
+    phone       TEXT NOT NULL,
+    name        TEXT,
+    items       TEXT NOT NULL,   -- JSON array of {name,qty,price}
+    total       REAL NOT NULL DEFAULT 0,
+    order_type  TEXT DEFAULT 'dine_in',
+    hour_of_day INTEGER,         -- 0-23, when they visited
+    day_of_week INTEGER,         -- 0=Sun … 6=Sat
+    visited_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_visits_biz_phone ON customer_visits(business_id, phone);
+  CREATE INDEX IF NOT EXISTS idx_visits_biz_time  ON customer_visits(business_id, visited_at DESC);
+`);
+
+function recordVisit(businessId, phone, name, items, total, orderType) {
+  const now = new Date();
+  db.prepare(`
+    INSERT INTO customer_visits (id,business_id,phone,name,items,total,order_type,hour_of_day,day_of_week,visited_at)
+    VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))
+  `).run(
+    `v_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+    businessId, phone, name||'Customer',
+    JSON.stringify(items||[]), parseFloat(total)||0, orderType||'dine_in',
+    now.getHours(), now.getDay()
+  );
+}
+
+function getCustomerVisits(businessId, phone, limit=50) {
+  return db.prepare(`
+    SELECT * FROM customer_visits
+    WHERE business_id=? AND phone=?
+    ORDER BY visited_at DESC LIMIT ?
+  `).all(businessId, phone, limit);
+}
+
+// Build a rich psychology profile from visit history
+function buildCustomerProfile(businessId, phone) {
+  const visits = getCustomerVisits(businessId, phone, 100);
+  if (!visits.length) return null;
+
+  const totalSpend  = visits.reduce((s,v) => s+v.total, 0);
+  const avgSpend    = totalSpend / visits.length;
+  const lastVisit   = new Date(visits[0].visited_at);
+  const daysSince   = Math.floor((Date.now() - lastVisit) / (1000*60*60*24));
+
+  // Favourite items
+  const itemCount = {};
+  visits.forEach(v => {
+    try {
+      JSON.parse(v.items).forEach(it => {
+        const k = it.name || it.item;
+        if (k) itemCount[k] = (itemCount[k]||0) + (it.qty||1);
+      });
+    } catch(e) {}
+  });
+  const favourites = Object.entries(itemCount)
+    .sort((a,b) => b[1]-a[1]).slice(0,5).map(([name,count]) => ({ name, count }));
+
+  // Preferred visit time
+  const hourCounts = {};
+  visits.forEach(v => { hourCounts[v.hour_of_day] = (hourCounts[v.hour_of_day]||0)+1; });
+  const peakHour = Object.entries(hourCounts).sort((a,b)=>b[1]-a[1])[0];
+  const peakHourLabel = peakHour ? formatHour(parseInt(peakHour[0])) : 'Unknown';
+
+  // Preferred day
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayCounts = {};
+  visits.forEach(v => { dayCounts[v.day_of_week] = (dayCounts[v.day_of_week]||0)+1; });
+  const peakDay = Object.entries(dayCounts).sort((a,b)=>b[1]-a[1])[0];
+  const peakDayLabel = peakDay ? days[parseInt(peakDay[0])] : 'Unknown';
+
+  // Segment
+  let segment = 'new';
+  if (visits.length >= 10) segment = 'loyal';
+  else if (visits.length >= 4) segment = 'regular';
+  else if (visits.length >= 2) segment = 'returning';
+  if (daysSince > 30) segment = 'at_risk';
+  if (daysSince > 60) segment = 'lost';
+
+  return {
+    phone, name: visits[0].name,
+    totalVisits: visits.length,
+    totalSpend: Math.round(totalSpend),
+    avgSpend: Math.round(avgSpend),
+    lastVisit: visits[0].visited_at,
+    daysSinceLastVisit: daysSince,
+    favourites,
+    peakHour: peakHourLabel,
+    peakDay: peakDayLabel,
+    segment,
+    recentVisits: visits.slice(0,5)
+  };
+}
+
+function formatHour(h) {
+  if (h === 0) return '12:00 AM';
+  if (h < 12) return `${h}:00 AM`;
+  if (h === 12) return '12:00 PM';
+  return `${h-12}:00 PM`;
+}
+
+// Get all customers with at-risk signals (no visit in 14+ days, previously regular)
+function getAtRiskCustomers(businessId, dayThreshold=14) {
+  const phones = db.prepare(`
+    SELECT phone, MAX(name) as name, COUNT(*) as visits,
+           MAX(visited_at) as last_visit, SUM(total) as total_spend
+    FROM customer_visits
+    WHERE business_id=?
+    GROUP BY phone
+    HAVING visits >= 2
+    ORDER BY last_visit ASC
+  `).all(businessId);
+
+  const now = Date.now();
+  return phones.filter(p => {
+    const days = (now - new Date(p.last_visit)) / (1000*60*60*24);
+    return days >= dayThreshold;
+  }).map(p => ({
+    ...p,
+    daysSince: Math.floor((now - new Date(p.last_visit)) / (1000*60*60*24)),
+    avgSpend: Math.round(p.total_spend / p.visits)
+  }));
+}
+
+// Admin billing report — all branches total revenue
+function getAdminBillingReport() {
+  // Per-branch breakdown
+  const branches = db.prepare(`
+    SELECT business_id,
+      COUNT(*) as total_orders,
+      SUM(total) as total_revenue,
+      COUNT(CASE WHEN date(created_at)=date('now') THEN 1 END) as today_orders,
+      SUM(CASE WHEN date(created_at)=date('now') THEN total ELSE 0 END) as today_revenue,
+      SUM(CASE WHEN date(created_at)>=date('now','-7 days') THEN total ELSE 0 END) as week_revenue,
+      SUM(CASE WHEN strftime('%Y-%m',created_at)=strftime('%Y-%m','now') THEN total ELSE 0 END) as month_revenue
+    FROM orders
+    WHERE payment_status='paid'
+    GROUP BY business_id
+  `).all();
+
+  const totals = branches.reduce((acc, b) => ({
+    total_orders:   acc.total_orders   + (b.total_orders||0),
+    total_revenue:  acc.total_revenue  + (b.total_revenue||0),
+    today_orders:   acc.today_orders   + (b.today_orders||0),
+    today_revenue:  acc.today_revenue  + (b.today_revenue||0),
+    week_revenue:   acc.week_revenue   + (b.week_revenue||0),
+    month_revenue:  acc.month_revenue  + (b.month_revenue||0),
+  }), { total_orders:0, total_revenue:0, today_orders:0, today_revenue:0, week_revenue:0, month_revenue:0 });
+
+  return { branches, totals };
+}
+
+// Orders count only — safe for managers (no ₹ amounts)
+function getOrderCountsOnly(businessId) {
+  return db.prepare(`
+    SELECT
+      COUNT(CASE WHEN date(created_at)=date('now') THEN 1 END)                          AS today_orders,
+      COUNT(CASE WHEN date(created_at)>=date('now','-7 days') THEN 1 END)               AS week_orders,
+      COUNT(CASE WHEN strftime('%Y-%m',created_at)=strftime('%Y-%m','now') THEN 1 END)  AS month_orders,
+      COUNT(CASE WHEN status IN ('pending','confirmed','preparing') THEN 1 END)          AS active_orders
+    FROM orders WHERE business_id=?
+  `).get(businessId) || {};
+}
+
+Object.assign(module.exports, {
+  recordVisit, getCustomerVisits, buildCustomerProfile,
+  getAtRiskCustomers, getAdminBillingReport, getOrderCountsOnly,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Accounting Module — Expenses, P&L, GST
+// ─────────────────────────────────────────────────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS expenses (
+    id           TEXT PRIMARY KEY,
+    business_id  TEXT NOT NULL,
+    category     TEXT NOT NULL,   -- ingredients|salaries|rent|electricity|gas|marketing|maintenance|misc
+    description  TEXT,
+    amount       REAL NOT NULL DEFAULT 0,
+    gst_amount   REAL NOT NULL DEFAULT 0,  -- GST paid on this expense (input tax)
+    vendor       TEXT,
+    receipt_no   TEXT,
+    expense_date DATE DEFAULT (date('now')),
+    added_by     TEXT,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_expenses_biz ON expenses(business_id, expense_date DESC);
+`);
+
+const EXPENSE_CATEGORIES = [
+  'ingredients', 'salaries', 'rent', 'electricity',
+  'gas', 'marketing', 'maintenance', 'equipment', 'misc'
+];
+
+function addExpense({ businessId, category, description, amount, gstAmount, vendor, receiptNo, expenseDate, addedBy }) {
+  const id = `exp_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+  db.prepare(`
+    INSERT INTO expenses (id,business_id,category,description,amount,gst_amount,vendor,receipt_no,expense_date,added_by,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,datetime('now'))
+  `).run(id, businessId, category||'misc', description||'', parseFloat(amount)||0,
+         parseFloat(gstAmount)||0, vendor||'', receiptNo||'',
+         expenseDate || new Date().toISOString().slice(0,10), addedBy||'manager');
+  return id;
+}
+
+function getExpenses(businessId, { from, to, category, limit=200 } = {}) {
+  let q = 'SELECT * FROM expenses WHERE business_id=?';
+  const params = [businessId];
+  if (from)     { q += ' AND expense_date >= ?'; params.push(from); }
+  if (to)       { q += ' AND expense_date <= ?'; params.push(to); }
+  if (category) { q += ' AND category = ?'; params.push(category); }
+  q += ' ORDER BY expense_date DESC, created_at DESC LIMIT ?';
+  params.push(limit);
+  return db.prepare(q).all(...params);
+}
+
+// Full P&L for a branch for a given period
+function getProfitAndLoss(businessId, { from, to } = {}) {
+  const now = new Date();
+  const defaultFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  const defaultTo   = now.toISOString().slice(0,10);
+  const f = from || defaultFrom;
+  const t = to   || defaultTo;
+
+  // Revenue from paid orders
+  const revRow = db.prepare(`
+    SELECT
+      COUNT(*)              AS order_count,
+      SUM(subtotal)         AS subtotal,
+      SUM(tax)              AS gst_collected,
+      SUM(total)            AS gross_revenue,
+      SUM(discount)         AS total_discounts
+    FROM orders
+    WHERE business_id=? AND payment_status='paid'
+      AND date(created_at) BETWEEN ? AND ?
+  `).get(businessId, f, t) || {};
+
+  // Expenses grouped by category
+  const expRows = db.prepare(`
+    SELECT category, SUM(amount) AS total, SUM(gst_amount) AS gst_paid, COUNT(*) AS count
+    FROM expenses
+    WHERE business_id=? AND expense_date BETWEEN ? AND ?
+    GROUP BY category
+  `).all(businessId, f, t);
+
+  const expByCategory = {};
+  let totalExpenses = 0;
+  expRows.forEach(r => {
+    expByCategory[r.category] = { total: r.total, gstPaid: r.gst_paid, count: r.count };
+    totalExpenses += r.total || 0;
+  });
+
+  const revenue       = parseFloat(revRow.subtotal   || 0);
+  const gstCollected  = parseFloat(revRow.gst_collected || 0);
+  const grossRevenue  = parseFloat(revRow.gross_revenue || 0);
+  const netProfit     = revenue - totalExpenses;
+  const profitMargin  = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
+
+  return {
+    period: { from: f, to: t },
+    revenue: {
+      orderCount:     revRow.order_count || 0,
+      subtotal:       Math.round(revenue),
+      gstCollected:   Math.round(gstCollected),
+      grossRevenue:   Math.round(grossRevenue),
+      totalDiscounts: Math.round(revRow.total_discounts || 0),
+    },
+    expenses: {
+      byCategory: expByCategory,
+      total:      Math.round(totalExpenses),
+    },
+    summary: {
+      netProfit:     Math.round(netProfit),
+      profitMargin:  parseFloat(profitMargin),
+      isProfit:      netProfit >= 0,
+    }
+  };
+}
+
+// GST Report — GSTR-1 style outward supplies summary
+function getGstReport(businessId, { month, year } = {}) {
+  const now = new Date();
+  const m = month || (now.getMonth()+1);
+  const y = year  || now.getFullYear();
+  const periodStr = `${y}-${String(m).padStart(2,'0')}`;
+
+  const rows = db.prepare(`
+    SELECT
+      COUNT(*)        AS invoice_count,
+      SUM(subtotal)   AS taxable_value,
+      SUM(tax)        AS total_gst,
+      SUM(total)      AS total_with_gst
+    FROM orders
+    WHERE business_id=? AND payment_status='paid'
+      AND strftime('%Y-%m', created_at) = ?
+  `).get(businessId, periodStr) || {};
+
+  const taxableValue = parseFloat(rows.taxable_value || 0);
+  const totalGst     = parseFloat(rows.total_gst     || 0);
+  const cgst         = totalGst / 2;
+  const sgst         = totalGst / 2;
+
+  // Input tax from expenses that month
+  const inputRow = db.prepare(`
+    SELECT SUM(gst_amount) AS input_tax
+    FROM expenses
+    WHERE business_id=? AND strftime('%Y-%m', expense_date)=?
+  `).get(businessId, periodStr) || {};
+  const inputTax  = parseFloat(inputRow.input_tax || 0);
+  const netGstPayable = Math.max(0, totalGst - inputTax);
+
+  return {
+    period: { month: m, year: y, label: new Date(y, m-1, 1).toLocaleString('en-IN',{month:'long',year:'numeric'}) },
+    outwardSupplies: {
+      invoiceCount:  rows.invoice_count || 0,
+      taxableValue:  Math.round(taxableValue),
+      cgst:          Math.round(cgst * 100) / 100,
+      sgst:          Math.round(sgst * 100) / 100,
+      totalGst:      Math.round(totalGst * 100) / 100,
+      totalWithGst:  Math.round(rows.total_with_gst || 0),
+    },
+    inputTaxCredit:  Math.round(inputTax * 100) / 100,
+    netGstPayable:   Math.round(netGstPayable * 100) / 100,
+  };
+}
+
+Object.assign(module.exports, {
+  addExpense, getExpenses, getProfitAndLoss, getGstReport, EXPENSE_CATEGORIES,
+});

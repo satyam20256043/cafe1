@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kitchen Display — Zordic California</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{
+  --cream:#faf6f1;--ink:#1a1612;--espresso:#2c1a0e;
+  --caramel:#c47f3a;--foam:#f0e6d3;--sage:#7a9e7e;--rose:#c4616a;
+  --sky:#4a90c4;--border:rgba(44,26,14,0.1);
+  --font-display:'DM Serif Display',Georgia,serif;
+  --font-body:'DM Sans',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{font-family:var(--font-body);background:#1a1612;color:#fff;min-height:100vh}
+
+.topbar{background:#111;border-bottom:1px solid rgba(255,255,255,0.08);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;flex-wrap:wrap;gap:10px}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-logo{font-family:var(--font-display);font-size:18px;color:var(--caramel)}
+.topbar-tag{font-size:11px;background:rgba(196,127,58,0.15);color:var(--caramel);padding:3px 10px;border-radius:20px;letter-spacing:0.5px}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:#666;transition:background 0.3s}
+.conn-dot.connected{background:#22c55e;animation:pulse 1.5s infinite}
+.conn-dot.error{background:var(--rose)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.count-badge{background:rgba(255,255,255,0.08);border-radius:8px;padding:6px 14px;text-align:center}
+.count-badge .num{font-family:var(--font-display);font-size:20px;color:var(--caramel)}
+.count-badge .lbl{font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:0.8px;text-transform:uppercase}
+.topbar-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);padding:6px 12px;border-radius:8px;font-family:var(--font-body);font-size:11px;cursor:pointer;transition:all 0.15s}
+.topbar-btn:hover,.topbar-btn.on{background:rgba(196,127,58,0.2);color:var(--caramel);border-color:rgba(196,127,58,0.3)}
+
+.filter-tabs{display:flex;gap:8px;padding:14px 20px 0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.filter-tabs::-webkit-scrollbar{display:none}
+.ftab{flex-shrink:0;padding:7px 16px;border-radius:20px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:rgba(255,255,255,0.5);font-family:var(--font-body);font-size:12.5px;cursor:pointer;white-space:nowrap;transition:all 0.15s}
+.ftab.active,.ftab:hover{background:var(--caramel);color:#fff;border-color:var(--caramel)}
+
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;padding:16px 20px}
+
+.ticket{background:#252018;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;transition:transform 0.15s}
+.ticket:hover{transform:translateY(-2px)}
+.ticket.status-pending{border-top:3px solid var(--caramel)}
+.ticket.status-confirmed{border-top:3px solid var(--sky)}
+.ticket.status-preparing{border-top:3px solid #f59e0b}
+.ticket.status-ready{border-top:3px solid var(--sage)}
+.ticket.status-served{border-top:3px solid rgba(255,255,255,0.15);opacity:0.5}
+.ticket.status-cancelled{border-top:3px solid var(--rose);opacity:0.4}
+.ticket.new-flash{animation:flash 1.5s ease-out}
+@keyframes flash{0%,20%{background:#3d2f10;box-shadow:0 0 0 2px var(--caramel)}100%{background:#252018;box-shadow:none}}
+
+.ticket-head{padding:12px 14px 10px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.ticket-id{font-size:10px;color:rgba(255,255,255,0.3);font-weight:600;letter-spacing:0.5px;margin-bottom:2px}
+.ticket-table{font-family:var(--font-display);font-size:17px;color:#fff}
+.ticket-time{font-size:10.5px;color:rgba(255,255,255,0.3);margin-top:4px}
+.status-pill{font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:12px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+.sp-pending{background:rgba(196,127,58,0.2);color:var(--caramel)}
+.sp-confirmed{background:rgba(74,144,196,0.2);color:var(--sky)}
+.sp-preparing{background:rgba(245,158,11,0.2);color:#f59e0b}
+.sp-ready{background:rgba(122,158,126,0.2);color:var(--sage)}
+.sp-served{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.3)}
+.sp-cancelled{background:rgba(196,97,106,0.2);color:var(--rose)}
+
+.ticket-customer{padding:7px 14px;font-size:12px;color:rgba(255,255,255,0.45);border-bottom:1px solid rgba(255,255,255,0.06)}
+.ticket-customer span{color:rgba(255,255,255,0.75);font-weight:500}
+.ticket-items{padding:10px 14px}
+.item-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.item-row:last-child{border-bottom:none}
+.item-qty{background:var(--caramel);color:#fff;font-size:11px;font-weight:700;min-width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.item-name{font-size:13px;color:#fff;font-weight:500;flex:1}
+.ticket-notes{margin:0 14px 10px;padding:8px 10px;background:rgba(196,127,58,0.1);border-radius:8px;font-size:12px;color:rgba(255,255,255,0.6);border-left:2px solid var(--caramel)}
+.timer{font-size:10.5px;padding:0 14px 8px;margin-top:-4px}
+.timer.ok{color:rgba(255,255,255,0.3)}
+.timer.warn{color:#f59e0b}
+.timer.urgent{color:var(--rose);font-weight:700}
+.ticket-actions{padding:10px 14px 14px;display:flex;flex-wrap:wrap;gap:8px}
+.act-btn{flex:1;padding:9px 8px;border-radius:10px;border:none;font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;min-width:70px;white-space:nowrap}
+.act-btn:active{transform:scale(0.96)}
+.btn-confirm{background:var(--sky);color:#fff}
+.btn-prepare{background:#f59e0b;color:#fff}
+.btn-ready{background:var(--sage);color:#fff}
+.btn-serve{background:#22c55e;color:#fff}
+.btn-cancel{background:rgba(196,97,106,0.2);color:var(--rose);border:1px solid rgba(196,97,106,0.3)}
+.act-btn:disabled{opacity:0.5;cursor:not-allowed}
+
+.empty-state{grid-column:1/-1;text-align:center;padding:80px 20px;color:rgba(255,255,255,0.2)}
+.empty-state .icon{font-size:52px;margin-bottom:16px}
+.empty-state h3{font-family:var(--font-display);font-size:20px;margin-bottom:8px;color:rgba(255,255,255,0.3)}
+.empty-state p{font-size:13px;color:rgba(255,255,255,0.2)}
+
+.error-banner{background:rgba(196,97,106,0.15);border:1px solid rgba(196,97,106,0.3);border-radius:10px;padding:14px 18px;margin:16px 20px;font-size:13px;color:var(--rose);display:none}
+.error-banner.show{display:block}
+
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;opacity:0;transition:all 0.3s;pointer-events:none;z-index:500;transform:translateY(8px);max-width:300px}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:#22c55e;color:#fff}
+.toast.warn{background:var(--rose);color:#fff}
+.toast.info{background:var(--caramel);color:#fff}
+</style>
+</head>
+<body>
+<!-- System Nav Bar -->
+<div style="background:#111;border-bottom:1px solid rgba(255,255,255,0.07);padding:6px 20px;display:flex;align-items:center;justify-content:space-between;font-size:11.5px;flex-wrap:wrap;gap:6px;position:relative;z-index:999">
+  <div style="display:flex;align-items:center;gap:14px">
+    <a href="/" style="text-decoration:none;display:flex;align-items:center"><img src="/logo.svg" alt="Zordic California" style="height:24px;width:auto;opacity:.92"></a>
+    <span style="color:rgba(255,255,255,0.1)">|</span>
+    <a href="/hq" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap" title="Agency Admin HQ">🏢 Admin HQ</a>
+    <a id="__snav_portal" href="/portal" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap">🔑 Owner Portal</a>
+    <a id="__snav_mgr" href="#" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap">📊 Manager</a>
+    <a id="__snav_kit" href="#" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap">🍳 Kitchen</a>
+    <a id="__snav_caf" href="#" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap;display:none">🌐 Café Site</a>
+  </div>
+  <div style="color:rgba(255,255,255,0.2);font-size:10.5px" id="__snav_bc">System</div>
+</div>
+<script>
+// ── Auth guard ────────────────────────────────────────────────────────────────
+(function authGuard(requiredRoles) {
+  try {
+    const raw = localStorage.getItem('cafehq_staff') || sessionStorage.getItem('cafehq_staff');
+    if (!raw) { window.location.href = '/login'; return; }
+    const staff = JSON.parse(raw);
+    if (!staff || !staff.role) { window.location.href = '/login'; return; }
+    if (requiredRoles && !requiredRoles.includes(staff.role)) {
+      alert('Access denied. You do not have permission to view this page.');
+      window.location.href = '/login';
+    }
+  } catch(e) { window.location.href = '/login'; }
+})(null);
+// ─────────────────────────────────────────────────────────────────────────────
+
+(function(){
+  var p=location.pathname.split("/").filter(Boolean);
+  var bid=new URLSearchParams(location.search).get("branch")||new URLSearchParams(location.search).get("id")||(["manager","portal","kitchen","cafe","order"].includes(p[0])?p[1]:null)||localStorage.getItem("cafehq_businessId")||"";
+  if(bid){
+    document.getElementById("__snav_mgr").href="/manager/"+bid;
+    document.getElementById("__snav_kit").href="/kitchen.html?branch="+bid;
+    document.getElementById("__snav_portal").href="/portal/"+bid;
+    document.getElementById("__snav_caf").href="/cafe/"+bid;
+    document.getElementById("__snav_caf").style.display="inline";
+    document.getElementById("__snav_bc").textContent="Branch: "+bid;
+  }
+})();
+</script>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">👨‍🍳 Kitchen Display</div>
+    <div class="topbar-tag" id="cafe-tag">Loading…</div>
+    <div class="conn-dot" id="conn-dot" title="Connecting…"></div>
+    <span id="conn-label" style="font-size:10px;color:rgba(255,255,255,0.25)">connecting</span>
+  </div>
+  <div class="topbar-right">
+    <div class="count-badge">
+      <div class="num" id="active-count">—</div>
+      <div class="lbl">Active</div>
+    </div>
+    <button class="topbar-btn" onclick="loadOrders()">↻ Refresh</button>
+    <button class="topbar-btn" id="test-btn" onclick="placeTestOrder()" style="background:rgba(122,158,126,0.15);color:#7a9e7e;border-color:rgba(122,158,126,0.3)" title="Places a real test order to verify the full pipeline">🧪 Test Order</button>
+    <button class="topbar-btn" id="sound-btn" onclick="toggleSound()">🔔 Sound Off</button>
+  </div>
+</div>
+
+<div id="debug-bar" style="background:rgba(196,127,58,0.08);border-bottom:1px solid rgba(255,255,255,0.05);padding:6px 24px;font-size:11px;color:rgba(255,255,255,0.35);display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+  <span>Branch: <strong id="debug-biz" style="color:rgba(255,255,255,0.6)">loading…</strong></span>
+  <span>Orders loaded: <strong id="debug-count" style="color:rgba(255,255,255,0.6)">—</strong></span>
+  <span>Last refresh: <strong id="debug-time" style="color:rgba(255,255,255,0.6)">—</strong></span>
+  <span id="debug-error" style="color:var(--rose);display:none"></span>
+</div>
+<div class="filter-tabs">
+  <button class="ftab active" onclick="filterTab('active',this)">🔥 Active</button>
+  <button class="ftab" onclick="filterTab('pending',this)">📋 New</button>
+  <button class="ftab" onclick="filterTab('confirmed',this)">✅ Confirmed</button>
+  <button class="ftab" onclick="filterTab('preparing',this)">👨‍🍳 Preparing</button>
+  <button class="ftab" onclick="filterTab('ready',this)">🔔 Ready</button>
+  <button class="ftab" onclick="filterTab('served',this)">🎉 Served</button>
+  <button class="ftab" onclick="filterTab('all',this)">All</button>
+</div>
+
+<div class="error-banner" id="error-banner"></div>
+<div class="board" id="board">
+  <div class="empty-state"><div class="icon">⏳</div><h3>Loading orders…</h3></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+// Works as static file: /kitchen.html?branch=<bizId>
+// Also works as route: /kitchen/<bizId>
+const _params = new URLSearchParams(location.search);
+const _pathParts = location.pathname.split('/').filter(Boolean);
+const bizId = _params.get('branch') || _params.get('id') ||
+  (_pathParts.indexOf('kitchen') >= 0 ? _pathParts[_pathParts.indexOf('kitchen') + 1] : null) ||
+  _pathParts[_pathParts.length - 1] || '';
+
+let orders = [], currentFilter = 'active', soundOn = false;
+let audioCtx = null;
+// -- Auth --------------------------------------------------------------------
+function getToken() { return localStorage.getItem('cafehq_token'); }
+function getAuthHeaders() {
+  const t = getToken();
+  return t ? { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' }
+           : { 'Content-Type': 'application/json' };
+}
+
+
+// ── Socket.io ─────────────────────────────────────────────────────────────────
+const socket = io({ transports: ['websocket','polling'] });
+
+socket.on('connect', () => {
+  // Join this branch's realtime room (staff room when our token matches the branch)
+  socket.emit('join_business', { businessId: bizId, token: getToken() });
+  setConnStatus(true);
+  loadOrders(); // reload on reconnect to catch missed events
+});
+socket.on('disconnect', () => setConnStatus(false));
+socket.on('connect_error', () => setConnStatus(false, true));
+
+function setConnStatus(connected, error) {
+  const dot   = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  dot.className   = 'conn-dot ' + (connected ? 'connected' : error ? 'error' : '');
+  label.textContent = connected ? 'live' : error ? 'error' : 'reconnecting';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  if (!bizId) { showError('No branch ID found in URL. Expected: /kitchen/<branch-id>'); return; }
+
+  try {
+    const biz = await fetch('/api/businesses/' + bizId).then(r => r.ok ? r.json() : null);
+    if (biz) document.getElementById('cafe-tag').textContent = biz.name || bizId;
+    else      document.getElementById('cafe-tag').textContent = bizId;
+  } catch(e) {}
+
+  await loadOrders();
+  setInterval(loadOrders, 15000); // auto-refresh orders + timers every 15s
+}
+
+async function loadOrders() {
+  try {
+    const data = await fetch('/api/businesses/' + bizId + '/orders?limit=200', { headers: getAuthHeaders() }).then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' — branch "' + bizId + '" may not exist');
+      return r.json();
+    });
+    orders = Array.isArray(data) ? data : [];
+    hideError();
+    // Update debug bar
+    const dbiz = document.getElementById('debug-biz');
+    const dcnt = document.getElementById('debug-count');
+    const dtim = document.getElementById('debug-time');
+    const derr = document.getElementById('debug-error');
+    if (dbiz) dbiz.textContent = bizId || '(none)';
+    if (dcnt) dcnt.textContent = orders.length;
+    if (dtim) dtim.textContent = new Date().toLocaleTimeString();
+    if (derr) derr.style.display = 'none';
+    renderBoard();
+  } catch(e) {
+    const derr = document.getElementById('debug-error');
+    if (derr) { derr.textContent = '⚠ ' + e.message; derr.style.display = 'inline'; }
+    showError('Could not load orders: ' + e.message);
+    renderBoard();
+  }
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+function filterTab(f, btn) {
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = f;
+  renderBoard();
+}
+
+function getStatus(o) { return o.status || o.order_status || 'pending'; }
+
+function filteredOrders() {
+  const active = ['pending','confirmed','preparing','ready'];
+  if (currentFilter === 'active') return orders.filter(o => active.includes(getStatus(o)));
+  if (currentFilter === 'all')    return orders;
+  return orders.filter(o => getStatus(o) === currentFilter);
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function timeSince(dateStr) {
+  if (!dateStr) return '';
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if (diff < 60)   return diff + 's ago';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  return Math.floor(diff / 3600) + 'h ago';
+}
+function timerCls(dateStr, status) {
+  if (!dateStr || status === 'served' || status === 'cancelled') return '';
+  const min = Math.floor((Date.now() - new Date(dateStr)) / 60000);
+  if (min >= 15) return 'urgent';
+  if (min >= 8)  return 'warn';
+  return 'ok';
+}
+function statusPill(status) {
+  const map   = { pending:'sp-pending', confirmed:'sp-confirmed', preparing:'sp-preparing', ready:'sp-ready', served:'sp-served', cancelled:'sp-cancelled' };
+  const label = { pending:'New', confirmed:'Confirmed', preparing:'Preparing', ready:'Ready ✓', served:'Served', cancelled:'Cancelled' };
+  return `<span class="status-pill ${map[status]||'sp-pending'}">${label[status]||status}</span>`;
+}
+function actionBtns(orderId, status) {
+  const id = String(orderId);
+  const btns = [];
+  if (status === 'pending')   btns.push(`<button class="act-btn btn-confirm"  onclick="updateStatus('${id}','confirmed')">✅ Confirm</button>`);
+  if (status === 'confirmed') btns.push(`<button class="act-btn btn-prepare"  onclick="updateStatus('${id}','preparing')">👨‍🍳 Start</button>`);
+  if (status === 'preparing') btns.push(`<button class="act-btn btn-ready"    onclick="updateStatus('${id}','ready')">🔔 Ready</button>`);
+  if (status === 'ready')     btns.push(`<button class="act-btn btn-serve"    onclick="updateStatus('${id}','served')">🎉 Served</button>`);
+  if (!['served','cancelled'].includes(status))
+    btns.push(`<button class="act-btn btn-cancel" onclick="updateStatus('${id}','cancelled')">✕ Cancel</button>`);
+  return btns.join('');
+}
+
+function renderBoard() {
+  const shown  = filteredOrders();
+  const active = orders.filter(o => ['pending','confirmed','preparing','ready'].includes(getStatus(o))).length;
+  document.getElementById('active-count').textContent = active;
+
+  if (!shown.length) {
+    const msgs = {
+      active: ['✅', 'All clear!', 'No active orders right now.'],
+      pending: ['📋', 'No new orders', 'New table orders will appear here.'],
+      served: ['🎉', 'Nothing served yet', ''],
+      all: ['📋', 'No orders yet', 'Orders placed via table QR codes appear here.'],
+    };
+    const [icon, title, sub] = msgs[currentFilter] || msgs.all;
+    document.getElementById('board').innerHTML =
+      `<div class="empty-state"><div class="icon">${icon}</div><h3>${title}</h3><p>${sub}</p></div>`;
+    return;
+  }
+
+  // Sort: by status priority, then oldest first within same status
+  const priority = ['pending','confirmed','preparing','ready','served','cancelled'];
+  shown.sort((a, b) => {
+    const pa = priority.indexOf(getStatus(a)), pb = priority.indexOf(getStatus(b));
+    if (pa !== pb) return pa - pb;
+    return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+  });
+
+  document.getElementById('board').innerHTML = shown.map(order => {
+    // Safe field extraction — never crash on missing fields
+    const rawId  = order.id || order.order_id || ('tmp_' + Math.random().toString(36).slice(2));
+    const id     = String(rawId);
+    const status = getStatus(order);
+    const items  = (() => {
+      try { return typeof order.items === 'string' ? JSON.parse(order.items) : (Array.isArray(order.items) ? order.items : []); }
+      catch(e) { return []; }
+    })();
+    const name    = order.customer_name || order.customerName || 'Guest';
+    const table   = order.table_no || order.tableNo || '—';
+    const notes   = order.notes || order.special_notes || '';
+    const created = order.created_at;
+    const shortId = id.replace('ord_','').slice(-6).toUpperCase();
+    const tc      = timerCls(created, status);
+
+    return `<div class="ticket status-${status}" id="ticket-${id}">
+      <div class="ticket-head">
+        <div>
+          <div class="ticket-id">#${shortId}</div>
+          <div class="ticket-table">Table ${table}</div>
+        </div>
+        <div style="text-align:right">
+          ${statusPill(status)}
+          <div class="ticket-time">${timeSince(created)}</div>
+        </div>
+      </div>
+      <div class="ticket-customer">👤 <span>${esc(name)}</span></div>
+      <div class="ticket-items">
+        ${items.length
+          ? items.map(i => `<div class="item-row"><span class="item-qty">${i.qty||1}</span><span class="item-name">${esc(i.name||'Item')}</span></div>`).join('')
+          : '<div style="font-size:12px;color:rgba(255,255,255,0.3);padding:4px 0">No items</div>'}
+      </div>
+      ${notes ? `<div class="ticket-notes">📝 ${esc(notes)}</div>` : ''}
+      ${tc ? `<div class="timer ${tc}">⏱ ${timeSince(created)}</div>` : ''}
+      <div class="ticket-actions">${actionBtns(id, status)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Status Update ─────────────────────────────────────────────────────────────
+async function updateStatus(orderId, status) {
+  // Optimistic UI — update immediately
+  const idx = orders.findIndex(o => String(o.id || o.order_id || '') === String(orderId));
+  if (idx >= 0) { orders[idx].status = status; orders[idx].order_status = status; }
+  renderBoard();
+
+  try {
+    const resp = await fetch('/api/businesses/' + bizId + '/orders/' + encodeURIComponent(orderId) + '/status', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || 'HTTP ' + resp.status);
+    }
+    const labels = { confirmed:'✅ Confirmed', preparing:'👨‍🍳 Preparing', ready:'🔔 Marked ready!', served:'🎉 Served!', cancelled:'❌ Cancelled' };
+    showToast(labels[status] || 'Updated', 'ok');
+  } catch(e) {
+    showToast('Update failed: ' + e.message, 'warn');
+    // Revert optimistic update on failure
+    await loadOrders();
+  }
+}
+
+// ── Socket events ─────────────────────────────────────────────────────────────
+// ── Sound + notification alert ───────────────────────────────────────────────
+function playOrderAlert() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.15, 0.3].forEach(delay => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.3);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.3);
+    });
+  } catch(e) {}
+  // Browser notification
+  if (Notification.permission === 'granted') {
+    new Notification('🔔 New Order!', { body: 'A new order just arrived.', icon: '/manifest.json' });
+  }
+}
+// Request notification permission on load
+if (Notification.permission === 'default') Notification.requestPermission();
+
+socket.on('new_order', ({ businessId, order }) => {
+  playOrderAlert();
+  if (String(businessId) !== String(bizId)) return;
+  const exists = orders.findIndex(o => String(o.id || o.order_id || '') === String(order.id || order.order_id || ''));
+  if (exists < 0) orders.unshift(order);
+  else orders[exists] = order;
+  renderBoard();
+  // Update debug bar count
+  const dcnt2 = document.getElementById('debug-count');
+  const dtim2 = document.getElementById('debug-time');
+  if (dcnt2) dcnt2.textContent = orders.length;
+  if (dtim2) dtim2.textContent = new Date().toLocaleTimeString() + ' (live)';
+  playChime();
+  const table = order.table_no || order.tableNo || '?';
+  showToast('🆕 New order — Table ' + table, 'info');
+  setTimeout(() => {
+    const el = document.getElementById('ticket-' + String(order.id || order.order_id || ''));
+    if (el) { el.classList.remove('new-flash'); void el.offsetWidth; el.classList.add('new-flash'); }
+  }, 50);
+});
+
+socket.on('order_status_update', ({ businessId, orderId, status }) => {
+  if (String(businessId) !== String(bizId)) return;
+  const idx = orders.findIndex(o => String(o.id || o.order_id || '') === String(orderId));
+  if (idx >= 0) { orders[idx].status = status; orders[idx].order_status = status; }
+  renderBoard();
+});
+
+// ── Sound ─────────────────────────────────────────────────────────────────────
+function playChime() {
+  if (!soundOn) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    [523, 659, 784].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'sine'; osc.frequency.value = freq;
+      const t = audioCtx.currentTime + i * 0.18;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.35, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      osc.start(t); osc.stop(t + 0.5);
+    });
+  } catch(e) {}
+}
+function toggleSound() {
+  soundOn = !soundOn;
+  const btn = document.getElementById('sound-btn');
+  btn.textContent = soundOn ? '🔔 Sound On' : '🔔 Sound Off';
+  btn.classList.toggle('on', soundOn);
+  if (soundOn) playChime();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type || 'info');
+  // Force reflow to restart transition
+  void t.offsetWidth;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('show');
+}
+function hideError() {
+  document.getElementById('error-banner').classList.remove('show');
+}
+
+async function placeTestOrder() {
+  const btn = document.getElementById('test-btn');
+  btn.textContent = '⏳ Placing…'; btn.disabled = true;
+  try {
+    // Fetch menu to get real item ids
+    const menu = await fetch('/api/businesses/' + bizId + '/menu').then(r => r.json()).catch(() => []);
+    const item = menu[0] || { id: '1', name: 'Test Item', price: 100 };
+    const resp = await fetch('/api/businesses/' + bizId + '/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerName: 'Kitchen Test',
+        tableNo: '99',
+        items: [{ id: item.id, qty: 1, name: item.name, price: item.price }],
+        notes: 'Auto test order — safe to delete'
+      })
+    });
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'HTTP ' + resp.status);
+    showToast('✅ Test order placed! ID: ' + String(result.id).slice(-6).toUpperCase() + ' — should appear above', 'ok');
+    await loadOrders();
+  } catch(e) {
+    showToast('❌ Test failed: ' + e.message, 'warn');
+  } finally {
+    btn.textContent = '🧪 Test Order'; btn.disabled = false;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

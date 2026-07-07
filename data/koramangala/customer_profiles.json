@@ -6,6 +6,12 @@
     "tags": [
       "interested_in_coffee",
       "frequent_booker"
+    ],
+    "offersReceived": [
+      {
+        "offer": "Tuesday Coffee Bonanza - Free Cookie with any Hot Coffee! 🍪☕",
+        "timestamp": "2026-05-25T19:23:34.419Z"
+      }
     ]
   },
   {
@@ -15,6 +21,26 @@
     "tags": [
       "asked_for_offers",
       "interested_in_burgers"
+    ],
+    "offersReceived": [
+      {
+        "offer": "Tuesday Coffee Bonanza - Free Cookie with any Hot Coffee! 🍪☕",
+        "timestamp": "2026-05-25T19:23:34.423Z"
+      }
+    ]
+  },
+  {
+    "phone": "9123456789",
+    "name": "Customer",
+    "visits": 1,
+    "tags": [
+      "asked_offers"
+    ],
+    "offersReceived": [
+      {
+        "offer": "Tuesday Coffee Bonanza - Free Cookie with any Hot Coffee! 🍪☕",
+        "timestamp": "2026-05-25T19:23:34.425Z"
+      }
     ]
   }
 ]

@@ -1,0 +1,52 @@
+{
+  "plans": [
+    {
+      "id": "trial",
+      "name": "7-Day Trial",
+      "price": 100,
+      "currency": "INR",
+      "interval": "one_time",
+      "duration_days": 7,
+      "description": "Try all Pro features for just ₹100",
+      "features": ["All order management", "Menu editor", "WhatsApp bot", "Analytics dashboard", "Staff accounts", "Loyalty points", "Campaign broadcasts"],
+      "highlight": false,
+      "badge": "Try it out"
+    },
+    {
+      "id": "starter",
+      "name": "Starter",
+      "price": 999,
+      "currency": "INR",
+      "interval": "monthly",
+      "duration_days": 30,
+      "description": "Perfect for single-location cafés",
+      "features": ["Up to 5 tables", "20 menu items", "3 staff accounts", "Order management", "Basic analytics", "Customer CRM"],
+      "highlight": false,
+      "badge": null
+    },
+    {
+      "id": "growth",
+      "name": "Growth",
+      "price": 1999,
+      "currency": "INR",
+      "interval": "monthly",
+      "duration_days": 30,
+      "description": "For growing cafés with WhatsApp automation",
+      "features": ["Up to 20 tables", "100 menu items", "10 staff accounts", "WhatsApp bot", "Campaign blasts", "Loyalty & rewards", "Full analytics"],
+      "highlight": true,
+      "badge": "Most Popular"
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "price": 2999,
+      "currency": "INR",
+      "interval": "monthly",
+      "duration_days": 30,
+      "description": "For multi-location franchise operations",
+      "features": ["Unlimited tables", "Unlimited menu items", "Unlimited staff", "All Growth features", "Multi-branch HQ", "Activity logs", "Priority support"],
+      "highlight": false,
+      "badge": "Best Value"
+    }
+  ]
+}
