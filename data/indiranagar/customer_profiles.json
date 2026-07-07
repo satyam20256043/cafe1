@@ -213,5 +213,18 @@
       }
     ],
     "loyaltyTier": "New Customer"
+  },
+  {
+    "phone": "919998887771",
+    "name": "Customer",
+    "visits": 1,
+    "tags": [
+      "asked_menu"
+    ],
+    "lastActive": "7/7/2026, 5:03:55 PM",
+    "averageRating": 0,
+    "feedbackCount": 0,
+    "offersReceived": [],
+    "loyaltyTier": "New Customer"
   }
 ]

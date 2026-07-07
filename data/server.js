@@ -1613,6 +1613,122 @@ app.post('/api/businesses/:id/whatsapp/setup', requireAuth, requireBranchAccess,
   res.json({ success: true, verifyToken });
 });
 
+// ── WhatsApp Cloud API — inbound receptionist (Level 1: auto-reply only) ─────
+// Each branch's phoneNumberId/accessToken live in data/<branchId>/whatsapp_config.json
+// (saved above). Meta's webhook is registered ONCE for the whole app (not per
+// branch), so a single WHATSAPP_VERIFY_TOKEN is used for verification and
+// inbound messages are routed to a branch by matching phone_number_id.
+function getWaConfig(branchId) {
+  try {
+    const cfgFile = path.join(DATA_DIR, branchId, 'whatsapp_config.json');
+    if (!fs.existsSync(cfgFile)) return null;
+    return JSON.parse(fs.readFileSync(cfgFile, 'utf-8'));
+  } catch (e) { return null; }
+}
+
+function findBranchByPhoneNumberId(phoneNumberId) {
+  for (const b of businesses) {
+    const cfg = getWaConfig(b.id);
+    if (cfg && cfg.phoneNumberId === phoneNumberId) return b.id;
+  }
+  return null;
+}
+
+async function sendWhatsAppToCustomer(branchId, phone, text) {
+  const cfg = getWaConfig(branchId);
+  if (!cfg?.phoneNumberId || !cfg?.accessToken) {
+    console.warn('[WA Cloud API] No credentials for branch:', branchId);
+    return false;
+  }
+  try {
+    await waApi.sendMessage(cfg.phoneNumberId, cfg.accessToken, phone, text);
+    return true;
+  } catch (e) {
+    console.error('[WA Cloud API] Send error for', branchId, ':', e.message);
+    return false;
+  }
+}
+
+// De-dupe inbound message ids (Meta can redeliver on a slow/failed 200).
+// Bounded so this can't leak memory over a long-running process.
+const processedWaMessageIds = new Set();
+function markWaMessageProcessed(id) {
+  processedWaMessageIds.add(id);
+  if (processedWaMessageIds.size > 2000) {
+    const first = processedWaMessageIds.values().next().value;
+    processedWaMessageIds.delete(first);
+  }
+}
+
+// GET — Meta calls this once when the webhook is registered in the App Dashboard
+app.get('/api/webhook/whatsapp', (req, res) => {
+  const mode      = req.query['hub.mode'];
+  const token     = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  if (mode === 'subscribe' && process.env.WHATSAPP_VERIFY_TOKEN && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+    console.log('[WA Webhook] Verification successful');
+    return res.status(200).send(challenge);
+  }
+  console.warn('[WA Webhook] Verification failed — check WHATSAPP_VERIFY_TOKEN matches the Meta App Dashboard');
+  res.sendStatus(403);
+});
+
+// POST — incoming customer messages. Always ack 200 fast so Meta doesn't retry;
+// do the real work after responding.
+app.post('/api/webhook/whatsapp', (req, res) => {
+  res.sendStatus(200);
+
+  (async () => {
+    try {
+      const body = req.body;
+      if (body.object !== 'whatsapp_business_account') return;
+
+      for (const entry of (body.entry || [])) {
+        for (const change of (entry.changes || [])) {
+          const value = change.value;
+          if (!value?.messages?.length) continue; // ignore status callbacks (sent/delivered/read)
+
+          const phoneNumberId = value.metadata?.phone_number_id;
+          const branchId = findBranchByPhoneNumberId(phoneNumberId);
+          if (!branchId) {
+            console.warn('[WA Webhook] No branch configured for phone_number_id:', phoneNumberId);
+            continue;
+          }
+          const cfg = getWaConfig(branchId);
+
+          for (const message of value.messages) {
+            if (message.type !== 'text') continue; // images/audio/etc. not handled yet
+            if (processedWaMessageIds.has(message.id)) continue; // de-dupe redelivery
+            markWaMessageProcessed(message.id);
+
+            const fromPhone = message.from; // e.g. "919876543210"
+            const incomingText = message.text?.body || '';
+
+            waApi.markAsRead(cfg.phoneNumberId, cfg.accessToken, message.id).catch(() => {});
+
+            // processCafeBotReply already logs chat.inbound/outbound (LP1) and
+            // runs the full reservation/feedback/loyalty state machine —
+            // identical behavior to the web chat widget and the simulator.
+            const reply = await processCafeBotReply(branchId, fromPhone, incomingText);
+            await sendWhatsAppToCustomer(branchId, fromPhone, reply);
+
+            emitToBranch(branchId, 'inbound_chat', {
+              branchId, phone: fromPhone, text: incomingText, sender: 'customer',
+              timestamp: new Date().toLocaleTimeString(),
+            });
+            emitToBranch(branchId, 'inbound_chat', {
+              branchId, phone: fromPhone, text: reply, sender: 'ai',
+              timestamp: new Date().toLocaleTimeString(),
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[WA Webhook] Processing error:', e.message);
+    }
+  })();
+});
+
 // ── Accounting / Expenses ─────────────────────────────────────────────────────
 app.get('/api/businesses/:id/accounting/expenses', requireAuth, requireBranchAccess, (req, res) => {
   const { id } = req.params;
