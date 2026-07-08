@@ -316,7 +316,7 @@ app.post('/api/businesses/:id/feedback/:feedbackId/reply-draft', requireAuth, re
   let draft = '';
   if (genAI) {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const business = businesses.find(b => b.id === id) || businesses[0];
       const prompt = `You are the manager of "${business.name}" café. 
 Write a professional, warm, and brief response (1-2 sentences) to the following customer review.
@@ -554,7 +554,7 @@ app.get('/api/businesses/:id/ai-campaign-suggestions', requireAuth, requireBranc
   
   if (genAI) {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const prompt = `You are an expert restaurant marketing analyst. 
 Study the following customer profiles and feedback reviews from our cafe SaaS platform.
 Customer Profiles: ${JSON.stringify(profiles)}

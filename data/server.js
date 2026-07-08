@@ -440,7 +440,7 @@ function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFiel
 async function generateGeminiReply(branchId, text, fromPhone) {
   if (!genAI) return null;
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const business = businesses.find(b => b.id === branchId) || businesses[0];
     const menu = getBranchData(branchId, 'menu.json');
 
