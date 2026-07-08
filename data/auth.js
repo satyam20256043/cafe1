@@ -68,11 +68,18 @@ function requireRole(...roles) {
 function loginHandler(req, res) {
   const { businessId, username, password } = req.body;
 
-  if (!businessId || !username || !password) {
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
+  }
+  if (!businessId && !req.body.adminLogin) {
     return res.status(400).json({ error: 'businessId, username and password required' });
   }
 
-  const staff = db.getStaffByUsername(businessId, username);
+  // Agency admin login has no café to select — matched by username alone,
+  // restricted to agency_admin/admin roles so café staff logins are unaffected.
+  const staff = businessId
+    ? db.getStaffByUsername(businessId, username)
+    : db.getAdminStaffByUsername(username);
   if (!staff) {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
@@ -82,7 +89,7 @@ function loginHandler(req, res) {
   }
 
   if (!checkPassword(password, staff.password_hash)) {
-    db.audit(businessId, staff.id, staff.name, 'login_failed',
+    db.audit(staff.business_id, staff.id, staff.name, 'login_failed',
       `Failed login attempt for ${username}`, req.ip);
     return res.status(401).json({ error: 'Invalid username or password' });
   }
@@ -94,7 +101,7 @@ function loginHandler(req, res) {
     role:       staff.role,
   });
 
-  db.audit(businessId, staff.id, staff.name, 'login',
+  db.audit(staff.business_id, staff.id, staff.name, 'login',
     `${staff.role} logged in`, req.ip);
 
   res.json({

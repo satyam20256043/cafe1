@@ -458,6 +458,12 @@ function getStaffByUsername(businessId, username) {
 function getStaffById(id) {
   return db.prepare('SELECT * FROM staff WHERE id=? LIMIT 1').get(id);
 }
+// Agency-wide login: matches by username only, restricted to platform-operator
+// roles (never used for café staff, who must always match their own business_id).
+function getAdminStaffByUsername(username) {
+  return db.prepare("SELECT * FROM staff WHERE username=? AND role IN ('agency_admin','admin') LIMIT 1")
+           .get(username);
+}
 function listStaff(businessId) {
   return db.prepare('SELECT * FROM staff WHERE business_id=? ORDER BY role, name').all(businessId);
 }
@@ -497,7 +503,7 @@ function logBackup({ filename, path: bPath, sizeMb, status }) {
 
 // Re-export with all helpers
 Object.assign(module.exports, {
-  raw, getStaffByUsername, getStaffById, listStaff,
+  raw, getStaffByUsername, getAdminStaffByUsername, getStaffById, listStaff,
   createStaff, updateStaffPassword, setStaffActive, logBackup,
   migrateFromJSON,
 });

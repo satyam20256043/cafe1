@@ -162,7 +162,7 @@
   <div style="color:#9A8870;font-size:10.5px" id="__snav_bc">System</div>
 </div>
 <script>
-(function(){try{const r=localStorage.getItem('cafehq_staff')||sessionStorage.getItem('cafehq_staff');if(!r){window.location.href='/login';return;}const s=JSON.parse(r);if(!s||!['agency_admin','admin'].includes(s.role)){alert('Access denied.');window.location.href='/login';}}catch(e){window.location.href='/login';}})();
+(function(){try{const r=localStorage.getItem('cafehq_staff')||sessionStorage.getItem('cafehq_staff');if(!r){window.location.href='/admin-login';return;}const s=JSON.parse(r);if(!s||!['agency_admin','admin'].includes(s.role)){alert('Access denied.');window.location.href='/admin-login';}}catch(e){window.location.href='/admin-login';}})();
 (function(){var bid=new URLSearchParams(location.search).get('branch')||localStorage.getItem('cafehq_businessId')||'';if(bid){document.getElementById('__snav_mgr').href='/manager/'+bid;document.getElementById('__snav_kit').href='/kitchen/'+bid;document.getElementById('__snav_portal').href='/portal/'+bid;document.getElementById('__snav_bc').textContent='Branch: '+bid;}})();
 </script>
 <div class="hq-header">

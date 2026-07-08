@@ -72,6 +72,11 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'login.html'));
 });
 
+// Agency admin login (platform operator only — no branch selector)
+app.get('/admin-login', (req, res) => {
+  res.sendFile(path.join(ROOT_DIR, 'public', 'admin-login.html'));
+});
+
 app.get('/cafe/:id', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'cafe.html'));
 });

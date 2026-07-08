@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zordic California — Agency Admin Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:        #C9A84C;
+      --gold-light:  #E2C97E;
+      --gold-dark:   #A07830;
+      --espresso:    #1A0F0A;
+      --espresso-mid:#2C1810;
+      --cream:       #F5EDD8;
+      --cream-dark:  #E8D9B8;
+      --white:       #FFFFFF;
+      --error:       #C0392B;
+      --success:     #27AE60;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Nunito Sans', sans-serif;
+      background: var(--espresso);
+      color: var(--cream);
+      overflow: hidden;
+    }
+
+    .bg {
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(201,168,76,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(201,168,76,0.05) 0%, transparent 50%),
+        linear-gradient(135deg, #0D0705 0%, #1A0F0A 40%, #2C1810 100%);
+    }
+
+    .bg::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; opacity: 0.4;
+    }
+
+    .ring {
+      position: fixed;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      border: 1px solid rgba(201,168,76,0.07);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .ring:nth-child(2) { width: 800px; height: 800px; border-color: rgba(201,168,76,0.04); }
+    .ring:nth-child(3) { width: 1000px; height: 1000px; border-color: rgba(201,168,76,0.02); }
+
+    .center {
+      position: relative; z-index: 10;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      width: 100%; max-width: 420px;
+      background: rgba(26,15,10,0.85);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 4px;
+      padding: 48px 44px 44px;
+      backdrop-filter: blur(20px);
+      box-shadow:
+        0 0 60px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(201,168,76,0.05) inset;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-area {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    .logo-icon {
+      font-size: 36px;
+      display: block;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 0 12px rgba(201,168,76,0.4));
+    }
+
+    .logo-title {
+      font-family: 'Cinzel', serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+
+    .logo-subtitle {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 13px;
+      font-style: italic;
+      color: rgba(245,237,216,0.45);
+      margin-top: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 32px;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(201,168,76,0.3), transparent);
+    }
+    .divider-text {
+      font-family: 'Cinzel', serif;
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      color: rgba(201,168,76,0.4);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(201,168,76,0.7);
+      margin-bottom: 8px;
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 3px;
+      color: var(--cream);
+      font-family: 'Nunito Sans', sans-serif;
+      font-size: 14px;
+      padding: 13px 16px;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    input:focus { border-color: var(--gold); background: rgba(201,168,76,0.06); box-shadow: 0 0 0 3px rgba(201,168,76,0.08); }
+    input::placeholder { color: rgba(245,237,216,0.25); }
+
+    .pw-wrap { position: relative; }
+    .pw-toggle {
+      position: absolute; right: 14px; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      color: rgba(201,168,76,0.4);
+      font-size: 14px; line-height: 1;
+      padding: 0;
+      transition: color 0.2s;
+    }
+    .pw-toggle:hover { color: var(--gold); }
+
+    .alert {
+      padding: 11px 14px;
+      border-radius: 3px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    .alert.error   { background: rgba(192,57,43,0.15); border: 1px solid rgba(192,57,43,0.4); color: #E07070; }
+    .alert.success { background: rgba(39,174,96,0.12); border: 1px solid rgba(39,174,96,0.35); color: #6FCF97; }
+    .alert.show    { display: block; }
+
+    .btn-login {
+      width: 100%;
+      padding: 15px;
+      margin-top: 8px;
+      background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+      background-size: 200% 100%;
+      background-position: right center;
+      border: none;
+      border-radius: 3px;
+      color: var(--espresso);
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background-position 0.4s, box-shadow 0.3s, transform 0.15s;
+    }
+
+    .btn-login:hover:not(:disabled) {
+      background-position: left center;
+      box-shadow: 0 4px 20px rgba(201,168,76,0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn-login:active:not(:disabled) { transform: translateY(0); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-login .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(26,15,10,0.3);
+      border-top-color: var(--espresso);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .card-footer {
+      text-align: center;
+      margin-top: 28px;
+      font-size: 11px;
+      color: rgba(245,237,216,0.25);
+      letter-spacing: 0.05em;
+    }
+    .card-footer a {
+      color: rgba(201,168,76,0.4);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .card-footer a:hover { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="ring"></div>
+<div class="ring"></div>
+<div class="ring"></div>
+
+<div class="center">
+  <div class="card">
+
+    <div class="logo-area">
+      <span class="logo-icon">🔑</span>
+      <div class="logo-title" style="display:flex;align-items:center;justify-content:center"><img src="/logo.svg" alt="Zordic California" style="height:36px;width:auto"></div>
+      <div class="logo-subtitle">Agency Admin — Platform Owner Access</div>
+    </div>
+
+    <div class="divider">
+      <span class="divider-text">Sign In</span>
+    </div>
+
+    <div class="alert error" id="alert-error"></div>
+    <div class="alert success" id="alert-success"></div>
+
+    <form id="login-form" autocomplete="off">
+
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter your username"
+               autocomplete="username" required />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="password" placeholder="Enter your password"
+                 autocomplete="current-password" required />
+          <button type="button" class="pw-toggle" id="pw-toggle" title="Show/hide password">👁</button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login" id="login-btn">
+        Sign In to Agency HQ
+      </button>
+    </form>
+
+    <div class="card-footer">
+      <p>This login is for the platform operator only.</p>
+      <p style="margin-top:8px">
+        <a href="/login">Café Staff Login →</a>
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function showError(msg) {
+  const el = document.getElementById('alert-error');
+  el.textContent = msg;
+  el.classList.add('show');
+  document.getElementById('alert-success').classList.remove('show');
+}
+
+function showSuccess(msg) {
+  const el = document.getElementById('alert-success');
+  el.textContent = msg;
+  el.classList.add('show');
+  document.getElementById('alert-error').classList.remove('show');
+}
+
+function clearAlerts() {
+  document.getElementById('alert-error').classList.remove('show');
+  document.getElementById('alert-success').classList.remove('show');
+}
+
+document.getElementById('pw-toggle').addEventListener('click', () => {
+  const inp = document.getElementById('password');
+  const btn = document.getElementById('pw-toggle');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁';
+  }
+});
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  clearAlerts();
+
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const btn      = document.getElementById('login-btn');
+
+  if (!username) { showError('Please enter your username.'); return; }
+  if (!password) { showError('Please enter your password.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Signing in…';
+
+  try {
+    const res  = await fetch('/api/auth/login', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ username, password, adminLogin: true }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !['agency_admin', 'admin'].includes(data.staff && data.staff.role)) {
+      showError((data.error) || 'Access denied — this login is for the agency admin only.');
+      btn.disabled = false;
+      btn.innerHTML = 'Sign In to Agency HQ';
+      return;
+    }
+
+    localStorage.setItem('cafehq_token', data.token);
+    localStorage.setItem('cafehq_staff', JSON.stringify(data.staff));
+
+    showSuccess(`Welcome back, ${data.staff.name}! Redirecting…`);
+    setTimeout(() => { window.location.href = '/hq'; }, 800);
+
+  } catch (err) {
+    showError('Network error. Please check your connection.');
+    btn.disabled = false;
+    btn.innerHTML = 'Sign In to Agency HQ';
+  }
+});
+
+// If already logged in as admin, skip straight to HQ
+const existingToken = localStorage.getItem('cafehq_token');
+const existingStaff = JSON.parse(localStorage.getItem('cafehq_staff') || 'null');
+if (existingToken && existingStaff && ['agency_admin','admin'].includes(existingStaff.role)) {
+  fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${existingToken}` } })
+    .then(r => { if (r.ok) window.location.href = '/hq'; })
+    .catch(() => {});
+}
+</script>
+
+<div style="text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.2)">
+  <a href="/" style="color:rgba(255,255,255,0.25);text-decoration:none">← Zordic California System Portal</a>
+</div>
+</body>
+</html>
