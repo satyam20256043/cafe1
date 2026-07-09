@@ -466,6 +466,18 @@ function getStaffByUsername(businessId, username) {
   return db.prepare('SELECT * FROM staff WHERE business_id=? AND username=? LIMIT 1')
            .get(businessId, username);
 }
+// Keeps the minimal SQLite `businesses` row (used for the orders FK and other
+// SQL joins) in sync with the full record in businesses.json. Every business
+// creation/update path must call this — without it, orders.business_id's
+// FOREIGN KEY constraint fails for any business that only ever existed in
+// businesses.json (this was the case for every /api/onboard and quick-add
+// business until this fix — every order for a newly created café crashed).
+function upsertBusinessRow(b) {
+  stmts.insertBusiness.run(
+    b.id, b.name, b.location || '', b.timings || '', b.contact || '',
+    b.map || '', b.wifi || '', b.review || '', b.status || 'online'
+  );
+}
 function getStaffById(id) {
   return db.prepare('SELECT * FROM staff WHERE id=? LIMIT 1').get(id);
 }
@@ -530,6 +542,7 @@ Object.assign(module.exports, {
   raw, getStaffByUsername, getAdminStaffByUsername, getStaffById, listStaff,
   createStaff, updateStaffPassword, setStaffActive, logBackup,
   createPasswordResetOtp, getValidPasswordResetOtp, consumePasswordResetOtp,
+  upsertBusinessRow,
   migrateFromJSON,
 });
 

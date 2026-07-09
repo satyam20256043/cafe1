@@ -110,6 +110,7 @@ app.post('/api/businesses', requireAuth, (req, res) => {
   businesses.push(newBiz);
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
   initializeBusinessFiles(id);
+  if (db) { try { db.upsertBusinessRow(newBiz); } catch(e) { console.error('[QuickAdd] SQLite business sync failed:', e.message); } }
 
   res.json({ success: true, businessId: id, ...newBiz,
     managerUrl: `/manager/${id}`, cafeUrl: `/cafe/${id}`,
@@ -124,6 +125,7 @@ app.post('/api/businesses/:id', requireAuth, requireBranchAccess, (req, res) => 
 
   businesses[index] = { ...businesses[index], ...req.body };
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
+  if (db) { try { db.upsertBusinessRow(businesses[index]); } catch(e) { console.error('[UpdateBusiness] SQLite business sync failed:', e.message); } }
 
   // Sync with settings.json for Google Business Profile
   try {
@@ -203,6 +205,10 @@ app.post('/api/onboard', async (req, res) => {
   businesses.push(newBiz);
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
   initializeBusinessFiles(id);
+  // Without this, every order for this café crashes — orders.business_id has
+  // a FOREIGN KEY to SQLite's businesses(id), which only businesses.json knew
+  // about until now.
+  if (db) { try { db.upsertBusinessRow(newBiz); } catch(e) { console.error('[Onboard] SQLite business sync failed:', e.message); } }
 
   // Create manager staff account — SQLite if available, else JSON fallback
   let staffCreds = null;
