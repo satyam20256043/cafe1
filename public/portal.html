@@ -334,6 +334,12 @@ async function doLogin() {
     sessionStorage.setItem('portal_token', authToken);
     sessionStorage.setItem('portal_biz',   bizId);
     sessionStorage.setItem('portal_staff', JSON.stringify(staffInfo));
+    // Also mirror into localStorage so the Quick Access links (Manager Dashboard,
+    // Kitchen Display, Table QR Codes), which open in a new tab, don't force a
+    // second login — manager.html/kitchen.html read their session from here.
+    localStorage.setItem('cafehq_token', authToken);
+    localStorage.setItem('cafehq_staff', JSON.stringify(staffInfo));
+    localStorage.setItem('cafehq_businessId', bizId);
     showApp();
   } catch(e) {
     err.textContent = 'Connection error. Is the server running?'; err.style.display = 'block';
@@ -591,6 +597,7 @@ function daysLeftText(biz) {
 
 function doLogout() {
   sessionStorage.clear();
+  ['cafehq_token','cafehq_staff','cafehq_businessId'].forEach(k => localStorage.removeItem(k));
   authToken = null; bizId = null; staffInfo = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
