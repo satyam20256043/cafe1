@@ -15,6 +15,12 @@ if (!JWT_SECRET || JWT_SECRET.length < 32 || /change[-_]?in[-_]?prod|super[-_]?s
 }
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '8h';   // shift length
 
+// Agency HQ's Activity tab reads from activity_log.json (see routes/activity.js),
+// which this SQLite-backed handler doesn't write to directly — wired in lazily by
+// routes/auth.js once ctx.logActivity exists (activity.js registers after this).
+let _logActivity = null;
+function setLogActivity(fn) { _logActivity = fn; }
+
 // ── Password Helpers ──────────────────────────────────────────────────────────
 const hashPassword   = (plain)       => bcrypt.hashSync(plain, 10);
 const checkPassword  = (plain, hash) => bcrypt.compareSync(plain, hash);
@@ -103,6 +109,10 @@ function loginHandler(req, res) {
 
   db.audit(staff.business_id, staff.id, staff.name, 'login',
     `${staff.role} logged in`, req.ip);
+  if (_logActivity) _logActivity({
+    event: 'login', username: staff.username, role: staff.role,
+    businessId: staff.business_id, ip: req.ip,
+  });
 
   res.json({
     token,
@@ -225,4 +235,5 @@ module.exports = {
   listStaffHandler, createStaffHandler, updateStaffHandler,
   meHandler, logoutHandler,
   seedOwnerIfNeeded,
+  setLogActivity,
 };

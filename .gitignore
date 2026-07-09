@@ -19,8 +19,12 @@ data/backups/
 data/_pre-launch-db-fix-backup/
 data/*.txt
 data/server_log.txt
+data/activity_log.json
 *.bak
 *.pre-launch.bak
+
+# Local dev tooling (machine-specific paths)
+.claude/
 
 # OS / editor noise
 Thumbs.db

@@ -7,7 +7,7 @@ const fs   = require('fs');
 const path = require('path');
 const db   = require('./db');
 
-const DATA_DIR    = path.join(__dirname, 'data');
+const DATA_DIR    = __dirname;
 const BACKUP_DIR  = path.join(DATA_DIR, 'backups');
 const DB_PATH     = path.join(DATA_DIR, 'cafe_hq.db');
 const MAX_BACKUPS = 7;       // days to keep

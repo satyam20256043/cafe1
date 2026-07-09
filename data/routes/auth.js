@@ -13,6 +13,13 @@ module.exports = function register(ctx) {
     auth, db,
   } = ctx;
 
+// Wire the SQLite login handler into the Agency HQ activity log. Lazily reads
+// ctx.logActivity at call time since routes/activity.js (which sets it)
+// registers after this module.
+if (auth && auth.setLogActivity) {
+  auth.setLogActivity((entry) => { if (ctx.logActivity) ctx.logActivity(entry); });
+}
+
 // ── Safe staff.json writer (backup → write) ───────────────────────────────────
 function safeWriteStaff(staff) {
   try {
