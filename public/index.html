@@ -7,31 +7,34 @@
   <title>Zordic California — System Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/zordic-ui.css"/>
   <style>
   :root{
-    --gold:      #C47F3A;
-    --gold-deep: #9A5E1E;
-    --gold-lt:   #F5E6CC;
-    --gold-bg:   #FEF9F3;
-    --ink:       #1C1408;
-    --ink-2:     #5C4A30;
-    --ink-3:     #9A8870;
-    --border:    #EDE5D8;
-    --bg:        #FAF7F3;
-    --white:     #FFFFFF;
-    --sky:       #3A7FC1;
-    --sky-lt:    #EBF3FB;
-    --sage:      #5A8C5E;
-    --sage-lt:   #EBF5EC;
-    --amber:     #D4920C;
-    --amber-lt:  #FEF6E4;
-    --rose:      #B8505A;
-    --rose-lt:   #FCEEF0;
-    --shadow:    0 2px 14px rgba(60,30,8,0.07);
-    --shadow-lg: 0 8px 32px rgba(60,30,8,0.10);
+    /* Remapped onto shared zordic-ui.css tokens (UI5) — local names kept so
+       every var(--x) reference below the fold keeps working unchanged. */
+    --gold:      var(--z-gold);
+    --gold-deep: var(--z-gold-dark);
+    --gold-lt:   rgba(201,168,76,0.16);
+    --gold-bg:   var(--z-cream);
+    --ink:       var(--z-ink);
+    --ink-2:     var(--z-ink-2);
+    --ink-3:     var(--z-ink-3);
+    --border:    var(--z-border);
+    --bg:        var(--z-bg);
+    --white:     var(--z-surface);
+    --sky:       var(--z-info);
+    --sky-lt:    var(--z-info-bg);
+    --sage:      var(--z-success);
+    --sage-lt:   var(--z-success-bg);
+    --amber:     var(--z-warn);
+    --amber-lt:  var(--z-warn-bg);
+    --rose:      var(--z-danger);
+    --rose-lt:   var(--z-danger-bg);
+    --shadow:    var(--z-shadow);
+    --shadow-lg: var(--z-shadow-lg);
     --font-d: 'DM Serif Display',Georgia,serif;
     --font-b: 'DM Sans',system-ui,sans-serif;
-    --r: 16px;
+    --r: var(--z-radius-lg);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{font-size:15px}
