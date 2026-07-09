@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/zordic-ui.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -304,7 +305,7 @@
     <div class="logo-area">
       <span class="logo-icon">☕</span>
       <div class="logo-title" style="display:flex;align-items:center;justify-content:center"><img src="/logo.svg" alt="Zordic California" style="height:36px;width:auto"></div>
-      <div class="logo-subtitle">Staff Portal — Secure Access</div>
+      <div class="logo-subtitle" id="logo-subtitle">Staff Portal — Secure Access</div>
     </div>
 
     <div class="divider">
@@ -314,9 +315,15 @@
     <div class="alert error" id="alert-error"></div>
     <div class="alert success" id="alert-success"></div>
 
+    <div id="locked-branch-display" style="display:none;text-align:center;margin-bottom:24px;padding:14px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:6px">
+      <div style="font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(201,168,76,0.7);margin-bottom:4px">Signing in to</div>
+      <div id="locked-branch-name" style="font-family:'Cinzel',serif;font-size:16px;color:var(--gold)"></div>
+      <div id="locked-branch-location" style="font-size:12px;color:rgba(245,237,216,0.5);margin-top:2px"></div>
+    </div>
+
     <form id="login-form" autocomplete="off">
 
-      <div class="form-group">
+      <div class="form-group" id="branch-select-group">
         <label for="branch-select">Branch</label>
         <select id="branch-select" required>
           <option value="" disabled selected>Loading branches…</option>
@@ -465,8 +472,46 @@ async function submitForgotReset() {
 }
 
 // ── Load branches ─────────────────────────────────────────────────────────────
+// /login/<branchId> — the URL segment right after "login", if present.
+function urlLoginBranchId() {
+  const p = location.pathname.split('/').filter(Boolean);
+  return (p[0] === 'login' && p[1]) ? p[1] : null;
+}
+
+function lockToBranch(biz) {
+  document.getElementById('branch-select-group').style.display = 'none';
+  const sel = document.getElementById('branch-select');
+  sel.innerHTML = '';
+  const opt = document.createElement('option');
+  opt.value = biz.id; opt.textContent = biz.name || biz.id; opt.selected = true;
+  sel.appendChild(opt);
+  sel.removeAttribute('required'); // single always-selected option — nothing to validate
+
+  document.getElementById('locked-branch-display').style.display = 'block';
+  document.getElementById('locked-branch-name').textContent = biz.name || biz.id;
+  document.getElementById('locked-branch-location').textContent = biz.location || '';
+  document.getElementById('logo-subtitle').textContent = 'Staff Sign In';
+  document.title = `${biz.name || biz.id} — Staff Login`;
+  setTimeout(() => document.getElementById('username')?.focus(), 200);
+}
+
 async function loadBranches() {
   const sel = document.getElementById('branch-select');
+  const urlBranch = urlLoginBranchId();
+
+  if (urlBranch) {
+    try {
+      const res = await fetch('/api/businesses/' + encodeURIComponent(urlBranch));
+      if (res.ok) {
+        const biz = await res.json();
+        if (biz && biz.id) { lockToBranch(biz); return; }
+      }
+    } catch (e) { /* fall through to full dropdown below */ }
+    // Invalid/unknown branch in the URL — don't hard-fail, just fall back
+    // to the normal dropdown so the person can still find their café.
+    showError('Café link not recognized — please select your branch below.');
+  }
+
   try {
     const res  = await fetch('/api/businesses');
     const data = await res.json();

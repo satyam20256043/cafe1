@@ -244,6 +244,7 @@ app.post('/api/onboard', async (req, res) => {
         `Hi ${ownerName}! Your café *${businessName}* is now live.\n\n` +
         `🔗 Customer page: ${BASE_URL}/cafe/${id}\n` +
         `🛠 Manager dashboard: ${BASE_URL}/manager/${id}\n` +
+        `🔑 Login: ${BASE_URL}/login/${id}\n` +
         (staffCreds ? `👤 Username: ${staffCreds.username}\n🔑 Password: ${staffCreds.tempPassword}\n` : '') +
         `\n📅 Trial ends: ${trialEnds}\n\nReply HELP for support. ☕`;
       await whatsappClient.sendMessage(chatId, welcomeMsg);

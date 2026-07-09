@@ -72,6 +72,11 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'login.html'));
 });
 
+// Per-café login page — locks the branch, no dropdown (see UI1)
+app.get('/login/:branchId', (req, res) => {
+  res.sendFile(path.join(ROOT_DIR, 'public', 'login.html'));
+});
+
 // Agency admin login (platform operator only — no branch selector)
 app.get('/admin-login', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'admin-login.html'));

@@ -119,16 +119,19 @@ body{font-family:var(--font-body);background:#1a1612;color:#fff;min-height:100vh
 <script>
 // ── Auth guard ────────────────────────────────────────────────────────────────
 (function authGuard(requiredRoles) {
+  const _params = new URLSearchParams(location.search);
+  const _b = _params.get('branch') || _params.get('id') || location.pathname.split('/').filter(Boolean)[1];
+  const loginUrl = '/login' + (_b ? '/' + _b : '');
   try {
     const raw = localStorage.getItem('cafehq_staff') || sessionStorage.getItem('cafehq_staff');
-    if (!raw) { window.location.href = '/login'; return; }
+    if (!raw) { window.location.href = loginUrl; return; }
     const staff = JSON.parse(raw);
-    if (!staff || !staff.role) { window.location.href = '/login'; return; }
+    if (!staff || !staff.role) { window.location.href = loginUrl; return; }
     if (requiredRoles && !requiredRoles.includes(staff.role)) {
       alert('Access denied. You do not have permission to view this page.');
-      window.location.href = '/login';
+      window.location.href = loginUrl;
     }
-  } catch(e) { window.location.href = '/login'; }
+  } catch(e) { window.location.href = loginUrl; }
 })(null);
 // ─────────────────────────────────────────────────────────────────────────────
 

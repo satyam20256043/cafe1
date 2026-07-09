@@ -259,7 +259,10 @@ function showSuccess(payload, data) {
   const username   = data.staff ? data.staff.username : 'N/A';
   const password   = data.staff ? data.staff.tempPassword : '—';
 
+  const loginUrl = window.location.origin + '/login/' + (data.businessId || '');
+
   const rows = [
+    { label:'Login URL',     html:`<a href="${loginUrl}" target="_blank">${loginUrl}</a>`, copy:loginUrl },
     { label:'Café Page URL', html:`<a href="${cafeUrl}" target="_blank">${cafeUrl}</a>`, copy:cafeUrl },
     { label:'Manager URL',   html:`<a href="${managerUrl}" target="_blank">${managerUrl}</a>`, copy:managerUrl },
     { label:'Owner Portal',  html:`<a href="${window.location.origin+'/portal/'+data.businessId}" target="_blank">${window.location.origin+'/portal/'+data.businessId}</a>`, copy:window.location.origin+'/portal/'+(data.businessId||'') },

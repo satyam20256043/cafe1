@@ -7,6 +7,7 @@
   <title>Café Portal — Zordic California</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/zordic-ui.css"/>
   <style>
   :root{
     --gold:#C47F3A;--gold-d:#9A5E1E;--gold-lt:#F5E6CC;--gold-bg:#FEF9F3;
@@ -189,14 +190,20 @@
   <div class="login-card">
     <div class="login-logo">
       <div class="icon">☕</div>
-      <h1>Zordic California</h1>
-      <p>Owner Portal — Sign in to your dashboard</p>
+      <h1 id="login-title">Zordic California</h1>
+      <p id="login-subtitle">Owner Portal — Sign in to your dashboard</p>
     </div>
 
-    <label class="login-label">Your Café</label>
-    <select class="login-input" id="login-branch">
-      <option value="">Select your café…</option>
-    </select>
+    <div id="login-locked-branch" style="display:none;text-align:center;margin-bottom:14px;padding:10px;background:rgba(201,168,76,0.08);border-radius:8px">
+      <strong id="login-locked-branch-name"></strong>
+    </div>
+
+    <div id="login-branch-group">
+      <label class="login-label">Your Café</label>
+      <select class="login-input" id="login-branch">
+        <option value="">Select your café…</option>
+      </select>
+    </div>
 
     <label class="login-label">Username</label>
     <input class="login-input" type="text" id="login-user" placeholder="e.g. owner_yourcafe" autocomplete="username"/>
@@ -265,19 +272,31 @@ function urlBranchId() {
 }
 
 async function loadBranchList() {
+  const urlId = urlBranchId();
+
+  // A café-specific URL locks the branch — no dropdown, no other cafés listed.
+  if (urlId) {
+    try {
+      const biz = await fetch('/api/businesses/' + encodeURIComponent(urlId)).then(r => r.ok ? r.json() : null);
+      if (biz && biz.id) {
+        document.getElementById('login-branch-group').style.display = 'none';
+        const sel = document.getElementById('login-branch');
+        sel.innerHTML = `<option value="${biz.id}" selected>${biz.name || biz.id}</option>`;
+        document.getElementById('login-locked-branch').style.display = 'block';
+        document.getElementById('login-locked-branch-name').textContent = biz.name || biz.id;
+        document.getElementById('login-subtitle').textContent = biz.location || 'Sign in to your dashboard';
+        document.getElementById('login-user').placeholder = 'owner_' + urlId.split('_')[0];
+        document.title = `${biz.name || biz.id} — Owner Portal`;
+        return;
+      }
+    } catch(e) { /* fall through to full dropdown */ }
+  }
+
   try {
     const data = await fetch('/api/businesses').then(r => r.json());
     const sel  = document.getElementById('login-branch');
     sel.innerHTML = '<option value="">Select your café…</option>' +
       data.map(b => `<option value="${b.id}">${b.name}${b.location?' — '+b.location:''}</option>`).join('');
-    const urlId = location.pathname.split('/').filter(Boolean)[1];
-    if (urlId) {
-      const match = data.find(b => b.id === urlId);
-      if (match) {
-        sel.value = urlId;
-        document.getElementById('login-user').placeholder = 'owner_' + urlId.split('_')[0];
-      }
-    }
   } catch(e) {}
 }
 loadBranchList();

@@ -1232,16 +1232,18 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 <script>
 // ── Auth guard ────────────────────────────────────────────────────────────────
 (function authGuard(requiredRoles) {
+  const _b = window.location.pathname.split('/').filter(Boolean)[1];
+  const loginUrl = '/login' + (_b ? '/' + _b : '');
   try {
     const raw = localStorage.getItem('cafehq_staff') || sessionStorage.getItem('cafehq_staff');
-    if (!raw) { window.location.href = '/login'; return; }
+    if (!raw) { window.location.href = loginUrl; return; }
     const staff = JSON.parse(raw);
-    if (!staff || !staff.role) { window.location.href = '/login'; return; }
+    if (!staff || !staff.role) { window.location.href = loginUrl; return; }
     if (requiredRoles && !requiredRoles.includes(staff.role)) {
       alert('Access denied. You do not have permission to view this page.');
-      window.location.href = '/login';
+      window.location.href = loginUrl;
     }
-  } catch(e) { window.location.href = '/login'; }
+  } catch(e) { window.location.href = loginUrl; }
 })(['manager', 'owner', 'agency_admin', 'admin']);
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1262,7 +1264,7 @@ function getAuthHeaders() {
       const u = window.location.pathname.split('/').pop();
       return (u && u !== 'manager.html' && u !== 'manager') ? u : (localStorage.getItem('cafehq_businessId') || '');
     })();
-    window.location.href = '/login' + (bid ? '?branch=' + bid : '');
+    window.location.href = '/login' + (bid ? '/' + bid : '');
   }
 })();
 
@@ -1286,7 +1288,7 @@ window.fetch = function(input, init) {
       localStorage.removeItem('cafehq_token');
       localStorage.removeItem('cafehq_staff');
       const bid = localStorage.getItem('cafehq_businessId') || '';
-      window.location.href = '/login' + (bid ? '?branch=' + bid : '');
+      window.location.href = '/login' + (bid ? '/' + bid : '');
     }
     return res;
   });
