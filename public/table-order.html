@@ -226,7 +226,44 @@ async function placeOrder(){
     const resp=await fetch('/api/businesses/'+bizId+'/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerName:name,customerPhone:phone,tableNo:tableNo,orderType:'dine_in',items:items.map(i=>({id:i.id,qty:i.qty,name:i.name,price:i.price})),notes,paymentMethod:'cash'})});
     const order=await resp.json();if(!resp.ok)throw new Error(order.error||'Failed');
     currentOrder=order;closeCart();cart={};updateCartCount();showTrackingScreen(order);
+    if(phone) subscribePushForOrder(phone).catch(()=>{/* non-fatal */});
   }catch(e){showToast('Error: '+e.message);btn.disabled=false;btn.textContent='Place Order ✓';}
+}
+
+// ── Push notifications: order status updates even if this tab isn't open ────
+if('serviceWorker'in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg=>console.log('[SW] Registered, scope:',reg.scope))
+      .catch(err=>console.warn('[SW] Registration failed:',err));
+  });
+}
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+async function subscribePushForOrder(phone){
+  if(!('serviceWorker'in navigator)||!('PushManager'in window))return;
+  try{
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted')return;
+    const keyRes=await fetch('/api/push/vapid-public');
+    if(!keyRes.ok)return;
+    const{key:publicKey,enabled}=await keyRes.json();
+    if(!enabled||!publicKey)return;
+    const reg=await navigator.serviceWorker.ready;
+    const subscription=await reg.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:urlBase64ToUint8Array(publicKey)
+    });
+    await fetch('/api/push/subscribe',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone:phone.replace(/\D/g,'').slice(-10),businessId:bizId,subscription})
+    });
+    console.log('[PWA] Push subscription registered for',phone);
+  }catch(e){console.warn('[PWA] Push subscribe failed:',e.message);}
 }
 
 const STEPS=[
