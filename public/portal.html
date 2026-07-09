@@ -255,6 +255,14 @@
 <script>
 let authToken = null, bizId = null, staffInfo = null, allMyBranches = [];
 
+// Agency admin has no single "own" café — its token's businessId is the
+// placeholder _agency. When HQ links an admin into /portal/:id to view a
+// specific café, the URL's branch must win over the token's businessId.
+function urlBranchId() {
+  const p = location.pathname.split('/').filter(Boolean);
+  return (p[0] === 'portal' && p[1]) ? p[1] : null;
+}
+
 async function loadBranchList() {
   try {
     const data = await fetch('/api/businesses').then(r => r.json());
@@ -301,6 +309,9 @@ async function doLogin() {
       err.style.display = 'block'; return;
     }
     authToken = data.token; bizId = data.staff.businessId; staffInfo = data.staff;
+    if (staffInfo.role === 'agency_admin' || staffInfo.role === 'admin') {
+      bizId = urlBranchId() || bizId;
+    }
     sessionStorage.setItem('portal_token', authToken);
     sessionStorage.setItem('portal_biz',   bizId);
     sessionStorage.setItem('portal_staff', JSON.stringify(staffInfo));
@@ -324,10 +335,18 @@ async function doLogin() {
     const ls = JSON.parse(localStorage.getItem('cafehq_staff') || 'null');
     if (lt && ls && ['owner','manager','agency_admin'].includes(ls.role)) {
       t = lt; b = ls.businessId; s = ls;
+      if (s.role === 'agency_admin' || s.role === 'admin') b = urlBranchId() || b;
       sessionStorage.setItem('portal_token', t);
       sessionStorage.setItem('portal_biz', b);
       sessionStorage.setItem('portal_staff', JSON.stringify(s));
     }
+  }
+  // Admin/agency roles have no single "own" café — always defer to the
+  // current URL so navigating between /portal/:id pages for different
+  // cafés doesn't get stuck on whichever one was viewed first.
+  if (s && (s.role === 'agency_admin' || s.role === 'admin')) {
+    b = urlBranchId() || b;
+    sessionStorage.setItem('portal_biz', b);
   }
   if (t && b && s) { authToken = t; bizId = b; staffInfo = s; showApp(); }
 })();
