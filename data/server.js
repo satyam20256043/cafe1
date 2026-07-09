@@ -1832,6 +1832,25 @@ app.get('/api/businesses/:id/at-risk-customers', requireAuth, requireBranchAcces
   res.json(atRisk);
 });
 
+// ── Analytics (owner portal stats card) ──────────────────────────────────────
+// Ported back from an orphaned data/.fuse_hidden* crash-artifact file — this
+// route was never actually present in server.js, so portal.html's calls to it
+// have been silently 404ing since launch.
+app.get('/api/businesses/:id/analytics-v2', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.status(503).json({ error: 'DB module not loaded' });
+  try {
+    const analytics = db.getAnalytics(req.params.id);
+    const revenue    = db.getRevenueStats(req.params.id);
+    res.json({
+      ...analytics,
+      todayOrders:  revenue.today_orders,
+      todayRevenue: revenue.today_revenue,
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Business Intelligence event log — read endpoints ─────────────────────────
 app.get('/api/businesses/:id/events', requireAuth, requireBranchAccess, (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });

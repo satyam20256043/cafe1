@@ -313,9 +313,22 @@ async function doLogin() {
 }
 
 (function restoreSession() {
-  const t = sessionStorage.getItem('portal_token');
-  const b = sessionStorage.getItem('portal_biz');
-  const s = JSON.parse(sessionStorage.getItem('portal_staff') || 'null');
+  let t = sessionStorage.getItem('portal_token');
+  let b = sessionStorage.getItem('portal_biz');
+  let s = JSON.parse(sessionStorage.getItem('portal_staff') || 'null');
+  // Fall back to the shared login session (set by login.html) so owners who
+  // sign in there and get redirected to /portal/:id aren't asked to log in
+  // again.
+  if (!(t && b && s)) {
+    const lt = localStorage.getItem('cafehq_token');
+    const ls = JSON.parse(localStorage.getItem('cafehq_staff') || 'null');
+    if (lt && ls && ['owner','manager','agency_admin'].includes(ls.role)) {
+      t = lt; b = ls.businessId; s = ls;
+      sessionStorage.setItem('portal_token', t);
+      sessionStorage.setItem('portal_biz', b);
+      sessionStorage.setItem('portal_staff', JSON.stringify(s));
+    }
+  }
   if (t && b && s) { authToken = t; bizId = b; staffInfo = s; showApp(); }
 })();
 
@@ -368,7 +381,7 @@ function showSubscriptionBanner(biz) {
 async function renderSingleBranch(biz) {
   let orders = 0, revenue = 0;
   try {
-    const stats = await fetch('/api/businesses/' + biz.id + '/analytics-v2').then(r => r.ok ? r.json() : null);
+    const stats = await fetch('/api/businesses/' + biz.id + '/analytics-v2', {headers:{'Authorization':'Bearer '+authToken}}).then(r => r.ok ? r.json() : null);
     if (stats) { orders = stats.todayOrders || 0; revenue = stats.todayRevenue || 0; }
   } catch(e) {}
   document.getElementById('dash-content').innerHTML = `
