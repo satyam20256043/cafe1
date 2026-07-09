@@ -201,7 +201,60 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 .empty-text{font-size:13px}
 
 @media(max-width:900px){.kpi-row{grid-template-columns:1fr 1fr}.two-col,.three-col{grid-template-columns:1fr}}
-@media(max-width:680px){.sidebar{display:none}.main{margin-left:0}}
+
+/* ── Mobile nav (UI3) — bottom tab bar replaces the sidebar under 768px ── */
+.mobile-bottom-nav{display:none}
+.mobile-more-sheet{display:none}
+@media(max-width:768px){
+  .sidebar{display:none}
+  .main{margin-left:0;padding-bottom:70px}
+  .mobile-bottom-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;height:60px;z-index:400;
+    background:var(--espresso);border-top:1px solid rgba(255,255,255,0.08);
+    box-shadow:0 -2px 12px rgba(0,0,0,0.15);
+  }
+  .mobile-bottom-nav button{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;background:none;border:none;color:rgba(255,255,255,0.5);font-size:10px;
+    cursor:pointer;min-height:44px;padding:6px 2px;font-family:inherit;
+  }
+  .mobile-bottom-nav button svg{width:20px;height:20px;flex-shrink:0}
+  .mobile-bottom-nav button.active{color:var(--gold,#C9A84C)}
+  .mobile-more-sheet.open{
+    display:flex;flex-direction:column;position:fixed;inset:0;z-index:500;
+    background:var(--espresso);overflow-y:auto;padding:20px 12px calc(20px + 70px);
+  }
+  .more-sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:0 8px}
+  .more-sheet-title{font-family:var(--font-d,serif);font-size:19px;color:#fff}
+  .more-sheet-close{background:none;border:none;color:#fff;font-size:26px;cursor:pointer;min-height:44px;min-width:44px}
+  .more-sheet-item{
+    display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+    padding:14px 8px;background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.08);
+    color:rgba(255,255,255,0.85);font-size:14.5px;font-family:inherit;cursor:pointer;min-height:44px;
+  }
+  .more-sheet-item svg{width:20px;height:20px;flex-shrink:0;color:var(--gold,#C9A84C)}
+  /* Comfortable touch targets on mobile for status/action buttons */
+  .act-btn,.btn-change-pw,.copy-btn,.qty-btn{min-height:40px}
+
+  /* Tables -> stacked cards (Reservations, CRM, Loyalty leaderboard) */
+  .data-table thead{display:none}
+  .data-table, .data-table tbody{display:block;width:100%}
+  .data-table tr{
+    display:block;margin-bottom:10px;border:1px solid var(--border);
+    border-radius:10px;overflow:hidden;background:#fff;
+  }
+  .data-table td{
+    display:block;text-align:right;padding:8px 14px;
+    border-bottom:1px solid rgba(0,0,0,0.05);min-height:0;
+  }
+  .data-table td:last-child{border-bottom:none}
+  .data-table td[data-label]::before{
+    content:attr(data-label);float:left;font-weight:600;color:#999;
+    font-size:10.5px;letter-spacing:0.5px;text-transform:uppercase;
+  }
+  .data-table td[colspan]{text-align:center}
+  .data-table td[colspan]::before{content:none}
+}
 
 /* Phase 1 auth styles */
 #logout-btn:hover { background: rgba(201,168,76,0.1) !important; }
@@ -356,6 +409,31 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
     </a>
   </div>
 </aside>
+
+<!-- Mobile bottom nav (UI3) — replaces the sidebar under 768px -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+  <button data-tab="overview" class="active" onclick="showTab('overview',document.querySelector('.nav-item[onclick*=overview]'))">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Overview
+  </button>
+  <button data-tab="orders" onclick="showTab('orders',document.querySelector('.nav-item[onclick*=orders]'))">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
+    Orders
+  </button>
+  <button data-tab="reservations" onclick="showTab('reservations',document.querySelector('.nav-item[onclick*=reservations]'))">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Reservations
+  </button>
+  <button data-tab="menu" onclick="showTab('menu',document.querySelector('.nav-item[onclick*=menu]'))">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+    Menu
+  </button>
+  <button onclick="openMoreSheet()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+    More
+  </button>
+</nav>
+<div class="mobile-more-sheet" id="mobile-more-sheet"></div>
 
 <div class="main">
   <div class="topbar">
@@ -762,7 +840,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           <div class="panel">
             <div class="panel-head"><div class="panel-title">Points Leaderboard</div></div>
             <div class="panel-body" style="padding:0">
-              <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <table class="data-table" style="width:100%;border-collapse:collapse;font-size:13px">
                 <thead>
                   <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
                     <th style="padding:10px 16px;text-align:left;color:#888;font-weight:500;font-size:11px;letter-spacing:1px;text-transform:uppercase">#</th>
@@ -1383,6 +1461,10 @@ function showTab(id, el){
   TABS.forEach(t=>{ const el=document.getElementById('tab-'+t); if(el) el.style.display=t===id?'block':'none'; });
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(el) el.classList.add('active');
+  // Keep the mobile bottom nav's active state in sync (UI3)
+  document.querySelectorAll('.mobile-bottom-nav button').forEach(n=>n.classList.remove('active'));
+  const bottomBtn = document.querySelector(`.mobile-bottom-nav button[data-tab="${id}"]`);
+  if (bottomBtn) bottomBtn.classList.add('active');
   if(id==='reservations') loadReservations();
   else if(id==='crm') { loadCRM(); loadAtRiskCustomers(); }
   else if(id==='expenses') { initExpenseDate(); loadExpenses(); }
@@ -1395,6 +1477,42 @@ function showTab(id, el){
   else if(id==='qrcodes') renderQRGrid();
   else if(id==='clients') loadClients();
   else if(id==='datasheet') loadDataSheet();
+}
+
+// ── Mobile "More" sheet (UI3) ─────────────────────────────────────────────
+// Clones every sidebar nav item not already in the bottom nav. Uses real
+// button.click() on the original sidebar element (not string-copied onclick
+// attributes) so showTab's `this` binding and any special-case handlers
+// (e.g. Kitchen Display's openKitchen()) work exactly as they do in the
+// sidebar, with no HTML-attribute-escaping risk.
+function openMoreSheet(){
+  const primaryTabs = ['overview','orders','reservations','menu'];
+  const sheet = document.getElementById('mobile-more-sheet');
+  sheet.innerHTML = '';
+  const head = document.createElement('div');
+  head.className = 'more-sheet-head';
+  head.innerHTML = '<div class="more-sheet-title">More</div>';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'more-sheet-close';
+  closeBtn.textContent = '✕';
+  closeBtn.onclick = closeMoreSheet;
+  head.appendChild(closeBtn);
+  sheet.appendChild(head);
+
+  Array.from(document.querySelectorAll('.sidebar-nav .nav-item')).forEach(orig => {
+    if (getComputedStyle(orig).display === 'none') return;
+    const m = orig.getAttribute('onclick')?.match(/showTab\('([a-z]+)'/);
+    if (m && primaryTabs.includes(m[1])) return; // already in the bottom nav
+    const clone = document.createElement('button');
+    clone.className = 'more-sheet-item';
+    clone.innerHTML = orig.innerHTML;
+    clone.onclick = () => { closeMoreSheet(); orig.click(); };
+    sheet.appendChild(clone);
+  });
+  sheet.classList.add('open');
+}
+function closeMoreSheet(){
+  document.getElementById('mobile-more-sheet').classList.remove('open');
 }
 
 // Load branch info
@@ -1555,12 +1673,12 @@ async function loadReservations(){
     const res=await r.json();
     const tbody=document.getElementById('res-body');
     tbody.innerHTML=res.length?[...res].reverse().map(r=>`<tr>
-      <td><strong>${esc(r.name)}</strong></td>
-      <td>${esc(r.phone||'—')}</td>
-      <td>${r.guests}</td>
-      <td>${esc(r.datetime)}</td>
-      <td><span class="badge ${r.status}">${r.status}</span></td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap">
+      <td data-label="Name"><strong>${esc(r.name)}</strong></td>
+      <td data-label="Phone">${esc(r.phone||'—')}</td>
+      <td data-label="Guests">${r.guests}</td>
+      <td data-label="When">${esc(r.datetime)}</td>
+      <td data-label="Status"><span class="badge ${r.status}">${r.status}</span></td>
+      <td data-label="Actions" style="display:flex;gap:6px;flex-wrap:wrap">
         ${
         r.status==='pending'   ? `<button class="btn sm success" onclick="updateRes('${r.id}','approved')">✓ Approve</button><button class="btn sm danger" onclick="updateRes('${r.id}','rejected')">✗ Cancel</button>` :
         r.status==='approved'  ? `<button class="btn sm" style="background:#e8f5e9;color:#1b5e20;border-color:#a5d6a7" onclick="updateRes('${r.id}','arrived')">🚶 Arrived</button><button class="btn sm danger" onclick="updateRes('${r.id}','rejected')">✗ Cancel</button>` :
@@ -1655,13 +1773,13 @@ async function loadCRM(){
     const crm=await r.json();
     const tbody=document.getElementById('crm-body');
     tbody.innerHTML=crm.length?[...crm].sort((a,b)=>b.visits-a.visits).map(c=>`<tr>
-      <td><strong>${esc(c.name||'—')}</strong></td>
-      <td style="font-family:monospace;font-size:12px">${esc(c.phone)}</td>
-      <td>${c.visits||0}</td>
-      <td><span class="badge ${(c.loyaltyTier||'new').toLowerCase().replace(' ','')}">${c.loyaltyTier||'New'}</span></td>
-      <td style="max-width:180px"><div style="display:flex;gap:4px;flex-wrap:wrap">${(c.tags||[]).slice(0,3).map(t=>`<span style="font-size:10px;background:var(--foam);color:var(--coffee);padding:2px 7px;border-radius:12px">${esc(t)}</span>`).join('')}</div></td>
-      <td>${c.averageRating?c.averageRating+'★':'—'}</td>
-      <td style="font-size:12px;color:#aaa">${esc(c.lastActive||'—')}</td>
+      <td data-label="Name"><strong>${esc(c.name||'—')}</strong></td>
+      <td data-label="Phone" style="font-family:monospace;font-size:12px">${esc(c.phone)}</td>
+      <td data-label="Visits">${c.visits||0}</td>
+      <td data-label="Tier"><span class="badge ${(c.loyaltyTier||'new').toLowerCase().replace(' ','')}">${c.loyaltyTier||'New'}</span></td>
+      <td data-label="Tags" style="max-width:180px"><div style="display:flex;gap:4px;flex-wrap:wrap">${(c.tags||[]).slice(0,3).map(t=>`<span style="font-size:10px;background:var(--foam);color:var(--coffee);padding:2px 7px;border-radius:12px">${esc(t)}</span>`).join('')}</div></td>
+      <td data-label="Avg Rating">${c.averageRating?c.averageRating+'★':'—'}</td>
+      <td data-label="Last Active" style="font-size:12px;color:#aaa">${esc(c.lastActive||'—')}</td>
     </tr>`).join(''):'<tr><td colspan="7" style="color:#bbb;text-align:center;padding:24px">No customers yet</td></tr>';
 
   } catch(e) {
@@ -2614,13 +2732,13 @@ function renderLeaderboard(rows) {
   tbody.innerHTML = rows.slice(0,20).map((r,i) => `
     <tr style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.15s" onmouseover="this.style.background='rgba(196,127,58,0.06)'" onmouseout="this.style.background=''">
       <td style="padding:10px 16px;color:#888;font-family:'Cormorant Garamond',serif;font-size:16px">${medals[i]||i+1}</td>
-      <td style="padding:10px 16px">
+      <td data-label="Customer" style="padding:10px 16px">
         <div style="font-weight:500;color:#e0e0e0">${r.name||'Guest'}</div>
         <div style="font-size:11px;color:#666">${r.phone||''}</div>
       </td>
-      <td style="padding:10px 16px">${tierBadge(r.tier)}</td>
-      <td style="padding:10px 16px;text-align:right;color:var(--caramel);font-family:'Cormorant Garamond',serif;font-size:18px">${(r.points||0).toLocaleString('en-IN')}</td>
-      <td style="padding:10px 16px;text-align:right;color:#aaa;font-size:13px">${r.stamps||0} ☕</td>
+      <td data-label="Tier" style="padding:10px 16px">${tierBadge(r.tier)}</td>
+      <td data-label="Points" style="padding:10px 16px;text-align:right;color:var(--caramel);font-family:'Cormorant Garamond',serif;font-size:18px">${(r.points||0).toLocaleString('en-IN')}</td>
+      <td data-label="Stamps" style="padding:10px 16px;text-align:right;color:#aaa;font-size:13px">${r.stamps||0} ☕</td>
     </tr>`).join('');
 }
 
