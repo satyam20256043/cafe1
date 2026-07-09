@@ -1,0 +1,77 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Zordic California — shared design tokens
+   Espresso/gold brand system. Any new UI written from UI1 onward should
+   pull from these --z-* custom properties instead of inventing new hex
+   values. Existing pages migrate onto these gradually (see UI5).
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Brand */
+  --z-gold:        #C9A84C;
+  --z-gold-light:  #E2C97E;
+  --z-gold-dark:   #A07830;
+  --z-espresso:    #0D0705;
+  --z-espresso-2:  #1A1008;
+
+  /* Light (staff-facing) surfaces */
+  --z-bg:          #FAF7F0;
+  --z-surface:     #FFFFFF;
+  --z-border:      #E8E0D0;
+  --z-ink:         #2A2018;
+  --z-ink-2:       #6B5D4A;
+  --z-ink-3:       #9A8870;
+  --z-cream:       #FAF3E0;
+
+  /* Semantic */
+  --z-success:     #2d7a2d;
+  --z-success-bg:  #f0f9f0;
+  --z-danger:      #C0392B;
+  --z-danger-bg:   #fdf0ee;
+  --z-warn:        #B8860B;
+  --z-warn-bg:     #fff8e8;
+  --z-info:        #2C6E9E;
+  --z-info-bg:     #eef6fb;
+
+  /* Shape */
+  --z-radius:      10px;
+  --z-radius-lg:   14px;
+  --z-shadow:      0 2px 10px rgba(42,32,24,.07);
+  --z-shadow-lg:   0 8px 32px rgba(42,32,24,.16);
+}
+
+/* ── Skeleton loading placeholder ─────────────────────────────────────────
+   Usage: <div class="z-skel" style="width:120px;height:16px"></div>       */
+.z-skel {
+  position: relative;
+  overflow: hidden;
+  background: var(--z-border);
+  border-radius: 6px;
+  min-height: 14px;
+  display: block;
+}
+.z-skel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  animation: z-shimmer 1.2s infinite;
+}
+@keyframes z-shimmer {
+  to { transform: translateX(100%); }
+}
+
+/* ── Badge ─────────────────────────────────────────────────────────────── */
+.z-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+.z-badge-success { background: var(--z-success-bg); color: var(--z-success); }
+.z-badge-danger  { background: var(--z-danger-bg);  color: var(--z-danger); }
+.z-badge-warn    { background: var(--z-warn-bg);    color: var(--z-warn); }
+.z-badge-info    { background: var(--z-info-bg);    color: var(--z-info); }
+.z-badge-gold    { background: rgba(201,168,76,.12); color: var(--z-gold-dark); }
