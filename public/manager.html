@@ -1390,10 +1390,9 @@ function showTab(id, el){
 // Load branch info
 async function loadBranch(){
   try {
-    const res=await fetch('/api/businesses');
-    const list=await res.json();
-    business=list.find(b=>b.id===branchId)||list[0];
-    if(!business) return;
+    const res=await fetch('/api/businesses/'+encodeURIComponent(branchId));
+    business = res.ok ? await res.json() : null;
+    if(!business || !business.id) return;
     document.getElementById('sidebar-branch-name').textContent=business.name;
     initStaffUI();
     document.getElementById('topbar-branch').textContent=business.name;

@@ -68,9 +68,14 @@ app.get('/api/businesses/:id/franchise-group', (req, res) => {
   res.json(group);
 });
 
+// No public café directory (UI1b) — an unauthenticated caller gets an empty
+// list, not the full tenant roster. Anyone who needs one café's public info
+// (login page, café site, table ordering) already knows its id and uses
+// GET /api/businesses/:id below, which is unauthenticated but scoped to one
+// business via publicBusinessView.
 app.get('/api/businesses', (req, res) => {
   if (hasStaffToken(req)) return res.json(businesses);
-  res.json(businesses.map(publicBusinessView));
+  res.json([]);
 });
 
 // 2. Add dynamic new business (quick-add from HQ panel)

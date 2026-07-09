@@ -199,10 +199,9 @@
     </div>
 
     <div id="login-branch-group">
-      <label class="login-label">Your Café</label>
-      <select class="login-input" id="login-branch">
-        <option value="">Select your café…</option>
-      </select>
+      <label class="login-label">Café ID</label>
+      <input class="login-input" type="text" id="login-branch" placeholder="e.g. roasted-bean" autocapitalize="off" autocorrect="off" />
+      <div style="font-size:11px;color:#9A8870;margin-top:4px">Use your café's login link, or ask your admin for your café ID.</div>
     </div>
 
     <label class="login-label">Username</label>
@@ -274,30 +273,21 @@ function urlBranchId() {
 async function loadBranchList() {
   const urlId = urlBranchId();
 
-  // A café-specific URL locks the branch — no dropdown, no other cafés listed.
-  if (urlId) {
-    try {
-      const biz = await fetch('/api/businesses/' + encodeURIComponent(urlId)).then(r => r.ok ? r.json() : null);
-      if (biz && biz.id) {
-        document.getElementById('login-branch-group').style.display = 'none';
-        const sel = document.getElementById('login-branch');
-        sel.innerHTML = `<option value="${biz.id}" selected>${biz.name || biz.id}</option>`;
-        document.getElementById('login-locked-branch').style.display = 'block';
-        document.getElementById('login-locked-branch-name').textContent = biz.name || biz.id;
-        document.getElementById('login-subtitle').textContent = biz.location || 'Sign in to your dashboard';
-        document.getElementById('login-user').placeholder = 'owner_' + urlId.split('_')[0];
-        document.title = `${biz.name || biz.id} — Owner Portal`;
-        return;
-      }
-    } catch(e) { /* fall through to full dropdown */ }
-  }
-
+  // No public café directory — a café-specific URL locks the branch;
+  // otherwise the field stays a plain text input for typing the café ID.
+  if (!urlId) return;
   try {
-    const data = await fetch('/api/businesses').then(r => r.json());
-    const sel  = document.getElementById('login-branch');
-    sel.innerHTML = '<option value="">Select your café…</option>' +
-      data.map(b => `<option value="${b.id}">${b.name}${b.location?' — '+b.location:''}</option>`).join('');
-  } catch(e) {}
+    const biz = await fetch('/api/businesses/' + encodeURIComponent(urlId)).then(r => r.ok ? r.json() : null);
+    if (biz && biz.id) {
+      document.getElementById('login-branch-group').style.display = 'none';
+      document.getElementById('login-branch').value = biz.id;
+      document.getElementById('login-locked-branch').style.display = 'block';
+      document.getElementById('login-locked-branch-name').textContent = biz.name || biz.id;
+      document.getElementById('login-subtitle').textContent = biz.location || 'Sign in to your dashboard';
+      document.getElementById('login-user').placeholder = 'owner_' + urlId.split('_')[0];
+      document.title = `${biz.name || biz.id} — Owner Portal`;
+    }
+  } catch(e) { /* leave the plain text input in place */ }
 }
 loadBranchList();
 
@@ -376,9 +366,8 @@ async function showApp() {
   document.getElementById('app').style.display = 'flex';
   document.getElementById('owner-name').textContent = staffInfo?.name || 'Owner';
   try {
-    const all = await fetch('/api/businesses').then(r => r.json());
-    const myBiz = all.find(b => b.id === bizId);
-    if (!myBiz) { doLogout(); return; }
+    const myBiz = await fetch('/api/businesses/' + encodeURIComponent(bizId)).then(r => r.ok ? r.json() : null);
+    if (!myBiz || !myBiz.id) { doLogout(); return; }
     showSubscriptionBanner(myBiz);
     // Independent-café SaaS (not a franchise): an owner only ever sees their
     // own café. The old logic also grouped cafés that merely shared an owner

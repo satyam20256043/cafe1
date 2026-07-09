@@ -324,10 +324,9 @@
     <form id="login-form" autocomplete="off">
 
       <div class="form-group" id="branch-select-group">
-        <label for="branch-select">Branch</label>
-        <select id="branch-select" required>
-          <option value="" disabled selected>Loading branches…</option>
-        </select>
+        <label for="branch-select">Café ID</label>
+        <input type="text" id="branch-select" required placeholder="e.g. roasted-bean" autocapitalize="off" autocorrect="off" />
+        <div style="font-size:11px;color:rgba(245,237,216,0.4);margin-top:6px">Don't have your café's login link? Ask your manager or the platform admin.</div>
       </div>
 
       <div class="form-group">
@@ -480,12 +479,8 @@ function urlLoginBranchId() {
 
 function lockToBranch(biz) {
   document.getElementById('branch-select-group').style.display = 'none';
-  const sel = document.getElementById('branch-select');
-  sel.innerHTML = '';
-  const opt = document.createElement('option');
-  opt.value = biz.id; opt.textContent = biz.name || biz.id; opt.selected = true;
-  sel.appendChild(opt);
-  sel.removeAttribute('required'); // single always-selected option — nothing to validate
+  document.getElementById('branch-select').value = biz.id;
+  document.getElementById('branch-select').removeAttribute('required'); // pre-filled — nothing to validate
 
   document.getElementById('locked-branch-display').style.display = 'block';
   document.getElementById('locked-branch-name').textContent = biz.name || biz.id;
@@ -496,42 +491,20 @@ function lockToBranch(biz) {
 }
 
 async function loadBranches() {
-  const sel = document.getElementById('branch-select');
-  const urlBranch = urlLoginBranchId();
-
-  if (urlBranch) {
-    try {
-      const res = await fetch('/api/businesses/' + encodeURIComponent(urlBranch));
-      if (res.ok) {
-        const biz = await res.json();
-        if (biz && biz.id) { lockToBranch(biz); return; }
-      }
-    } catch (e) { /* fall through to full dropdown below */ }
-    // Invalid/unknown branch in the URL — don't hard-fail, just fall back
-    // to the normal dropdown so the person can still find their café.
-    showError('Café link not recognized — please select your branch below.');
-  }
+  // No public café directory — a café-specific /login/:id link locks the
+  // branch automatically; otherwise the person types their café's ID
+  // directly (shared with them on their login link / by their admin).
+  const urlBranch = urlLoginBranchId() || new URLSearchParams(location.search).get('branch');
+  if (!urlBranch) return;
 
   try {
-    const res  = await fetch('/api/businesses');
-    const data = await res.json();
-    const list = Array.isArray(data) ? data : (data.businesses || []);
-
-    sel.innerHTML = '<option value="" disabled selected>Select your branch…</option>';
-    list.forEach(b => {
-      const opt = document.createElement('option');
-      opt.value       = b.id;
-      opt.textContent = b.name || b.id;
-      sel.appendChild(opt);
-    });
-
-    // Pre-select from URL param (?branch=koramangala)
-    const params = new URLSearchParams(location.search);
-    if (params.get('branch')) sel.value = params.get('branch');
-  } catch (e) {
-    sel.innerHTML = '<option value="" disabled selected>Could not load branches</option>';
-    console.error('Branch load error:', e);
-  }
+    const res = await fetch('/api/businesses/' + encodeURIComponent(urlBranch));
+    if (res.ok) {
+      const biz = await res.json();
+      if (biz && biz.id) { lockToBranch(biz); return; }
+    }
+  } catch (e) { /* fall through */ }
+  showError('Café link not recognized — please double-check it with your admin.');
 }
 
 // ── Toggle password visibility ────────────────────────────────────────────────

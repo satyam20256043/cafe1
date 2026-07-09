@@ -256,7 +256,7 @@
   <h1>One platform.<br/><span>Every role. Every café.</span></h1>
   <p>A complete management system — from the agency admin down to the customer ordering at their table.</p>
   <div class="hero-pills">
-    <span class="hero-pill">Multi-branch franchise</span>
+    <span class="hero-pill">Multi-tenant platform</span>
     <span class="hero-pill">Role-based access</span>
     <span class="hero-pill">Real-time kitchen display</span>
     <span class="hero-pill">QR table ordering</span>
@@ -294,7 +294,7 @@
         <div class="rc-icon">🔴</div>
         <div class="rc-role col-admin">Agency Admin</div>
         <div class="rc-title">That's You</div>
-        <div class="rc-desc">Manage all café clients, subscriptions, and franchise branches from one HQ dashboard.</div>
+        <div class="rc-desc">Manage all café clients, subscriptions, and branches from one HQ dashboard.</div>
         <div class="rc-features">
           <div class="rc-feat"><span class="rc-feat-dot dot-admin"></span>All clients &amp; revenue overview</div>
           <div class="rc-feat"><span class="rc-feat-dot dot-admin"></span>Subscription management</div>
@@ -309,12 +309,12 @@
       <div class="rc-accent acc-owner"></div>
       <div class="rc-top">
         <div class="rc-icon">🟠</div>
-        <div class="rc-role col-owner">Café Owner / Franchise</div>
+        <div class="rc-role col-owner">Café Owner</div>
         <div class="rc-title">Client Portal</div>
-        <div class="rc-desc">Café owners log in here to see their revenue, branches, and subscription status.</div>
+        <div class="rc-desc">Café owners log in here to see their revenue, orders, and subscription status.</div>
         <div class="rc-features">
           <div class="rc-feat"><span class="rc-feat-dot dot-owner"></span>Revenue &amp; order analytics</div>
-          <div class="rc-feat"><span class="rc-feat-dot dot-owner"></span>Franchise branch hub</div>
+          <div class="rc-feat"><span class="rc-feat-dot dot-owner"></span>Their own café only</div>
           <div class="rc-feat"><span class="rc-feat-dot dot-owner"></span>Subscription &amp; billing</div>
           <div class="rc-feat"><span class="rc-feat-dot dot-owner"></span>Quick links to all tools</div>
         </div>
@@ -359,7 +359,7 @@
         </div>
       </div>
       <div class="rc-foot">
-        <a href="#branch-section" onclick="showBranchSection('kitchen')" class="rc-cta cta-kitchen">Select Branch →</a>
+        <a href="#" onclick="promptForBranch('kitchen');return false;" class="rc-cta cta-kitchen">Open Kitchen Display →</a>
       </div>
     </div>
 
@@ -378,18 +378,10 @@
         </div>
       </div>
       <div class="rc-foot">
-        <a href="#branch-section" onclick="showBranchSection('customer')" class="rc-cta cta-customer">Visit a Café →</a>
+        <a href="#" onclick="promptForBranch('customer');return false;" class="rc-cta cta-customer">Visit a Café →</a>
       </div>
     </div>
 
-  </div>
-
-  <!-- Branch selector -->
-  <div id="branch-section" style="margin-top:40px">
-    <div class="section-header"><div class="section-title" id="branch-section-title">Select a Branch</div><div class="section-line"></div></div>
-    <div class="branch-grid" id="branch-grid">
-      <div style="color:var(--ink-3);font-size:13px;padding:16px">Loading branches…</div>
-    </div>
   </div>
 
   <!-- URL Reference -->
@@ -405,19 +397,19 @@
         <tr>
           <td><span class="url-code">/hq</span></td>
           <td><span class="url-badge badge-admin">Admin</span></td>
-          <td class="url-desc">Franchise HQ — all clients, revenue, subscriptions</td>
+          <td class="url-desc">Agency HQ — all clients, revenue, subscriptions</td>
           <td><a href="/hq" class="url-open" target="_blank">Open ↗</a></td>
         </tr>
         <tr>
           <td><span class="url-code">/portal/:branchId</span></td>
           <td><span class="url-badge badge-owner">Owner</span></td>
-          <td class="url-desc">Owner portal — revenue, branches, franchise hub</td>
+          <td class="url-desc">Owner portal — revenue, orders, subscription status</td>
           <td><a href="/portal" class="url-open" target="_blank">Open ↗</a></td>
         </tr>
         <tr>
-          <td><span class="url-code">/login?branch=:id</span></td>
+          <td><span class="url-code">/login/:branchId</span></td>
           <td><span class="url-badge badge-manager">Manager</span></td>
-          <td class="url-desc">Staff login — redirects based on role</td>
+          <td class="url-desc">Staff login for a specific café — redirects based on role</td>
           <td><a href="/login" class="url-open" target="_blank">Open ↗</a></td>
         </tr>
         <tr>
@@ -430,19 +422,19 @@
           <td><span class="url-code">/kitchen.html?branch=:id</span></td>
           <td><span class="url-badge badge-kitchen">Kitchen</span></td>
           <td class="url-desc">Live kitchen display — order tickets &amp; status updates</td>
-          <td><a href="#branch-section" onclick="showBranchSection('kitchen')" class="url-open">Select →</a></td>
+          <td><a href="#" onclick="promptForBranch('kitchen');return false;" class="url-open">Open →</a></td>
         </tr>
         <tr>
           <td><span class="url-code">/cafe/:branchId</span></td>
           <td><span class="url-badge badge-public">Public</span></td>
           <td class="url-desc">Customer-facing café website — menu, chatbot, reservations</td>
-          <td><a href="#branch-section" onclick="showBranchSection('customer')" class="url-open">Select →</a></td>
+          <td><a href="#" onclick="promptForBranch('customer');return false;" class="url-open">Open →</a></td>
         </tr>
         <tr>
           <td><span class="url-code">/table-order.html</span></td>
           <td><span class="url-badge badge-public">Public</span></td>
           <td class="url-desc">QR table ordering — scan, browse, place order</td>
-          <td><a href="#branch-section" onclick="showBranchSection('order')" class="url-open">Select →</a></td>
+          <td><a href="#" onclick="promptForBranch('order');return false;" class="url-open">Open →</a></td>
         </tr>
         <tr>
           <td><span class="url-code">/onboard</span></td>
@@ -461,44 +453,21 @@
 </footer>
 
 <script>
-let branches = [];
-async function loadBranches(){
-  try{ branches = await fetch('/api/businesses').then(r=>r.json()); }catch(e){ branches=[]; }
-}
-loadBranches();
-
-function showBranchSection(mode){
-  const sec   = document.getElementById('branch-section');
-  const title = document.getElementById('branch-section-title');
-  const grid  = document.getElementById('branch-grid');
-  sec.style.display = 'block';
-  const labels = {kitchen:'👨‍🍳 Select Branch — Kitchen Display',customer:'🌐 Select Branch — Customer Portal',order:'📱 Select Branch — Table Ordering'};
-  title.textContent = labels[mode] || 'Select a Branch';
-  if(!branches.length){
-    grid.innerHTML='<div style="color:var(--ink-3);font-size:13px;padding:20px">No branches found. Is the server running?</div>';
-    setTimeout(()=>sec.scrollIntoView({behavior:'smooth',block:'start'}),100);
-    return;
-  }
-  grid.innerHTML = branches.map(b=>{
-    const kitUrl = '/kitchen.html?branch='+b.id;
-    const cafUrl = '/cafe/'+b.id;
-    const ordUrl = '/table-order.html?branch='+b.id+'&table=1';
-    const mgrUrl = '/manager/'+b.id;
-    const porUrl = '/portal/'+b.id;
-    const primaryUrl   = mode==='kitchen'?kitUrl:mode==='order'?ordUrl:cafUrl;
-    return `<div class="branch-chip" onclick="window.open('${primaryUrl}','_blank')">
-      <div class="branch-chip-name">${b.name}</div>
-      <div class="branch-chip-loc">📍 ${b.location||b.id}</div>
-      <div class="branch-chip-links" onclick="event.stopPropagation()">
-        <a href="${mgrUrl}" target="_blank" class="branch-link bl-mgr">📊 Mgr</a>
-        <a href="${kitUrl}" target="_blank" class="branch-link bl-kit">🍳 Kitchen</a>
-        <a href="${porUrl}" target="_blank" class="branch-link bl-prt">🔑 Portal</a>
-        <a href="${cafUrl}" target="_blank" class="branch-link bl-caf">🌐 Site</a>
-        <a href="${ordUrl}" target="_blank" class="branch-link bl-ord">📱 Order</a>
-      </div>
-    </div>`;
-  }).join('');
-  setTimeout(()=>sec.scrollIntoView({behavior:'smooth',block:'start'}),100);
+// There is no public café directory (removed 2026 — each café has its own
+// /login/:branchId and /cafe/:branchId link, not browsable from here).
+// This is a quick-jump helper for you, the operator, when you already know
+// a café's ID (visible in HQ's client list).
+async function promptForBranch(mode){
+  const id = window.prompt('Enter the café ID (find it in the HQ client list):');
+  if (!id) return;
+  const trimmed = id.trim();
+  if (!trimmed) return;
+  const urls = {
+    kitchen:  '/kitchen/' + trimmed,
+    customer: '/cafe/' + trimmed,
+    order:    '/order/' + trimmed,
+  };
+  window.open(urls[mode] || urls.customer, '_blank');
 }
 </script>
 </body>

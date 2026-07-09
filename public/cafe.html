@@ -977,9 +977,8 @@
   // ── Load branch details ──
   async function loadBranch() {
     try {
-      const list = await fetch('/api/businesses').then(r => r.json());
-      const b = list.find(x => x.id === branchId) || list[0];
-      if (!b) return;
+      const b = await fetch('/api/businesses/' + encodeURIComponent(branchId)).then(r => r.ok ? r.json() : null);
+      if (!b || !b.id) return;
 
       window._branchName = b.name;
       document.title = b.name + ' — Customer Portal';
