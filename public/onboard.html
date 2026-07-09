@@ -88,7 +88,7 @@ footer a{color:var(--gold);text-decoration:none;}
     <div class="pill"><span>✓</span>WhatsApp AI Chatbot</div>
     <div class="pill"><span>✓</span>Digital Stamp Cards</div>
     <div class="pill"><span>✓</span>Live Order Dashboard</div>
-    <div class="pill"><span>✓</span>30-Day Free Trial</div>
+    <div class="pill"><span>✓</span>10-Day Free Trial</div>
   </div>
 </div>
 
@@ -191,7 +191,7 @@ footer a{color:var(--gold);text-decoration:none;}
         <div class="feat"><div class="feat-icon">📊</div><div><div class="feat-title">Revenue Analytics</div><div class="feat-desc">Daily, weekly, monthly revenue. Top-selling items. Most loyal customers. All in a beautiful real-time dashboard.</div></div></div>
         <div class="feat"><div class="feat-icon">📱</div><div><div class="feat-title">Installable PWA</div><div class="feat-desc">Customers install your café page on their phone like an app — works offline, push notifications for order updates.</div></div></div>
       </div>
-      <div class="trial-badge"><strong>30 days free.</strong> No credit card. Cancel anytime.</div>
+      <div class="trial-badge"><strong>10 days free.</strong> No credit card. Cancel anytime.</div>
     </div>
 
   </div>
@@ -268,7 +268,7 @@ function showSuccess(payload, data) {
     { label:'Owner Portal',  html:`<a href="${window.location.origin+'/portal/'+data.businessId}" target="_blank">${window.location.origin+'/portal/'+data.businessId}</a>`, copy:window.location.origin+'/portal/'+(data.businessId||'') },
     { label:'Username',      html:username,  copy:username },
     { label:'Temp Password', html:`<strong style="color:var(--gold-light)">${password}</strong>`, copy:password },
-    { label:'Trial Ends',    html: data.trialEndsAt || '30 days from today', copy:null },
+    { label:'Trial Ends',    html: data.trialEndsAt || '10 days from today', copy:null },
   ];
 
   document.getElementById('creds-box').innerHTML = rows.map(r =>
