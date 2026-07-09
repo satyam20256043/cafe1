@@ -376,9 +376,7 @@
 
     <div class="card-footer" id="login-footer">
       <p><a href="#" onclick="toggleForgotForm(true);return false;">Forgot your password?</a></p>
-      <p style="margin-top:8px">
-        <a href="/cafe/indiranagar" target="_blank">Customer Portal</a>
-        &nbsp;·&nbsp;
+      <p style="margin-top:8px" id="login-footer-links">
         <a href="/website.html">Agency Website</a>
       </p>
     </div>
@@ -488,6 +486,11 @@ function lockToBranch(biz) {
   document.getElementById('logo-subtitle').textContent = 'Staff Sign In';
   document.title = `${biz.name || biz.id} — Staff Login`;
   setTimeout(() => document.getElementById('username')?.focus(), 200);
+
+  // Café-specific login: link to this café's own customer site, hide the
+  // agency's own website link — a café's staff shouldn't see agency branding.
+  document.getElementById('login-footer-links').innerHTML =
+    `<a href="/cafe/${encodeURIComponent(biz.id)}" target="_blank">Customer Portal</a>`;
 }
 
 async function loadBranches() {

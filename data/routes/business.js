@@ -22,7 +22,7 @@ module.exports = function register(ctx) {
 // any stored credentials must never leave via the unauthenticated endpoints.
 const PUBLIC_BUSINESS_FIELDS = [
   'id', 'name', 'location', 'timings', 'contact', 'map', 'wifi', 'review',
-  'status', 'theme', 'brandColor', 'tables'
+  'status', 'theme', 'brandColor', 'tables', 'heroImageUrl', 'galleryUrls'
 ];
 function publicBusinessView(b) {
   const out = {};

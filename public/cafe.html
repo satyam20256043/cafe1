@@ -501,7 +501,7 @@
   <div class="pwa-icon">☕</div>
   <div class="pwa-text">
     <strong>INSTALL APP</strong>
-    <span>Add Zordic California to your home screen for quick access</span>
+    <span id="pwa-install-text">Add this café to your home screen for quick access</span>
   </div>
   <div class="pwa-actions">
     <button class="pwa-btn-install" id="pwa-btn-install">Install</button>
@@ -908,8 +908,8 @@
     </div>
   </div>
   <div class="footer-bottom">
-    <span>© 2026 Zordic SaaS. All rights reserved.</span>
-    <a href="/website.html" target="_blank" style="color:var(--gold);text-decoration:none;font-family:'Cinzel',serif;font-size:10px;letter-spacing:2px;">☕ Powered by CaféGrow AI</a>
+    <span>© 2026 <span id="footer-year-name">this café</span>. All rights reserved.</span>
+    <a href="/website.html" target="_blank" style="color:var(--gold);text-decoration:none;font-family:'Cinzel',serif;font-size:10px;letter-spacing:2px;">☕ Powered by Zordic California</a>
     <a id="footer-admin-link" href="#" class="admin-link">🔐 Staff Login</a>
   </div>
 </footer>
@@ -1004,6 +1004,11 @@
       // ─────────────────────────────────────────────────────────────────────
       document.getElementById('cafe-logo-text').innerText = b.name;
       document.getElementById('footer-logo').innerText = b.name;
+      document.getElementById('footer-year-name').innerText = b.name;
+      const pwaTitleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (pwaTitleMeta) pwaTitleMeta.content = b.name;
+      const pwaInstallText = document.getElementById('pwa-install-text');
+      if (pwaInstallText) pwaInstallText.textContent = 'Add ' + b.name + ' to your home screen for quick access';
       const words = b.name.split(' ');
       document.getElementById('cafe-hero-title').innerHTML = words[0] + '<br><span>' + words.slice(1).join(' ') + '</span>';
       document.getElementById('cafe-hours').innerText = '⏰ Open: ' + b.timings;
@@ -1027,20 +1032,20 @@
       document.getElementById('footer-wa').href = waUrl;
       document.getElementById('footer-wa-link').href = waUrl;
 
-      // Hero background per branch type
-      const heroImages = {
-        koramangala: "url('https://images.unsplash.com/photo-1511920170033-f8396924c348?w=1600&q=80')",
-        indiranagar:  "url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1600&q=80')"
-      };
-      const heroImg = heroImages[b.id] || "url('https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=1600&q=80')";
+      // Hero background: café's own heroImageUrl if set, else the theme's stock default
+      const heroImg = b.heroImageUrl ? `url('${b.heroImageUrl}')` : theme['--hero-image'];
       document.getElementById('hero-bg').style.backgroundImage =
         'linear-gradient(180deg, rgba(18,10,6,0.55) 0%, rgba(18,10,6,0.30) 40%, rgba(18,10,6,0.78) 100%), ' + heroImg;
 
-      document.getElementById('about-p1').innerText = b.id.includes('koramangala')
-        ? 'Welcome to ' + b.name + ', Koramangala\'s premier high-tech café. Designed for digital nomads and tech teams — high-speed fibre WiFi, charging on every desk, and freshly brewed robusta.'
-        : b.id.includes('indiranagar')
-        ? 'Welcome to ' + b.name + ', Indiranagar. A sanctuary of premium coffee aromas, warm wooden interiors, and slow-brewed hand-dripped filter cups. Experience Bangalore café culture at its finest.'
-        : 'Welcome to ' + b.name + '. A serene garden café retreat with lush plants, organic vegetarian dishes, and fresh bakery selections — the perfect spot to unwind and recharge.';
+      // Gallery: café's own galleryUrls if set (falls back to the stock photos already in the HTML)
+      if (Array.isArray(b.galleryUrls) && b.galleryUrls.length) {
+        document.querySelectorAll('.gallery-item img').forEach((img, i) => {
+          if (b.galleryUrls[i]) img.src = b.galleryUrls[i];
+        });
+      }
+
+      document.getElementById('about-p1').innerText =
+        'Welcome to ' + b.name + ', located in ' + b.location + '. A warm, welcoming space with great coffee, fresh food, and a place to relax, work, or catch up with friends.';
 
       // QR Code
       const reviewUrl = b.review || 'https://search.google.com/local/writereview?placeid=' + b.id;

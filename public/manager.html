@@ -1108,6 +1108,8 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
               <div class="form-group"><label class="form-label">WiFi (SSID / Password)</label><input class="form-input" id="s-wifi"/></div>
               <div class="form-group"><label class="form-label">Google Maps Link</label><input class="form-input" id="s-map"/></div>
               <div class="form-group"><label class="form-label">Google Review Link</label><input class="form-input" id="s-review"/></div>
+              <div class="form-group"><label class="form-label">Hero Image URL <span style="font-weight:400;color:#888">(optional — shown at the top of your customer website)</span></label><input class="form-input" id="s-hero-image" placeholder="https://…"/></div>
+              <div class="form-group"><label class="form-label">Gallery Image URLs <span style="font-weight:400;color:#888">(optional — comma-separated)</span></label><input class="form-input" id="s-gallery-urls" placeholder="https://…, https://…"/></div>
               <button class="btn primary full" onclick="saveSettings()">Save Details</button>
             </div>
           </div>
@@ -2074,6 +2076,8 @@ async function loadSettings(){
     document.getElementById('s-wifi').value=business.wifi||'';
     document.getElementById('s-map').value=business.map||'';
     document.getElementById('s-review').value=business.review||'';
+    document.getElementById('s-hero-image').value=business.heroImageUrl||'';
+    document.getElementById('s-gallery-urls').value=(business.galleryUrls||[]).join(', ');
     const analytics=await(await fetch(`/api/businesses/${branchId}/analytics`)).json();
     const campaigns=(analytics.settings&&analytics.settings.lowTrafficCampaigns)||[];
     renderCampaignSettings(campaigns);
@@ -2163,7 +2167,9 @@ async function saveSettings(){
       contact:document.getElementById('s-contact').value.trim(),
       wifi:document.getElementById('s-wifi').value.trim(),
       map:document.getElementById('s-map').value.trim(),
-      review:document.getElementById('s-review').value.trim()
+      review:document.getElementById('s-review').value.trim(),
+      heroImageUrl:document.getElementById('s-hero-image').value.trim(),
+      galleryUrls:document.getElementById('s-gallery-urls').value.split(',').map(s=>s.trim()).filter(Boolean)
     };
     const r=await fetch(`/api/businesses/${branchId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();

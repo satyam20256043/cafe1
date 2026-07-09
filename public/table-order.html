@@ -108,6 +108,7 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 </div>
 <div class="categories" id="cat-pills"><button class="cat-btn active" onclick="filterCat('all',this)">All</button></div>
 <div id="menu-container"><div style="padding:60px 20px;text-align:center;color:#bbb">Loading menu…</div></div>
+<div style="text-align:center;padding:20px 16px 8px;font-size:11px;color:#ccc">Powered by Zordic California ☕</div>
 <div class="cart-overlay" id="cart-overlay" onclick="closeCart()"></div>
 <div class="cart-drawer" id="cart-drawer">
   <div class="cart-handle"></div>
@@ -150,7 +151,7 @@ let socket=null;try{socket=io({transports:['websocket','polling']});socket.on('c
 
 async function init(){
   document.getElementById('table-tag').textContent='Table '+tableNo;
-  try{const b=await fetch('/api/businesses/'+bizId).then(r=>r.json());document.getElementById('cafe-name').textContent=b.name||'Café';document.title='Order — '+(b.name||'Café');}catch(e){}
+  try{const b=await fetch('/api/businesses/'+bizId).then(r=>r.json());document.getElementById('cafe-name').textContent=b.name||'Café';document.title='Order — '+(b.name||'Café');if(b.brandColor)document.documentElement.style.setProperty('--caramel',b.brandColor);}catch(e){}
   try{menu=await fetch('/api/businesses/'+bizId+'/menu').then(r=>r.json());renderCategoryPills();renderMenu('all');}
   catch(e){document.getElementById('menu-container').innerHTML='<div style="padding:40px;text-align:center;color:#bbb">Menu unavailable. Please ask staff.</div>';}
 }

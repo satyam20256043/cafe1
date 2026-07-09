@@ -108,7 +108,7 @@ body{font-family:var(--font-body);background:#1a1612;color:#fff;min-height:100vh
   <div style="display:flex;align-items:center;gap:14px">
     <a href="/" style="text-decoration:none;display:flex;align-items:center"><img src="/logo.svg" alt="Zordic California" style="height:24px;width:auto;opacity:.92"></a>
     <span style="color:rgba(255,255,255,0.1)">|</span>
-    <a href="/hq" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap" title="Agency Admin HQ">🏢 Admin HQ</a>
+    <a id="__snav_hq" href="/hq" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap;display:none" title="Agency Admin HQ">🏢 Admin HQ</a>
     <a id="__snav_portal" href="/portal" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap">🔑 Owner Portal</a>
     <a id="__snav_mgr" href="#" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap">📊 Manager</a>
     <a id="__snav_kit" href="#" style="color:rgba(255,255,255,0.4);text-decoration:none;white-space:nowrap">🍳 Kitchen</a>
@@ -146,6 +146,13 @@ body{font-family:var(--font-body);background:#1a1612;color:#fff;min-height:100vh
     document.getElementById("__snav_caf").style.display="inline";
     document.getElementById("__snav_bc").textContent="Branch: "+bid;
   }
+  // Admin HQ link: café staff never see the agency layer, only the platform operator.
+  try {
+    var staff = JSON.parse(localStorage.getItem('cafehq_staff') || sessionStorage.getItem('cafehq_staff') || 'null');
+    if (staff && (staff.role === 'agency_admin' || staff.role === 'admin')) {
+      document.getElementById('__snav_hq').style.display = 'inline';
+    }
+  } catch(e) {}
 })();
 </script>
 
