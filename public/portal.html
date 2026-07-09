@@ -386,8 +386,9 @@ async function showApp() {
     document.getElementById('header-cafe-name').textContent = myBiz.name;
     renderSingleBranch(myBiz);
   } catch(e) {
+    console.error('[loadDashboard]', e);
     document.getElementById('dash-content').innerHTML =
-      `<div style="text-align:center;padding:60px;color:var(--ink-3)">Error loading data: ${e.message}</div>`;
+      `<div style="text-align:center;padding:60px;color:var(--ink-3)">${friendly(e)}</div>`;
   }
 }
 
@@ -638,7 +639,7 @@ async function submitChangePassword(){
 }
 
 async function openBillingModal(bizId){let plans=[];try{const r=await fetch('/api/plans');const d=await r.json();plans=Array.isArray(d)?d:(d.plans||[]);}catch(e){}let modal=document.getElementById('billing-modal-overlay');if(!modal){modal=document.createElement('div');modal.id='billing-modal-overlay';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center';document.body.appendChild(modal);}modal.innerHTML=`<div style="background:var(--white);border-radius:var(--r);padding:28px 24px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,0.2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div style="font-family:var(--font-d);font-size:20px;color:var(--ink)">Upgrade Plan</div><button onclick="document.getElementById('billing-modal-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-3)">✕</button></div><div style="display:grid;gap:10px;margin-bottom:20px">${plans.map(p=>'<div style="padding:14px 16px;border:1.5px solid '+(p.badge?'var(--gold)':'var(--border)')+';border-radius:10px;cursor:pointer" onclick="doSubscriptionPay(\''+bizId+'\',\''+p.id+'\')"><div style="display:flex;align-items:center;justify-content:space-between"><div><strong>'+p.name+'</strong>'+(p.badge?' <span style="font-size:10px;background:#fff8e8;color:var(--gold-d);padding:2px 8px;border-radius:10px;font-weight:700">'+p.badge+'</span>':'')+'</div><div style="font-size:18px;font-weight:700;color:var(--gold-d)">₹'+p.price+'</div></div><div style="font-size:12px;color:var(--ink-3);margin-top:4px">'+p.duration_days+' days'+(p.features?' · '+p.features.join(', '):'')+' </div></div>').join('')||'<div style="color:var(--ink-3);text-align:center;padding:20px">No plans available</div>'}</div><div style="text-align:center;font-size:12px;color:var(--ink-3)">Secure payment via Razorpay</div></div>`;modal.style.display='flex';}
-async function doSubscriptionPay(bizId,planId){try{const r=await fetch('/api/businesses/'+bizId+'/billing/create-order',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({planId})});const d=await r.json();if(d.error){alert('Error: '+d.error);return;}const options={key:d.keyId,amount:d.amount,currency:d.currency,name:'CaféGrow',description:d.plan.name+' Plan',order_id:d.orderId,handler:async function(response){try{const v=await fetch('/api/businesses/'+bizId+'/billing/verify-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({...response,planId})}).then(r=>r.json());if(v.success){document.getElementById('billing-modal-overlay')?.remove();alert('✅ Subscription activated! Plan: '+v.plan);loadDashboard();}else{alert('Payment verification failed.');}}catch(e){alert('Verification error: '+e.message);}},prefill:{name:staffInfo?.name||'',email:''},theme:{color:'#c47f3a'}};const rzp=new window.Razorpay(options);rzp.on('payment.failed',e=>alert('Payment failed: '+e.error.description));document.getElementById('billing-modal-overlay')?.remove();rzp.open();}catch(e){alert('Error: '+e.message);}}
+async function doSubscriptionPay(bizId,planId){try{const r=await fetch('/api/businesses/'+bizId+'/billing/create-order',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({planId})});const d=await r.json();if(!r.ok){console.error('[doSubscriptionPay] create-order failed',r.status,d);alert('Online payment isn\'t available right now — please contact your Zordic account manager to upgrade.');return;}if(d.error){alert('Error: '+d.error);return;}const options={key:d.keyId,amount:d.amount,currency:d.currency,name:'Zordic California',description:d.plan.name+' Plan',order_id:d.orderId,handler:async function(response){try{const v=await fetch('/api/businesses/'+bizId+'/billing/verify-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({...response,planId})}).then(r=>r.json());if(v.success){document.getElementById('billing-modal-overlay')?.remove();alert('✅ Subscription activated! Plan: '+v.plan);loadDashboard();}else{alert('Payment verification failed.');}}catch(e){console.error('[verifyPayment]',e);alert('Verification error: '+friendly(e));}},prefill:{name:staffInfo?.name||'',email:''},theme:{color:'#c47f3a'}};const rzp=new window.Razorpay(options);rzp.on('payment.failed',e=>alert('Payment failed: '+e.error.description));document.getElementById('billing-modal-overlay')?.remove();rzp.open();}catch(e){console.error('[doSubscriptionPay]',e);alert('Error: '+friendly(e));}}
 // ─── Menu Editor ───────────────────────────────────────────────────────────
 let _menuBizId = null, _menuItems = [];
 async function openMenuEditor(bid) {
@@ -717,7 +718,8 @@ async function saveMenuItems() {
     if (!r.ok) throw new Error('Save failed');
     msg.textContent = '✅ Menu saved successfully'; msg.style.color = '#2e7d32';
   } catch(e) {
-    msg.textContent = '⚠️ ' + e.message; msg.style.color = '#c0392b';
+    console.error('[saveMenuItems]', e);
+    msg.textContent = '⚠️ ' + friendly(e); msg.style.color = '#c0392b';
   }
 }
 </script>
@@ -761,7 +763,8 @@ async function loadConversations() {
     _convos = res.ok ? await res.json() : [];
     renderConvoList(_convos);
   } catch(e) {
-    body.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">⚠️</div><div class="chat-empty-title">Could not load</div><div class="chat-empty-sub">' + escHtml(e.message) + '</div></div>';
+    console.error('[loadConvos]', e);
+    body.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">⚠️</div><div class="chat-empty-title">Could not load</div><div class="chat-empty-sub">' + escHtml(friendly(e)) + '</div></div>';
   }
 }
 
@@ -827,7 +830,8 @@ async function openThread(phone, name) {
     const msgs = res.ok ? await res.json() : [];
     renderThread(msgs);
   } catch(e) {
-    body.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">⚠️</div><div class="chat-empty-title">Error loading messages</div><div class="chat-empty-sub">' + escHtml(e.message) + '</div></div>';
+    console.error('[loadThread]', e);
+    body.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">⚠️</div><div class="chat-empty-title">Error loading messages</div><div class="chat-empty-sub">' + escHtml(friendly(e)) + '</div></div>';
   }
 }
 
@@ -907,6 +911,22 @@ function fmtTime(dt) {
 
 function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Friendly error messages (UI6) — technical detail stays in console.error
+function friendly(e){
+  const msg = (e && e.message) || String(e || '');
+  const m = msg.match(/(?:^HTTP|Server error)\D*(\d{3})/i);
+  if (m) {
+    const code = +m[1];
+    if (code === 401) return 'Your session expired — please sign in again.';
+    if (code === 403) return "You don't have permission to do that.";
+    if (code === 404) return 'Not found.';
+    if (code >= 500) return 'Something went wrong on our end — please try again.';
+    return 'Something went wrong — please try again.';
+  }
+  if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return "Couldn't connect — check your connection and try again.";
+  return msg || 'Something went wrong — please try again.';
 }
 </script>
 </body>

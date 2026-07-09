@@ -1,0 +1,42 @@
+{
+  "plans": [
+    {
+      "id": "starter",
+      "name": "Starter",
+      "price": 1500,
+      "duration_days": 30,
+      "badge": "",
+      "features": [
+        "AI WhatsApp receptionist — never miss an order enquiry",
+        "QR table ordering",
+        "Basic customer CRM"
+      ]
+    },
+    {
+      "id": "growth",
+      "name": "Growth",
+      "price": 3000,
+      "duration_days": 30,
+      "badge": "Most Popular",
+      "features": [
+        "Everything in Starter",
+        "Loyalty & rewards — turn one-time visitors into regulars",
+        "AI win-back campaigns for lapsed customers",
+        "Google review management"
+      ]
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "price": 5000,
+      "duration_days": 30,
+      "badge": "Best Value",
+      "features": [
+        "Everything in Growth",
+        "Full AI marketing automation",
+        "Weekly growth & revenue reports",
+        "Priority WhatsApp support"
+      ]
+    }
+  ]
+}

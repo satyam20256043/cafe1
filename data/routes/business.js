@@ -300,6 +300,7 @@ app.get('/api/agency/clients', requireAuth, requireRole('agency_admin', 'admin')
       location: b.location,
       status: b.status,
       subscriptionStatus: b.subscriptionStatus || 'active',
+      subscriptionPlan: b.subscriptionPlan || null,
       trialEndsAt: b.trialEndsAt || null,
       daysLeft,
       onboardedAt: b.onboardedAt || null,
@@ -311,20 +312,32 @@ app.get('/api/agency/clients', requireAuth, requireRole('agency_admin', 'admin')
   res.json(clients);
 });
 
-// PATCH /api/agency/clients/:id/status — update subscription status (agency only:
-// this is the tenant activation/suspension switch)
+// PATCH /api/agency/clients/:id/status — update subscription status and/or plan
+// (agency only: this is the tenant activation/suspension switch, also used to
+// manually mark a client active after an offline/out-of-band payment)
 app.post('/api/agency/clients/:id/status', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   const { id } = req.params;
-  const { subscriptionStatus } = req.body;
-  const valid = ['trial','active','paused','cancelled'];
-  if (!valid.includes(subscriptionStatus)) {
+  const { subscriptionStatus, subscriptionPlan } = req.body;
+  const validStatus = ['trial','active','paused','cancelled'];
+  if (subscriptionStatus !== undefined && !validStatus.includes(subscriptionStatus)) {
     return res.status(400).json({ error: 'Invalid status' });
+  }
+  if (subscriptionPlan !== undefined) {
+    let planIds = [];
+    try { planIds = (JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'plans.json'), 'utf-8')).plans || []).map(p => p.id); } catch(e) {}
+    if (subscriptionPlan && !planIds.includes(subscriptionPlan)) {
+      return res.status(400).json({ error: 'Invalid plan' });
+    }
+  }
+  if (subscriptionStatus === undefined && subscriptionPlan === undefined) {
+    return res.status(400).json({ error: 'Nothing to update' });
   }
   const idx = businesses.findIndex(b => b.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  businesses[idx].subscriptionStatus = subscriptionStatus;
+  if (subscriptionStatus !== undefined) businesses[idx].subscriptionStatus = subscriptionStatus;
+  if (subscriptionPlan !== undefined) businesses[idx].subscriptionPlan = subscriptionPlan;
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
-  res.json({ success: true, id, subscriptionStatus });
+  res.json({ success: true, id, subscriptionStatus: businesses[idx].subscriptionStatus, subscriptionPlan: businesses[idx].subscriptionPlan });
 });
 
 };

@@ -398,6 +398,7 @@ function renderBoard() {
 
 // ── Status Update ─────────────────────────────────────────────────────────────
 async function updateStatus(orderId, status) {
+  if (status === 'cancelled' && !confirm('Cancel this order? The customer will be notified.')) return;
   // Optimistic UI — update immediately
   const idx = orders.findIndex(o => String(o.id || o.order_id || '') === String(orderId));
   if (idx >= 0) { orders[idx].status = status; orders[idx].order_status = status; }
