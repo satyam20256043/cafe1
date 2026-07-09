@@ -17,16 +17,16 @@ module.exports = function register(ctx) {
 
 // ── Chat message log ─────────────────────────────────────────────────────────
 try {
-  db.exec(`CREATE TABLE IF NOT EXISTS chat_messages (
+  db.raw().exec(`CREATE TABLE IF NOT EXISTS chat_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     business_id TEXT NOT NULL, phone TEXT NOT NULL,
     customer_name TEXT, direction TEXT NOT NULL,
     message TEXT NOT NULL, channel TEXT DEFAULT 'whatsapp',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   ); CREATE INDEX IF NOT EXISTS idx_chat_biz ON chat_messages(business_id,phone,created_at)`);
-} catch(e) {}
+} catch(e) { console.error('[chat_messages] table init failed:', e.message); }
 function saveMsg(b,p,n,d,m,c){
-  try{db.prepare('INSERT INTO chat_messages(business_id,phone,customer_name,direction,message,channel)VALUES(?,?,?,?,?,?)').run(b,p||'',n||null,d,m||'',c||'whatsapp');}catch(e){}
+  try{db.raw().prepare('INSERT INTO chat_messages(business_id,phone,customer_name,direction,message,channel)VALUES(?,?,?,?,?,?)').run(b,p||'',n||null,d,m||'',c||'whatsapp');}catch(e){ console.error('[chat_messages] insert failed:', e.message); }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -895,10 +895,10 @@ app.get('/api/businesses/:id/chat-history', requireAuth, requireBranchAccess, (r
   const { id } = req.params;
   const { phone, limit=200 } = req.query;
   if (phone) {
-    const msgs = db.prepare('SELECT * FROM chat_messages WHERE business_id=? AND phone=? ORDER BY created_at ASC LIMIT ?').all(id, phone, +limit);
+    const msgs = db.raw().prepare('SELECT * FROM chat_messages WHERE business_id=? AND phone=? ORDER BY created_at ASC LIMIT ?').all(id, phone, +limit);
     return res.json(msgs);
   }
-  const convos = db.prepare(`
+  const convos = db.raw().prepare(`
     SELECT m.phone, m.customer_name, m.message as last_message, m.direction as last_direction, m.channel, m.created_at,
            (SELECT COUNT(*) FROM chat_messages c WHERE c.business_id=m.business_id AND c.phone=m.phone) as message_count
     FROM chat_messages m
