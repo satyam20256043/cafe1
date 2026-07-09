@@ -111,6 +111,64 @@ app.post('/api/businesses/:id/whatsapp/setup', requireAuth, requireBranchAccess,
   res.json({ success: true, verifyToken });
 });
 
+// ── First-run setup checklist (UI2) ───────────────────────────────────────────
+function loadSetupFlags(id) {
+  const file = path.join(DATA_DIR, id, 'setup.json');
+  try {
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf-8'));
+  } catch(e) {}
+  return { menuDone: false, qrDone: false, dismissed: false };
+}
+function saveSetupFlags(id, flags) {
+  const dir = path.join(DATA_DIR, id);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'setup.json'), JSON.stringify(flags, null, 2));
+}
+// Exposed so other route modules (menu save) can mark a step done without
+// duplicating the read/merge/write logic.
+ctx.markSetupStepDone = function(id, key) {
+  try {
+    const flags = loadSetupFlags(id);
+    if (!flags[key]) { flags[key] = true; saveSetupFlags(id, flags); }
+  } catch(e) { console.error('[setup] markSetupStepDone failed:', e.message); }
+};
+
+app.get('/api/businesses/:id/setup-status', requireAuth, requireBranchAccess, (req, res) => {
+  const { id } = req.params;
+  const flags = loadSetupFlags(id);
+  const waConfigured = fs.existsSync(path.join(DATA_DIR, id, 'whatsapp_config.json'));
+  let whatsappConnected = false;
+  if (waConfigured) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(path.join(DATA_DIR, id, 'whatsapp_config.json'), 'utf-8'));
+      whatsappConnected = !!(cfg.phoneNumberId && cfg.accessToken);
+    } catch(e) {}
+  }
+  let hasFirstOrder = false;
+  if (db) {
+    try { hasFirstOrder = db.raw().prepare('SELECT COUNT(*) c FROM orders WHERE business_id=?').get(id).c > 0; }
+    catch(e) {}
+  }
+  res.json({
+    menuDone: !!flags.menuDone,
+    qrDone: !!flags.qrDone,
+    dismissed: !!flags.dismissed,
+    whatsappConnected,
+    hasFirstOrder,
+  });
+});
+
+app.post('/api/businesses/:id/setup-status', requireAuth, requireBranchAccess, (req, res) => {
+  const { id } = req.params;
+  const flags = loadSetupFlags(id);
+  const { menuDone, qrDone, dismissed } = req.body;
+  if (menuDone !== undefined) flags.menuDone = !!menuDone;
+  if (qrDone !== undefined) flags.qrDone = !!qrDone;
+  if (dismissed !== undefined) flags.dismissed = !!dismissed;
+  saveSetupFlags(id, flags);
+  res.json({ success: true, ...flags });
+});
+
 // ── Accounting / Expenses ─────────────────────────────────────────────────────
 app.get('/api/businesses/:id/accounting/expenses', requireAuth, (req, res) => {
   const { id } = req.params;

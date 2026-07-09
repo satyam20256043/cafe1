@@ -7,6 +7,7 @@
 <title>Branch Manager — Zordic California</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/zordic-ui.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -395,6 +396,15 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
     <div id="tab-overview">
       <div class="section-heading" id="overview-heading">Branch Dashboard</div>
       <div class="section-sub" id="overview-sub">Loading branch details…</div>
+
+      <div class="panel" id="setup-checklist-card" style="display:none;margin-bottom:20px;border-color:var(--z-gold,#C9A84C)">
+        <div class="panel-head">
+          <div><div class="panel-title">🚀 Get Set Up</div><div class="panel-sub">A few quick steps to get your café fully live</div></div>
+          <button class="btn sm" onclick="dismissSetupChecklist()">Dismiss</button>
+        </div>
+        <div class="panel-body" id="setup-checklist-body" style="display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+
       <div class="kpi-row">
         <div class="kpi-card green"><div class="kpi-label">Reservations</div><div class="kpi-value" id="kpi-res">—</div><div class="kpi-sub" id="kpi-res-sub">—</div></div>
         <div class="kpi-card amber"><div class="kpi-label">CRM Customers</div><div class="kpi-value" id="kpi-cust">—</div><div class="kpi-sub" id="kpi-cust-sub">—</div></div>
@@ -1410,11 +1420,60 @@ async function loadBranch(){
     `;
     await loadOverviewKPIs();
     loadTrafficChart();
+    loadSetupChecklist();
 
   } catch(e) {
     console.error('[loadBranch]', e);
     if(typeof toast==='function') toast('loadBranch failed — check console','error');
   }
+}
+
+// ── First-run setup checklist (UI2) ──────────────────────────────────────────
+async function loadSetupChecklist(){
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/setup-status`);
+    if (!r.ok) return;
+    const s = await r.json();
+    if (s.dismissed) return;
+
+    const steps = [
+      { key:'menuDone',    done: s.menuDone,          label:'Add your menu items',        action:`showTab('menu',document.querySelector('.nav-item[onclick*=menu]'))`,  cta:'Go to Menu' },
+      { key:'qrDone',      done: s.qrDone,             label:'Print your table QR codes',  action:"markQrDoneAndGo()",  cta:'Go to QR Codes' },
+      { key:'whatsapp',    done: s.whatsappConnected,  label:'Connect WhatsApp',            action:`showTab('settings',document.querySelector('.nav-item[onclick*=settings]'))`, cta:'Go to Settings' },
+      { key:'firstOrder',  done: s.hasFirstOrder,      label:'Place a test order',          action:`window.open('/order/${branchId}?table=test','_blank')`, cta:'Open Order Page' },
+    ];
+    if (steps.every(st => st.done)) return; // all done — card stays hidden
+
+    document.getElementById('setup-checklist-card').style.display = 'block';
+    document.getElementById('setup-checklist-body').innerHTML = steps.map(st => `
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 0;${steps.indexOf(st)<steps.length-1?'border-bottom:1px solid var(--z-border,#eee)':''}">
+        <span style="font-size:16px">${st.done ? '✅' : '⭕'}</span>
+        <span style="flex:1;font-size:13.5px;${st.done?'color:#999;text-decoration:line-through':''}">${st.label}</span>
+        ${st.done ? '' : `<button class="btn sm" onclick="${st.action}">${st.cta}</button>`}
+      </div>
+    `).join('');
+  } catch(e) { console.error('[loadSetupChecklist]', e); }
+}
+
+async function dismissSetupChecklist(){
+  document.getElementById('setup-checklist-card').style.display = 'none';
+  try {
+    await fetch(`/api/businesses/${branchId}/setup-status`, {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},
+      body: JSON.stringify({ dismissed: true })
+    });
+  } catch(e) {}
+}
+
+async function markQrDoneAndGo(){
+  try {
+    await fetch(`/api/businesses/${branchId}/setup-status`, {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+getToken()},
+      body: JSON.stringify({ qrDone: true })
+    });
+  } catch(e) {}
+  showTab('qrcodes', document.querySelector('.nav-item[onclick*="qrcodes"]'));
+  loadSetupChecklist();
 }
 
 async function loadOverviewKPIs(){

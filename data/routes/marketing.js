@@ -138,6 +138,7 @@ app.post('/api/businesses/:id/menu', requireAuth, requireBranchAccess, (req, res
   const { id } = req.params;
   const menuData = req.body; // Expect array of items
   writeBranchData(id, 'menu.json', menuData);
+  if (Array.isArray(menuData) && menuData.length && ctx.markSetupStepDone) ctx.markSetupStepDone(id, 'menuDone');
   res.json({ success: true, menu: menuData });
 });
 

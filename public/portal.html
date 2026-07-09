@@ -413,6 +413,13 @@ async function renderSingleBranch(biz) {
     if (stats) { orders = stats.todayOrders || 0; revenue = stats.todayRevenue || 0; }
   } catch(e) {}
   document.getElementById('dash-content').innerHTML = `
+    <div id="setup-checklist-card" style="display:none;margin-bottom:20px;padding:18px 20px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.25);border-radius:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-family:var(--font-d);font-size:16px;color:var(--ink)">🚀 Get Set Up</div>
+        <button onclick="dismissSetupChecklist('${biz.id}')" style="background:none;border:none;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline">Dismiss</button>
+      </div>
+      <div id="setup-checklist-body" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
     <div class="branch-hero">
       <div class="branch-hero-top">
         <div>
@@ -471,6 +478,44 @@ async function renderSingleBranch(biz) {
         <div class="qa-desc">${biz.subscriptionStatus==='trial'?'Trial · '+daysLeftText(biz)+' remaining':'Active plan'}</div>
       </a>
     </div>`;
+  loadSetupChecklistPortal(biz.id);
+}
+
+// ── First-run setup checklist (UI2) — mirrors manager.html's version ────────
+async function loadSetupChecklistPortal(bizId){
+  try {
+    const r = await fetch(`/api/businesses/${bizId}/setup-status`, {headers:{'Authorization':'Bearer '+authToken}});
+    if (!r.ok) return;
+    const s = await r.json();
+    if (s.dismissed) return;
+
+    const steps = [
+      { done: s.menuDone,          label:'Add your menu items',        url:`/manager/${bizId}` },
+      { done: s.qrDone,             label:'Print your table QR codes',  url:`/manager/${bizId}` },
+      { done: s.whatsappConnected,  label:'Connect WhatsApp',            url:`/manager/${bizId}` },
+      { done: s.hasFirstOrder,      label:'Place a test order',          url:`/order/${bizId}?table=test` },
+    ];
+    if (steps.every(st => st.done)) return;
+
+    document.getElementById('setup-checklist-card').style.display = 'block';
+    document.getElementById('setup-checklist-body').innerHTML = steps.map(st => `
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:15px">${st.done ? '✅' : '⭕'}</span>
+        <span style="flex:1;font-size:13px;${st.done?'color:var(--ink-3);text-decoration:line-through':''}">${st.label}</span>
+        ${st.done ? '' : `<a href="${st.url}" target="_blank" style="font-size:12px;color:var(--gold-d,#a07830);text-decoration:underline">Go →</a>`}
+      </div>
+    `).join('');
+  } catch(e) {}
+}
+
+async function dismissSetupChecklist(bizId){
+  document.getElementById('setup-checklist-card').style.display = 'none';
+  try {
+    await fetch(`/api/businesses/${bizId}/setup-status`, {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},
+      body: JSON.stringify({ dismissed: true })
+    });
+  } catch(e) {}
 }
 
 async function renderFranchiseHub(branches, primaryBiz) {
