@@ -12,10 +12,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {
-  --cream: #faf6f1; --ink: #1a1612; --espresso: #2c1a0e; --coffee: #6b3a1f;
-  --caramel: #c47f3a; --foam: #f0e6d3; --sage: #7a9e7e; --sage-light: #e8f2e9;
-  --rose: #c4616a; --rose-light: #faeaeb; --sky: #4a90c4; --sky-light: #e8f4fb;
-  --border: rgba(44,26,14,0.1); --border-strong: rgba(44,26,14,0.18);
+  /* Remapped onto shared zordic-ui.css tokens (UI5) — local names kept so
+     every var(--x) reference below the fold keeps working unchanged. */
+  --cream: var(--z-bg); --ink: var(--z-ink); --espresso: var(--z-espresso); --coffee: var(--z-gold-dark);
+  --caramel: var(--z-gold); --foam: var(--z-cream); --sage: var(--z-success); --sage-light: var(--z-success-bg);
+  --rose: var(--z-danger); --rose-light: var(--z-danger-bg); --sky: var(--z-info); --sky-light: var(--z-info-bg);
+  --border: var(--z-border); --border-strong: rgba(44,26,14,0.18);
   --font-display: 'DM Serif Display', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
 }

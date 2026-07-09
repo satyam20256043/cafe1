@@ -7,12 +7,17 @@
 <title>Kitchen Display — Zordic California</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/zordic-ui.css"/>
 <script src="/socket.io/socket.io.js"></script>
 <style>
 :root{
-  --cream:#faf6f1;--ink:#1a1612;--espresso:#2c1a0e;
-  --caramel:#c47f3a;--foam:#f0e6d3;--sage:#7a9e7e;--rose:#c4616a;
-  --sky:#4a90c4;--border:rgba(44,26,14,0.1);
+  /* Remapped onto shared zordic-ui.css tokens (UI5) — local names kept so
+     every var(--x) reference below the fold keeps working unchanged. The
+     page body itself stays dark by design (kitchen display screen) — only
+     the accent/status colors below move onto the shared palette. */
+  --cream:var(--z-bg);--ink:var(--z-ink);--espresso:var(--z-espresso);
+  --caramel:var(--z-gold);--foam:var(--z-cream);--sage:var(--z-success);--rose:var(--z-danger);
+  --sky:var(--z-info);--border:var(--z-border);
   --font-display:'DM Serif Display',Georgia,serif;
   --font-body:'DM Sans',system-ui,sans-serif;
 }
