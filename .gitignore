@@ -17,6 +17,7 @@ cafe_hq.db-shm
 cafe_hq.db-wal
 data/backups/
 data/_pre-launch-db-fix-backup/
+data/_archive_demo_data_*/
 data/*.txt
 data/server_log.txt
 data/activity_log.json
