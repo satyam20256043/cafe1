@@ -1022,7 +1022,7 @@
       document.getElementById('footer-admin-link').href = '/manager/' + b.id;
       document.getElementById('footer-admin').href = '/manager/' + b.id;
 
-      const waUrl = 'https://wa.me/' + b.contact.replace(/\+/g,'').replace(/ /g,'') + '?text=' + encodeURIComponent('Hello, I want to book a table at ' + b.name);
+      const waUrl = 'https://wa.me/' + (b.contact || '').replace(/\+/g,'').replace(/ /g,'') + '?text=' + encodeURIComponent('Hello, I want to book a table at ' + b.name);
       document.getElementById('wa-float').href = waUrl;
       document.getElementById('cafe-wa-btn').href = waUrl;
       document.getElementById('footer-wa').href = waUrl;
