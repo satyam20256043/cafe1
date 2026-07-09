@@ -4,6 +4,10 @@ Execute work packages **UI0 → UI7 in order, committing after each one**. This 
 self-contained: read §0–§2 fully before touching any file. When a step says ASK THE USER,
 use AskUserQuestion and do not proceed on that item without an answer.
 
+**Status: UI0–UI7 all complete** (commits `76612f3`…`50251a6` on `master`, not yet deployed
+to production as of this note). See the end of §9 for the deploy command and what's still
+outstanding (VAPID keys + real Razorpay keys on the server, if push/online-payment are wanted).
+
 ---
 
 ## 0. Context — read first
