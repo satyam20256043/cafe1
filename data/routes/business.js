@@ -210,7 +210,7 @@ app.post('/api/onboard', async (req, res) => {
 
     if (db) {
       // SQLite path
-      const staff = db.createStaff({ businessId: id, name: ownerName, username, passwordHash, role: 'manager' });
+      const staff = db.createStaff({ businessId: id, name: ownerName, username, passwordHash, role: 'manager', phone: newBiz.ownerPhone });
       staffCreds = { username, tempPassword, staffId: staff ? staff.id : null };
     } else {
       // JSON fallback — write to staff.json

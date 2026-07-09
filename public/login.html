@@ -343,8 +343,33 @@
       </button>
     </form>
 
-    <div class="card-footer">
-      <p>Forgot your password? Contact your branch manager.</p>
+    <div id="forgot-section" style="display:none">
+      <div class="divider"><span class="divider-text">Reset Password</span></div>
+      <div id="forgot-step-1">
+        <div class="form-group">
+          <label for="fp-username">Username</label>
+          <input type="text" id="fp-username" placeholder="Your username" autocomplete="username" />
+        </div>
+        <button type="button" class="btn-login" id="fp-send-btn" onclick="sendForgotOtp()">Send Code via WhatsApp</button>
+      </div>
+      <div id="forgot-step-2" style="display:none">
+        <div class="form-group">
+          <label for="fp-otp">Code (sent via WhatsApp)</label>
+          <input type="text" id="fp-otp" placeholder="6-digit code" inputmode="numeric" />
+        </div>
+        <div class="form-group">
+          <label for="fp-new-password">New Password</label>
+          <input type="password" id="fp-new-password" placeholder="At least 6 characters" autocomplete="new-password" />
+        </div>
+        <button type="button" class="btn-login" id="fp-reset-btn" onclick="submitForgotReset()">Reset Password</button>
+      </div>
+      <p style="margin-top:14px;text-align:center">
+        <a href="#" onclick="toggleForgotForm(false);return false;" style="font-size:12px;color:rgba(201,168,76,0.6)">← Back to sign in</a>
+      </p>
+    </div>
+
+    <div class="card-footer" id="login-footer">
+      <p><a href="#" onclick="toggleForgotForm(true);return false;">Forgot your password?</a></p>
       <p style="margin-top:8px">
         <a href="/cafe/indiranagar" target="_blank">Customer Portal</a>
         &nbsp;·&nbsp;
@@ -374,6 +399,69 @@ function showSuccess(msg) {
 function clearAlerts() {
   document.getElementById('alert-error').classList.remove('show');
   document.getElementById('alert-success').classList.remove('show');
+}
+
+// ── Forgot password (WhatsApp OTP) ────────────────────────────────────────────
+function toggleForgotForm(show) {
+  clearAlerts();
+  document.getElementById('login-form').style.display = show ? 'none' : '';
+  document.getElementById('login-footer').style.display = show ? 'none' : '';
+  document.getElementById('forgot-section').style.display = show ? 'block' : 'none';
+  document.getElementById('forgot-step-1').style.display = 'block';
+  document.getElementById('forgot-step-2').style.display = 'none';
+  if (show) document.getElementById('fp-username').value = document.getElementById('username').value;
+}
+
+async function sendForgotOtp() {
+  clearAlerts();
+  const businessId = document.getElementById('branch-select').value;
+  const username = document.getElementById('fp-username').value.trim();
+  if (!businessId) { showError('Please select your branch first.'); toggleForgotForm(false); return; }
+  if (!username)   { showError('Please enter your username.'); return; }
+
+  const btn = document.getElementById('fp-send-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const res = await fetch('/api/auth/forgot-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, username })
+    });
+    const data = await res.json();
+    if (!res.ok) { showError(data.error || 'Failed to send code.'); return; }
+    showSuccess('Code sent via WhatsApp — check your phone.');
+    document.getElementById('forgot-step-1').style.display = 'none';
+    document.getElementById('forgot-step-2').style.display = 'block';
+  } catch(e) {
+    showError('Network error. Please check your connection.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send Code via WhatsApp';
+  }
+}
+
+async function submitForgotReset() {
+  clearAlerts();
+  const businessId = document.getElementById('branch-select').value;
+  const username = document.getElementById('fp-username').value.trim();
+  const otp = document.getElementById('fp-otp').value.trim();
+  const newPassword = document.getElementById('fp-new-password').value;
+  if (!otp || !newPassword) { showError('Please enter the code and a new password.'); return; }
+
+  const btn = document.getElementById('fp-reset-btn');
+  btn.disabled = true; btn.textContent = 'Resetting…';
+  try {
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, username, otp, newPassword })
+    });
+    const data = await res.json();
+    if (!res.ok) { showError(data.error || 'Failed to reset password.'); return; }
+    showSuccess('Password reset! Sign in with your new password.');
+    setTimeout(() => toggleForgotForm(false), 1500);
+  } catch(e) {
+    showError('Network error. Please check your connection.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Reset Password';
+  }
 }
 
 // ── Load branches ─────────────────────────────────────────────────────────────

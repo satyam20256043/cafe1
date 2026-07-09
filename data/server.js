@@ -1654,6 +1654,74 @@ async function sendWhatsAppToCustomer(branchId, phone, text) {
   }
 }
 
+// ── Forgot password via WhatsApp OTP ─────────────────────────────────────────
+// Only works once a café has connected its own WhatsApp (Settings tab) — there
+// is no agency-wide sender number configured, so this can't fall back to one.
+const _otpRequestLog = new Map(); // staffId -> [timestamps] — basic abuse guard
+function otpRateLimited(staffId) {
+  const now = Date.now();
+  const WINDOW = 15 * 60 * 1000;
+  const hits = (_otpRequestLog.get(staffId) || []).filter(t => now - t < WINDOW);
+  hits.push(now);
+  _otpRequestLog.set(staffId, hits);
+  return hits.length > 3;
+}
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { businessId, username } = req.body;
+  if (!businessId || !username) {
+    return res.status(400).json({ error: 'businessId and username required' });
+  }
+  if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
+
+  const staff = db.getStaffByUsername(businessId, username);
+  if (!staff) return res.status(404).json({ error: 'No account found for that username on this branch' });
+  if (!staff.phone) {
+    return res.status(400).json({ error: 'No phone number on file for this account — ask your café admin to reset your password instead.' });
+  }
+  const cfg = getWaConfig(businessId);
+  if (!cfg?.phoneNumberId || !cfg?.accessToken) {
+    return res.status(400).json({ error: 'This café has not connected WhatsApp yet, so OTP reset isn\'t available. Ask your café admin to reset your password instead.' });
+  }
+  if (otpRateLimited(staff.id)) {
+    return res.status(429).json({ error: 'Too many reset attempts. Try again in a few minutes.' });
+  }
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 10 * 60000).toISOString().slice(0, 19).replace('T', ' ');
+  db.createPasswordResetOtp(staff.id, code, expiresAt);
+
+  const sent = await sendWhatsAppToCustomer(businessId, staff.phone,
+    `🔐 Your Zordic California password reset code is: *${code}*\n\nThis code expires in 10 minutes. If you didn't request this, you can ignore this message.`);
+  if (!sent) return res.status(500).json({ error: 'Failed to send the WhatsApp message. Try again shortly.' });
+
+  res.json({ success: true, message: 'Code sent via WhatsApp' });
+});
+
+app.post('/api/auth/reset-password', (req, res) => {
+  const { businessId, username, otp, newPassword } = req.body;
+  if (!businessId || !username || !otp || !newPassword) {
+    return res.status(400).json({ error: 'All fields are required' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  }
+  if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
+
+  const staff = db.getStaffByUsername(businessId, username);
+  if (!staff) return res.status(401).json({ error: 'Invalid request' });
+
+  const validOtp = db.getValidPasswordResetOtp(staff.id, otp);
+  if (!validOtp) return res.status(400).json({ error: 'Invalid or expired code' });
+
+  const bcrypt = require('bcryptjs');
+  db.updateStaffPassword(staff.id, bcrypt.hashSync(newPassword, 10));
+  db.consumePasswordResetOtp(validOtp.id);
+  db.audit(businessId, staff.id, staff.name, 'password_reset_otp', 'Password reset via WhatsApp OTP', req.ip);
+
+  res.json({ success: true });
+});
+
 // De-dupe inbound message ids (Meta can redeliver on a slow/failed 200).
 // Bounded so this can't leak memory over a long-running process.
 const processedWaMessageIds = new Set();

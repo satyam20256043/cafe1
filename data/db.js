@@ -224,6 +224,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_loyalty_biz   ON loyalty_points(business_id);
   CREATE INDEX IF NOT EXISTS idx_loyalty_phone ON loyalty_points(business_id, phone);
   CREATE INDEX IF NOT EXISTS idx_loyalty_bday  ON loyalty_points(birthday);
+
+  CREATE TABLE IF NOT EXISTS password_reset_otps (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    staff_id    TEXT NOT NULL,
+    code        TEXT NOT NULL,
+    expires_at  DATETIME NOT NULL,
+    used        INTEGER DEFAULT 0,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_otp_staff ON password_reset_otps(staff_id, code);
 `);
 
 // ── Safe column migrations (handles existing DBs missing columns) ─────────────
@@ -232,6 +242,7 @@ db.exec(`
     // Staff
     ['staff',  'active',              'INTEGER DEFAULT 1'],
     ['staff',  'created_at',          "DATETIME DEFAULT CURRENT_TIMESTAMP"],
+    ['staff',  'phone',               'TEXT'],
     // Orders
     ['orders', 'table_no',            'TEXT'],
     ['orders', 'order_type',          "TEXT DEFAULT 'dine_in'"],
@@ -467,21 +478,21 @@ function getAdminStaffByUsername(username) {
 function listStaff(businessId) {
   return db.prepare('SELECT * FROM staff WHERE business_id=? ORDER BY role, name').all(businessId);
 }
-function createStaff({ businessId, name, username, passwordHash, role }) {
+function createStaff({ businessId, name, username, passwordHash, role, phone }) {
   const textId = `staff_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
   let finalId;
   try {
     // Try TEXT primary key (Phase 1+ schema)
-    db.prepare(`INSERT INTO staff (id,business_id,name,username,password_hash,role,active,created_at)
-                VALUES (?,?,?,?,?,?,1,datetime('now'))`)
-      .run(textId, businessId, name, username, passwordHash, role);
+    db.prepare(`INSERT INTO staff (id,business_id,name,username,password_hash,role,phone,active,created_at)
+                VALUES (?,?,?,?,?,?,?,1,datetime('now'))`)
+      .run(textId, businessId, name, username, passwordHash, role, phone || null);
     finalId = textId;
   } catch(e) {
     if (e.message && (e.message.includes('datatype mismatch') || e.message.includes('UNIQUE'))) {
       // Old schema: INTEGER PK AUTOINCREMENT — don't specify id
-      db.prepare(`INSERT OR IGNORE INTO staff (business_id,name,username,password_hash,role,active)
-                  VALUES (?,?,?,?,?,1)`)
-        .run(businessId, name, username, passwordHash, role);
+      db.prepare(`INSERT OR IGNORE INTO staff (business_id,name,username,password_hash,role,phone,active)
+                  VALUES (?,?,?,?,?,?,1)`)
+        .run(businessId, name, username, passwordHash, role, phone || null);
       const row = db.prepare('SELECT id FROM staff WHERE business_id=? AND username=? LIMIT 1').get(businessId, username);
       finalId = row ? row.id : null;
     } else throw e;
@@ -501,10 +512,24 @@ function logBackup({ filename, path: bPath, sizeMb, status }) {
     .run(filename, bPath || '', sizeMb || 0, Math.round((sizeMb || 0) * 1024), status || 'success');
 }
 
+// ── Password reset OTPs (WhatsApp-delivered) ─────────────────────────────────
+function createPasswordResetOtp(staffId, code, expiresAt) {
+  db.prepare('INSERT INTO password_reset_otps (staff_id,code,expires_at) VALUES (?,?,?)').run(staffId, code, expiresAt);
+}
+function getValidPasswordResetOtp(staffId, code) {
+  return db.prepare(`SELECT * FROM password_reset_otps
+                      WHERE staff_id=? AND code=? AND used=0 AND expires_at > datetime('now')
+                      ORDER BY id DESC LIMIT 1`).get(staffId, code);
+}
+function consumePasswordResetOtp(id) {
+  db.prepare('UPDATE password_reset_otps SET used=1 WHERE id=?').run(id);
+}
+
 // Re-export with all helpers
 Object.assign(module.exports, {
   raw, getStaffByUsername, getAdminStaffByUsername, getStaffById, listStaff,
   createStaff, updateStaffPassword, setStaffActive, logBackup,
+  createPasswordResetOtp, getValidPasswordResetOtp, consumePasswordResetOtp,
   migrateFromJSON,
 });
 

@@ -156,7 +156,7 @@ function listStaffHandler(req, res) {
 }
 
 function createStaffHandler(req, res) {
-  const { name, username, password, role } = req.body;
+  const { name, username, password, role, phone } = req.body;
   const { businessId, id: creatorId, name: creatorName } = req.staff;
 
   if (!name || !username || !password) {
@@ -179,6 +179,7 @@ function createStaffHandler(req, res) {
     username,
     passwordHash: hashPassword(password),
     role: role || 'waiter',
+    phone: phone ? phone.replace(/\D/g,'').slice(-10) : null,
   });
 
   db.audit(businessId, creatorId, creatorName, 'staff_created',
