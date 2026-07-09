@@ -220,6 +220,7 @@
     </div>
     <div class="header-actions">
       <span id="header-cafe-name" style="font-size:13px;color:var(--ink-3)"></span>
+      <button class="logout-btn" onclick="openChangePasswordModal()">🔑 Change Password</button>
       <button class="logout-btn" onclick="doLogout()">Sign Out</button>
     </div>
   </div>
@@ -532,6 +533,48 @@ function doLogout() {
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('login-pass').value = '';
 }
+function openChangePasswordModal(){
+  let modal = document.getElementById('pw-modal-overlay');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'pw-modal-overlay';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div style="background:var(--white);border-radius:var(--r);padding:28px 24px;max-width:380px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,0.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-family:var(--font-d);font-size:20px;color:var(--ink)">Change Password</div>
+      <button onclick="document.getElementById('pw-modal-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-3)">✕</button>
+    </div>
+    <div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">Current Password</label><input type="password" id="pw-current" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px"></div>
+    <div style="margin-bottom:16px"><label style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">New Password</label><input type="password" id="pw-new" autocomplete="new-password" placeholder="At least 6 characters" style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border);border-radius:8px"></div>
+    <button class="logout-btn" style="width:100%;justify-content:center" onclick="submitChangePassword()">Change Password</button>
+    <div id="pw-modal-msg" style="font-size:12.5px;margin-top:10px;text-align:center"></div>
+  </div>`;
+}
+async function submitChangePassword(){
+  const msg = document.getElementById('pw-modal-msg');
+  const currentPassword = document.getElementById('pw-current').value;
+  const newPassword = document.getElementById('pw-new').value;
+  if (!currentPassword || !newPassword) { msg.textContent = '⚠️ Fill in both fields'; msg.style.color = '#c0392b'; return; }
+  try {
+    const r = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    const d = await r.json();
+    if (d.success) {
+      msg.style.color = '#2d7a2d'; msg.textContent = '✅ Changed! Closing…';
+      setTimeout(() => document.getElementById('pw-modal-overlay')?.remove(), 1200);
+    } else {
+      msg.style.color = '#c0392b'; msg.textContent = '❌ ' + (d.error || 'Failed');
+    }
+  } catch(e) {
+    msg.style.color = '#c0392b'; msg.textContent = '❌ Network error';
+  }
+}
+
 async function openBillingModal(bizId){let plans=[];try{const r=await fetch('/api/plans');const d=await r.json();plans=Array.isArray(d)?d:(d.plans||[]);}catch(e){}let modal=document.getElementById('billing-modal-overlay');if(!modal){modal=document.createElement('div');modal.id='billing-modal-overlay';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center';document.body.appendChild(modal);}modal.innerHTML=`<div style="background:var(--white);border-radius:var(--r);padding:28px 24px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,0.2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div style="font-family:var(--font-d);font-size:20px;color:var(--ink)">Upgrade Plan</div><button onclick="document.getElementById('billing-modal-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-3)">✕</button></div><div style="display:grid;gap:10px;margin-bottom:20px">${plans.map(p=>'<div style="padding:14px 16px;border:1.5px solid '+(p.badge?'var(--gold)':'var(--border)')+';border-radius:10px;cursor:pointer" onclick="doSubscriptionPay(\''+bizId+'\',\''+p.id+'\')"><div style="display:flex;align-items:center;justify-content:space-between"><div><strong>'+p.name+'</strong>'+(p.badge?' <span style="font-size:10px;background:#fff8e8;color:var(--gold-d);padding:2px 8px;border-radius:10px;font-weight:700">'+p.badge+'</span>':'')+'</div><div style="font-size:18px;font-weight:700;color:var(--gold-d)">₹'+p.price+'</div></div><div style="font-size:12px;color:var(--ink-3);margin-top:4px">'+p.duration_days+' days'+(p.features?' · '+p.features.join(', '):'')+' </div></div>').join('')||'<div style="color:var(--ink-3);text-align:center;padding:20px">No plans available</div>'}</div><div style="text-align:center;font-size:12px;color:var(--ink-3)">Secure payment via Razorpay</div></div>`;modal.style.display='flex';}
 async function doSubscriptionPay(bizId,planId){try{const r=await fetch('/api/businesses/'+bizId+'/billing/create-order',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({planId})});const d=await r.json();if(d.error){alert('Error: '+d.error);return;}const options={key:d.keyId,amount:d.amount,currency:d.currency,name:'CaféGrow',description:d.plan.name+' Plan',order_id:d.orderId,handler:async function(response){try{const v=await fetch('/api/businesses/'+bizId+'/billing/verify-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({...response,planId})}).then(r=>r.json());if(v.success){document.getElementById('billing-modal-overlay')?.remove();alert('✅ Subscription activated! Plan: '+v.plan);loadDashboard();}else{alert('Payment verification failed.');}}catch(e){alert('Verification error: '+e.message);}},prefill:{name:staffInfo?.name||'',email:''},theme:{color:'#c47f3a'}};const rzp=new window.Razorpay(options);rzp.on('payment.failed',e=>alert('Payment failed: '+e.error.description));document.getElementById('billing-modal-overlay')?.remove();rzp.open();}catch(e){alert('Error: '+e.message);}}
 // ─── Menu Editor ───────────────────────────────────────────────────────────

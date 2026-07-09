@@ -1105,6 +1105,15 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
               </div>
             </div>
           </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">My Account</div><div class="panel-sub">Change your own login password</div></div>
+            <div class="panel-body">
+              <div class="form-group"><label class="form-label">Current Password</label><input class="form-input" type="password" id="pw-current" autocomplete="current-password"/></div>
+              <div class="form-group"><label class="form-label">New Password</label><input class="form-input" type="password" id="pw-new" autocomplete="new-password" placeholder="At least 6 characters"/></div>
+              <button class="btn primary full" onclick="changeMyPassword()">Change Password</button>
+              <div id="pw-change-msg" style="font-size:12.5px;margin-top:8px"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1986,6 +1995,33 @@ async function saveSettings(){
   } catch(e) {
     console.error('[saveSettings]', e);
     if(typeof toast==='function') toast('saveSettings failed — check console','error');
+  }
+}
+
+async function changeMyPassword(){
+  const msg = document.getElementById('pw-change-msg');
+  const currentPassword = document.getElementById('pw-current').value;
+  const newPassword = document.getElementById('pw-new').value;
+  if (!currentPassword || !newPassword) { msg.textContent = '⚠️ Fill in both fields'; msg.style.color = 'var(--rose,#c0392b)'; return; }
+  try {
+    const r = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+    const d = await r.json();
+    if (d.success) {
+      msg.textContent = '✅ Password changed successfully';
+      msg.style.color = 'var(--sage,#2d7a2d)';
+      document.getElementById('pw-current').value = '';
+      document.getElementById('pw-new').value = '';
+    } else {
+      msg.textContent = '❌ ' + (d.error || 'Failed to change password');
+      msg.style.color = 'var(--rose,#c0392b)';
+    }
+  } catch(e) {
+    msg.textContent = '❌ Network error';
+    msg.style.color = 'var(--rose,#c0392b)';
   }
 }
 
