@@ -178,7 +178,7 @@ footer a{color:var(--gold);text-decoration:none;}
         <div class="warn-box"><strong>⚠ Save your password now.</strong> This is the only time it will be shown. Change it from your manager dashboard after first login.</div>
         <div class="cred-box" id="creds-box"></div>
         <a href="#" id="go-cafe" class="btn-go" target="_blank">Open My Café Page →</a>
-        <a href="/hq" class="btn-go btn-go-sec" style="margin-top:10px;" target="_blank">Open Manager Dashboard</a>
+        <a href="#" id="go-manager" class="btn-go btn-go-sec" style="margin-top:10px;" target="_blank">Open Manager Dashboard</a>
       </div>
     </div>
 
@@ -276,6 +276,7 @@ function showSuccess(payload, data) {
   ).join('');
 
   document.getElementById('go-cafe').href = cafeUrl;
+  document.getElementById('go-manager').href = managerUrl;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 </script>
