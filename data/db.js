@@ -188,6 +188,21 @@ db.exec(`
     UNIQUE(business_id, code)
   );
   CREATE INDEX IF NOT EXISTS idx_coupons_biz_status ON coupons(business_id, status);
+
+  CREATE TABLE IF NOT EXISTS escalations (
+    id                TEXT PRIMARY KEY,
+    business_id       TEXT NOT NULL,
+    customer_phone    TEXT,
+    customer_name     TEXT,
+    category          TEXT NOT NULL,   -- complaint_refund|large_booking|payment_dispute|unanswerable
+    customer_message  TEXT,
+    ai_suggestion     TEXT,
+    status            TEXT DEFAULT 'pending',   -- pending|resolved
+    created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+    resolved_at       DATETIME,
+    resolved_by       TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_escalations_biz_status ON escalations(business_id, status);
 `);
 
 
@@ -1049,3 +1064,47 @@ function getAttributionReport(businessId, { from, to } = {}) {
 }
 
 Object.assign(module.exports, { issueCoupon, validateCoupon, redeemCoupon, getAttributionReport });
+
+// ── AI escalations ────────────────────────────────────────────────────────────
+const insertEscalationStmt = db.prepare(`
+  INSERT INTO escalations (id, business_id, customer_phone, customer_name, category,
+                            customer_message, ai_suggestion)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`);
+const listEscalationsStmt = db.prepare(`
+  SELECT * FROM escalations WHERE business_id = ? AND status = ? ORDER BY created_at DESC
+`);
+const listAllEscalationsStmt = db.prepare(`
+  SELECT * FROM escalations WHERE business_id = ? ORDER BY created_at DESC
+`);
+const resolveEscalationStmt = db.prepare(`
+  UPDATE escalations SET status = 'resolved', resolved_at = datetime('now'), resolved_by = ?
+  WHERE id = ? AND business_id = ? AND status = 'pending'
+`);
+
+function createEscalation({ businessId, customerPhone, customerName, category, customerMessage, aiSuggestion }) {
+  const id = `esc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  insertEscalationStmt.run(
+    id, businessId, customerPhone ? normalizePhone(customerPhone) : null,
+    customerName || null, category, customerMessage || null, aiSuggestion || null
+  );
+  logEvent(businessId, 'escalation.created', {
+    customerPhone, actor: 'ai',
+    metadata: { category, message: customerMessage },
+  });
+  return { id, businessId, category, customerPhone, customerName, customerMessage, aiSuggestion, status: 'pending' };
+}
+
+function listEscalations(businessId, status) {
+  return status ? listEscalationsStmt.all(businessId, status) : listAllEscalationsStmt.all(businessId);
+}
+
+// Returns { success, escalation? } — never throws; safe for a route handler.
+function resolveEscalation(businessId, id, staffId) {
+  const result = resolveEscalationStmt.run(staffId || 'staff', id, businessId);
+  if (result.changes === 0) return { success: false };
+  logEvent(businessId, 'escalation.resolved', { actor: staffId ? `staff:${staffId}` : 'staff', metadata: { escalationId: id } });
+  return { success: true };
+}
+
+Object.assign(module.exports, { createEscalation, listEscalations, resolveEscalation });

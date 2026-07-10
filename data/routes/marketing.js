@@ -752,6 +752,25 @@ app.post('/api/businesses/:id/offers/:offerId/reject', requireAuth, requireBranc
   res.json({ success: true, offers });
 });
 
+// ── AI escalations (G3) ───────────────────────────────────────────────────────
+// Customer messages the AI escalated instead of handling itself — complaints/
+// refunds, large group bookings, payment disputes, or questions it couldn't
+// answer confidently. Created by processCafeBotReply in server.js.
+app.get('/api/businesses/:id/escalations', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.json([]);
+  const { status } = req.query;
+  res.json(db.listEscalations(req.params.id, status));
+});
+
+app.post('/api/businesses/:id/escalations/:eid/resolve', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
+  const { id, eid } = req.params;
+  const result = db.resolveEscalation(id, eid, req.staff ? req.staff.id : null);
+  if (!result.success) return res.status(404).json({ error: 'Escalation not found or already resolved' });
+  emitToBranch(id, 'escalation_resolved', { branchId: id, id: eid });
+  res.json({ success: true });
+});
+
 
 
 // -------------------------------------------------------------

@@ -477,6 +477,13 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
       <div class="section-heading" id="overview-heading">Branch Dashboard</div>
       <div class="section-sub" id="overview-sub">Loading branch details…</div>
 
+      <div class="panel" id="escalations-card" style="display:none;margin-bottom:20px;border-color:var(--rose)">
+        <div class="panel-head">
+          <div><div class="panel-title">⚠️ Needs You</div><div class="panel-sub">Customer messages the AI couldn't handle on its own</div></div>
+        </div>
+        <div class="panel-body" id="escalations-body" style="display:flex;flex-direction:column;gap:12px"></div>
+      </div>
+
       <div class="panel" id="setup-checklist-card" style="display:none;margin-bottom:20px;border-color:var(--z-gold,#C9A84C)">
         <div class="panel-head">
           <div><div class="panel-title">🚀 Get Set Up</div><div class="panel-sub">A few quick steps to get your café fully live</div></div>
@@ -1590,11 +1597,57 @@ async function loadBranch(){
     await loadOverviewKPIs();
     loadTrafficChart();
     loadSetupChecklist();
+    loadEscalations();
 
   } catch(e) {
     console.error('[loadBranch]', e);
     if(typeof toast==='function') toast('loadBranch failed — check console','error');
   }
+}
+
+// ── AI escalations (G3) — customer messages the AI couldn't handle alone ────
+const ESCALATION_LABELS = {
+  complaint_refund: { emoji:'😟', text:'Complaint / Refund', color:'var(--rose)' },
+  large_booking:    { emoji:'👥', text:'Large Group Booking', color:'var(--sage)' },
+  payment_dispute:  { emoji:'💳', text:'Payment Dispute', color:'var(--sky)' },
+  unanswerable:     { emoji:'❓', text:"Couldn't Answer", color:'#999' },
+};
+async function loadEscalations(){
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/escalations?status=pending`, { headers: getAuthHeaders() });
+    if (!r.ok) return;
+    const rows = await r.json();
+    renderEscalations(rows);
+  } catch(e) { console.error('[loadEscalations]', e); }
+}
+function renderEscalations(rows){
+  const card = document.getElementById('escalations-card');
+  const body = document.getElementById('escalations-body');
+  if (!rows || !rows.length) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  body.innerHTML = rows.map(r => {
+    const lbl = ESCALATION_LABELS[r.category] || { emoji:'⚠️', text:r.category, color:'#999' };
+    const waLink = r.customer_phone ? `https://wa.me/91${esc(r.customer_phone)}` : '#';
+    return `
+    <div style="border:1px solid var(--z-border,#eee);border-radius:10px;padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${lbl.color}">${lbl.emoji} ${esc(lbl.text)}</span>
+        <span style="font-size:11.5px;color:#999">${esc(r.customer_name||'Customer')} · ${esc(r.customer_phone||'—')}</span>
+      </div>
+      <div style="font-size:13px;color:var(--ink,#333);margin-bottom:8px">"${esc(r.customer_message||'')}"</div>
+      <div style="font-size:12.5px;color:#666;background:var(--z-cream,#faf6f1);padding:8px 10px;border-radius:8px;margin-bottom:10px">💡 <strong>AI suggests:</strong> ${esc(r.ai_suggestion||'')}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm success" onclick="resolveEscalation('${r.id}')">✓ Mark Handled</button>
+        ${r.customer_phone ? `<a class="btn sm" href="${waLink}" target="_blank">💬 WhatsApp Customer</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function resolveEscalation(id){
+  try {
+    await fetch(`/api/businesses/${branchId}/escalations/${id}/resolve`, { method:'POST', headers: getAuthHeaders() });
+    loadEscalations();
+  } catch(e) { console.error('[resolveEscalation]', e); if(typeof toast==='function') toast('resolveEscalation failed — check console','error'); }
 }
 
 // ── First-run setup checklist (UI2) ──────────────────────────────────────────
@@ -2747,6 +2800,17 @@ socket.on('new_order', function(data) {
 socket.on('order_status_update', function(data) {
   if (data.businessId !== branchId) return;
   if (document.getElementById('tab-orders') && document.getElementById('tab-orders').style.display !== 'none') loadOrders();
+});
+
+socket.on('escalation_new', function(data) {
+  if (data.branchId !== branchId) return;
+  loadEscalations();
+  if (typeof showToast === 'function') showToast('⚠️ A customer message needs your attention');
+  showBrowserNotif('⚠️ Needs You', 'A customer message needs your attention', 'escalation_new');
+});
+socket.on('escalation_resolved', function(data) {
+  if (data.branchId !== branchId) return;
+  loadEscalations();
 });
 
 // ── LOYALTY TAB ──────────────────────────────────────────────────────────────

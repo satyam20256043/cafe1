@@ -525,13 +525,20 @@ Café Context:
 - Menu:\n${menuStr}
 - Standard offers: Students 10% off with ID 🎓 | Loyalty: earn 1 point per ₹1 spent ☕
 
-CRITICAL WORKFLOW RULES:
-1. Table booking → output exactly: INTENT:RESERVATION
-2. Custom/special discount request → output exactly: INTENT:OFFER_REQUEST [details]
-3. Feedback/review/rating → output exactly: INTENT:FEEDBACK
-4. Customer asks "what are my points", "how many stamps", "mera balance", "my rewards", "loyalty card" → output exactly: INTENT:LOYALTY_QUERY
-5. Customer wants to redeem stamps/points ("redeem", "free item", "use points") → output exactly: INTENT:LOYALTY_REDEEM
-6. Keep replies concise (max 3 sentences) and conversational.
+CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
+1. If the question is NOT about this café's menu, prices, timings, location, WiFi,
+   reviews, loyalty points, or booking a table — for example: job applications/hiring,
+   catering or events outside this café, franchise/business enquiries, questions about
+   a completely different topic, or anything else you don't have real information about
+   above — you MUST NOT answer it yourself and MUST NOT apologize or deflect in your own
+   words. Instead your ENTIRE response must be exactly this and nothing else:
+   INTENT:ESCALATE|unanswerable|<one short sentence summarising their question>
+2. Table booking → output exactly: INTENT:RESERVATION
+3. Custom/special discount request → output exactly: INTENT:OFFER_REQUEST [details]
+4. Feedback/review/rating → output exactly: INTENT:FEEDBACK
+5. Customer asks "what are my points", "how many stamps", "mera balance", "my rewards", "loyalty card" → output exactly: INTENT:LOYALTY_QUERY
+6. Customer wants to redeem stamps/points ("redeem", "free item", "use points") → output exactly: INTENT:LOYALTY_REDEEM
+7. Otherwise, keep replies concise (max 3 sentences) and conversational.
 
 Customer query: "${text}"
 Your Response:`;
@@ -635,6 +642,101 @@ function generateLocalConversationalReply(branchId, text, lang, fromPhone) {
   }
 }
 
+// ── AI escalation engine ──────────────────────────────────────────────────────
+// Deterministic-first: keyword nets + a guest-count threshold decide what
+// counts as an escalation, so this all works even with Gemini disabled. Gemini
+// (when active) can additionally flag INTENT:ESCALATE for cases the keyword
+// nets miss, or for genuinely unanswerable questions (see generateGeminiReply).
+const LARGE_BOOKING_GUESTS = 8; // TODO: could become a per-café Settings value later
+
+const PAYMENT_DISPUTE_KEYWORDS = [
+  'wrong charge', 'double payment', 'charged twice', 'overcharged', 'over charged',
+  'money deducted', 'payment failed', 'transaction fail', 'paisa kat gaya',
+  'paise kat gaye', 'do baar charge', 'galat bill', 'bill galat', 'payment nahi hua',
+  'paise nahi mile', 'amount deduct'
+];
+const COMPLAINT_REFUND_KEYWORDS = [
+  'complaint', 'bad', 'worst', 'hair', 'dirty', 'rude', 'cold food', 'late', 'delay',
+  'unhygienic', 'spoiled', 'vomit', 'stomach', 'refund', 'ganda', 'kharab', 'cheated',
+  'disgusting', 'terrible', 'awful', 'paise wapas', 'shikayat', 'manager bulao', 'thag'
+];
+
+function detectEscalationCategory(lowercaseText) {
+  if (PAYMENT_DISPUTE_KEYWORDS.some(kw => lowercaseText.includes(kw))) return 'payment_dispute';
+  if (COMPLAINT_REFUND_KEYWORDS.some(kw => lowercaseText.includes(kw))) return 'complaint_refund';
+  return null;
+}
+
+// Deterministic, revenue/retention-framed suggestion shown to the owner —
+// Gemini never decides this, it's a plain template per category.
+function buildEscalationSuggestion(category, detail) {
+  switch (category) {
+    case 'complaint_refund':
+      return 'Offer an apology + a make-good (free dessert coupon on next visit). Why: winning back an unhappy regular is far cheaper than finding a new customer.';
+    case 'large_booking':
+      return `Confirm you can seat ${detail?.guests || 'the group'} at ${detail?.datetime || 'the requested time'}; consider a fixed menu for the group. Why: large groups raise the average ticket — worth prioritising.`;
+    case 'payment_dispute':
+      return 'Check the order and payment record before replying. Why: fast, factual responses on money issues protect your reviews.';
+    case 'unanswerable':
+      return `Customer asked: "${detail?.question || ''}". Add this to your café details in Settings so the AI can answer it next time.`;
+    default:
+      return 'Please follow up with this customer directly.';
+  }
+}
+
+function escalationHoldingReply(category, lang) {
+  const hinglishOrHindi = lang === 'hinglish' || lang === 'hindi';
+  switch (category) {
+    case 'complaint_refund':
+      return hinglishOrHindi
+        ? 'Bohot afsos hai aapko yeh experience hua. 🙏 Humne owner ko inform kar diya hai, woh jaldi hi aapse contact karenge.'
+        : "We're truly sorry you had this experience. 🙏 I've let the owner know, and they'll reach out to you shortly.";
+    case 'payment_dispute':
+      return hinglishOrHindi
+        ? 'Samajh gaya. Hamari team payment verify karke jald hi aapse contact karegi. 🙏'
+        : "Understood — our team will verify this and get back to you quickly. 🙏";
+    case 'large_booking':
+      return hinglishOrHindi
+        ? 'Itne bade group ke liye main team se confirm kar leta hoon — hum aapko turant message karenge! 😊'
+        : "Let me confirm that with the team for a group this size — we'll message you right back! 😊";
+    case 'unanswerable':
+    default:
+      return hinglishOrHindi
+        ? 'Yeh main café team se check karke aapko bataunga. 😊'
+        : "Let me check that with the café team and get back to you. 😊";
+  }
+}
+
+// Creates the escalation row, notifies the dashboard (socket) and the owner
+// (WhatsApp, if connected — degrades silently otherwise), and returns the
+// holding reply to send back to the customer.
+async function triggerEscalation(branchId, fromPhone, category, customerMessage, lang, detail) {
+  const business = businesses.find(b => b.id === branchId) || businesses[0];
+  const suggestion = buildEscalationSuggestion(category, detail);
+
+  let escalation = null;
+  if (db) {
+    escalation = db.createEscalation({
+      businessId: branchId, customerPhone: fromPhone, customerName: detail?.name || null,
+      category, customerMessage, aiSuggestion: suggestion,
+    });
+    emitToBranch(branchId, 'escalation_new', { branchId, escalation });
+  }
+
+  if (business?.ownerPhone) {
+    const categoryLabel = {
+      complaint_refund: '😟 Complaint / Refund Request',
+      large_booking: '👥 Large Group Booking',
+      payment_dispute: '💳 Payment Dispute',
+      unanswerable: '❓ Question The AI Couldn\'t Answer',
+    }[category] || 'Needs Your Attention';
+    const alertText = `${categoryLabel}\n\nCafé: ${business.name}\nCustomer: ${fromPhone}\nMessage: "${customerMessage}"\n\n💡 Suggestion: ${suggestion}\n\nOpen your dashboard: ${(process.env.BASE_URL || 'http://localhost:3010')}/manager/${branchId}`;
+    sendWhatsAppToCustomer(branchId, business.ownerPhone, alertText).catch(() => {});
+  }
+
+  return escalationHoldingReply(category, lang);
+}
+
 // AI response brain
 // Thin wrapper: logs inbound/outbound chat events around the real dispatcher
 // below, so every channel (webhook, chat simulator, /chat endpoint) gets
@@ -669,15 +771,14 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
   }
   const userState = userStates[branchId][fromPhone];
 
-  // 1. SERIOUS COMPLAINT DETECTOR (RULE 8)
-  const complaintKeywords = [
-    'complaint', 'bad', 'worst', 'hair', 'dirty', 'rude', 'cold food', 'late', 
-    'delay', 'unhygienic', 'spoiled', 'vomit', 'stomach', 'refund', 'ganda', 'kharab'
-  ];
-  const containsComplaint = complaintKeywords.some(kw => lowercaseText.includes(kw));
-  if (containsComplaint) {
+  // 1. COMPLAINT / PAYMENT-DISPUTE DETECTOR — deterministic, works with Gemini
+  // on or off. Escalates to the owner (WhatsApp + dashboard) instead of just
+  // saying "our team will contact you" into the void.
+  const deterministicCategory = detectEscalationCategory(lowercaseText);
+  if (deterministicCategory) {
     updateCustomerProfile(branchId, fromPhone, null, 'complained');
-    return 'Our team will contact you shortly 😊';
+    return await triggerEscalation(branchId, fromPhone, deterministicCategory, text, lang,
+      { name: userState.reservationData.name || null });
   }
 
   // 1.5 ACTIVE FEEDBACK FLOW STATE MACHINE
@@ -972,6 +1073,15 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
       emitToBranch(branchId, 'reservation_update', { branchId, reservations });
       updateCustomerProfile(branchId, fromPhone, data.name, 'made_booking');
 
+      // Large groups need the owner's OK before the AI promises a table —
+      // the reservation is still logged (status 'pending' either way), but
+      // the customer gets a holding reply instead of an outright confirmation.
+      if (data.guests >= LARGE_BOOKING_GUESTS) {
+        const bookingSummary = `${data.name} wants a table for ${data.guests} guests on ${data.datetime}`;
+        return await triggerEscalation(branchId, fromPhone, 'large_booking', bookingSummary, lang,
+          { name: data.name, guests: data.guests, datetime: data.datetime });
+      }
+
       if (lang === 'hinglish') {
         return `Aapki table successfully book ho gayi hai, ${data.name}! 🎉\n👥 Guests: ${data.guests}\n📅 Time: ${data.datetime}\n\nHum aapka wait karenge, see you soon! 😊☕`;
       } else if (lang === 'hindi') {
@@ -1019,6 +1129,13 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
   if (genAI) {
     const geminiReply = await generateGeminiReply(branchId, text, fromPhone);
     if (geminiReply) {
+      if (geminiReply.includes('INTENT:ESCALATE')) {
+        const parts = geminiReply.split('|');
+        const category = (parts[1] || 'unanswerable').trim();
+        const summary = (parts[2] || text).trim();
+        return await triggerEscalation(branchId, fromPhone, category, text, lang,
+          { name: userState.reservationData.name || null, question: summary });
+      }
       if (geminiReply.includes('INTENT:RESERVATION')) {
         userState.state = 'RESERVATION';
         userState.reservationData = { name: null, guests: null, datetime: null };
