@@ -453,10 +453,6 @@ async function generateGeminiReply(branchId, text, fromPhone) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const business = businesses.find(b => b.id === branchId) || businesses[0];
     const menu = getBranchData(branchId, 'menu.json');
-    const geminiBranchSettings = getBranchData(branchId, 'branch-settings.json');
-    const aiMaxDiscount = Array.isArray(geminiBranchSettings) ? 0
-      : Math.max(0, Math.min(100, Math.round(Number(geminiBranchSettings.aiMaxDiscount) || 0)));
-
     // ── Pull real loyalty data from SQLite ──────────────────────────────────
     let customerName = 'Valued Customer';
     let customerTier = 'New';
@@ -542,9 +538,7 @@ CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
    words. Instead your ENTIRE response must be exactly this and nothing else:
    INTENT:ESCALATE|unanswerable|<one short sentence summarising their question>
 2. Table booking → output exactly: INTENT:RESERVATION
-3. Custom/special discount request → ${aiMaxDiscount > 0
-     ? `you MAY grant a goodwill discount of up to ${aiMaxDiscount}% — but do NOT reply yourself; still output exactly: INTENT:OFFER_REQUEST [details] (the system issues the tracked coupon). If they demand MORE than ${aiMaxDiscount}%, also output exactly: INTENT:OFFER_REQUEST [details].`
-     : `output exactly: INTENT:OFFER_REQUEST [details]`}
+3. Custom/special discount request (customer asks for a deal, a coupon, or a lower price) → output exactly: INTENT:OFFER_REQUEST [details]
 4. Feedback/review/rating → output exactly: INTENT:FEEDBACK
 5. Customer asks "what are my points", "how many stamps", "mera balance", "my rewards", "loyalty card" → output exactly: INTENT:LOYALTY_QUERY
 6. Customer wants to redeem stamps/points ("redeem", "free item", "use points") → output exactly: INTENT:LOYALTY_REDEEM
@@ -848,31 +842,62 @@ async function runWeeklyGrowthSuggestions() {
   }
 }
 
+// Find the menu item a customer is referring to in free text (name, a significant
+// word of the name, or the category). Returns the item or null.
+function findMentionedMenuItem(menu, lowercaseText) {
+  if (!Array.isArray(menu)) return null;
+  for (const item of menu) {
+    const name = (item.name || '').toLowerCase();
+    if (name && lowercaseText.includes(name)) return item;
+    const words = name.split(/\s+/).filter(w => w.length > 3);
+    if (words.some(w => lowercaseText.includes(w))) return item;
+    const cat = (item.category || '').toLowerCase();
+    if (cat.length > 3 && lowercaseText.includes(cat)) return item;
+  }
+  return null;
+}
+
 // AI instant discount: when the owner has authorised the AI to give a discount on
-// its own (settings.aiMaxDiscount > 0), issue a tracked coupon for that ceiling and
-// return the warm customer reply. Returns null if not authorised (caller then falls
-// back to the escalate-to-manager flow). A ceiling of 0 preserves ask-first behaviour.
-function aiInstantDiscountReply(branchId, fromPhone, lang) {
-  // aiMaxDiscount lives in branch-settings.json (managed by PUT /businesses/:id/settings)
+// its own, issue a tracked coupon for the allowed ceiling and return the warm reply.
+// The ceiling is the per-item aiMaxDiscount when the customer is asking about a
+// specific item that has one set; otherwise the café-wide default (branch-settings
+// aiMaxDiscount). Returns null if neither is authorised (caller then escalates).
+function aiInstantDiscountReply(branchId, fromPhone, lang, text) {
   const branchSettings = getBranchData(branchId, 'branch-settings.json');
-  const aiMaxDiscount = Array.isArray(branchSettings) ? 0
+  const globalMax = Array.isArray(branchSettings) ? 0
     : Math.max(0, Math.min(100, Math.round(Number(branchSettings.aiMaxDiscount) || 0)));
-  if (aiMaxDiscount <= 0) return null;
+
+  const menu = getBranchData(branchId, 'menu.json');
+  const matchedItem = findMentionedMenuItem(menu, (text || '').toLowerCase());
+  const itemMax = matchedItem
+    ? Math.max(0, Math.min(100, Math.round(Number(matchedItem.aiMaxDiscount) || 0))) : 0;
+
+  // A per-item limit takes precedence for that item (even if the global is 0);
+  // otherwise fall back to the café-wide default.
+  const effectiveMax = itemMax > 0 ? itemMax : globalMax;
+  const scopeItem = itemMax > 0 ? matchedItem : null;
+  if (effectiveMax <= 0) return null;
+
   let couponCode = null;
   if (db) {
     try {
       const c = db.issueCoupon({ businessId: branchId, sourceType: 'ai_instant',
-        customerPhone: fromPhone, discountType: 'percent', discountValue: aiMaxDiscount, expiresInDays: 7 });
+        sourceId: scopeItem ? scopeItem.id : null,
+        customerPhone: fromPhone, discountType: 'percent', discountValue: effectiveMax, expiresInDays: 7 });
       couponCode = c.code;
     } catch (e) { console.error('[AI instant discount] coupon issue failed:', e.message); }
   }
   updateCustomerProfile(branchId, fromPhone, null, 'requested_offer');
+
+  const codeEn = couponCode ? ` Just show code *${couponCode}* at billing (valid 7 days).` : '';
+  const codeHi = couponCode ? ` Billing par code *${couponCode}* batayein (7 din valid).` : '';
+  const codeHin = couponCode ? ` बिलिंग पर कोड *${couponCode}* बताएं (7 दिन मान्य)।` : '';
   if (lang === 'hinglish') {
-    return `Great news! 😊 Main aapko *${aiMaxDiscount}% off* de sakta hoon aapke agle order par!${couponCode ? ` Billing par code *${couponCode}* batayein (7 din valid).` : ''} 🎉`;
+    return `Great news! 😊 Main aapko${scopeItem ? ` *${scopeItem.name}* par` : ''} *${effectiveMax}% off* de sakta hoon!${codeHi} 🎉`;
   } else if (lang === 'hindi') {
-    return `खुशखबरी! 😊 मैं आपको आपके अगले ऑर्डर पर *${aiMaxDiscount}% छूट* दे सकता हूँ!${couponCode ? ` बिलिंग पर कोड *${couponCode}* बताएं (7 दिन मान्य)।` : ''} 🎉`;
+    return `खुशखबरी! 😊 मैं आपको${scopeItem ? ` *${scopeItem.name}* पर` : ' आपके अगले ऑर्डर पर'} *${effectiveMax}% छूट* दे सकता हूँ!${codeHin} 🎉`;
   }
-  return `Good news! 😊 I can offer you *${aiMaxDiscount}% off* your next order!${couponCode ? ` Just show code *${couponCode}* at billing (valid 7 days).` : ''} 🎉`;
+  return `Good news! 😊 I can offer you *${effectiveMax}% off*${scopeItem ? ` on *${scopeItem.name}*` : ' your next order'}!${codeEn} 🎉`;
 }
 
 // AI response brain
@@ -1241,15 +1266,18 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
 
   // 3. DETECT CUSTOM OFFER / DISCOUNT REQUESTS (RULE-BASED OVERRIDE FOR LOCAL FLOWS)
   const customOfferKeywords = [
-    'special discount', 'give me discount', 'party discount', 'group discount', 
-    'extra discount', 'personal offer', 'discount kardo', 'discount milega', 
-    'discount de do', 'deal milegi', 'coupon code'
+    'special discount', 'give me discount', 'party discount', 'group discount',
+    'extra discount', 'personal offer', 'discount kardo', 'discount milega',
+    'discount de do', 'deal milegi', 'coupon code',
+    // item-directed / explicit requests so per-item and global AI limits can apply
+    'discount on', 'discount for', 'discount pe', 'discount par', 'discount do',
+    'give discount', 'discount chahiye', 'kitna discount', 'koi discount'
   ];
   const containsCustomOfferRequest = customOfferKeywords.some(kw => lowercaseText.includes(kw));
   if (containsCustomOfferRequest) {
     // If the owner authorised the AI to grant discounts on its own, do so directly
     // (tracked coupon, no manager approval). Otherwise fall through to escalation.
-    const instant = aiInstantDiscountReply(branchId, fromPhone, lang);
+    const instant = aiInstantDiscountReply(branchId, fromPhone, lang, text);
     if (instant) return instant;
     const offerRequests = getBranchData(branchId, 'offer_requests.json');
     const newRequest = {
@@ -1296,7 +1324,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
       }
       if (geminiReply.includes('INTENT:OFFER_REQUEST')) {
         // Owner-authorised AI discount grants directly; otherwise escalate for approval.
-        const instant = aiInstantDiscountReply(branchId, fromPhone, lang);
+        const instant = aiInstantDiscountReply(branchId, fromPhone, lang, text);
         if (instant) return instant;
         const details = geminiReply.split('INTENT:OFFER_REQUEST')[1] || text;
         const offerRequests = getBranchData(branchId, 'offer_requests.json');

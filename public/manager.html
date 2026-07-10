@@ -583,12 +583,13 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           </div>
         </div>
         <div class="panel-body">
-          <div style="display:grid;grid-template-columns:1fr 80px 80px 80px 32px;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px">
+          <div class="menu-head-row" style="display:grid;grid-template-columns:1fr 90px 70px 60px 64px 120px 36px auto;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px">
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Item Name</span>
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Category</span>
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Price ₹</span>
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Disc %</span>
-            <span></span>
+            <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600" title="Max % the AI may offer on this item when a customer asks for a deal (0 = use the café-wide limit below)">AI Max %</span>
+            <span></span><span></span><span></span>
           </div>
           <div id="menu-editor"></div>
         </div>
@@ -596,12 +597,12 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 
       <div class="panel" style="margin-top:14px;border-left:3px solid var(--caramel)">
         <div class="panel-head">
-          <div><div class="panel-title">🤝 AI Discount Limit</div>
-          <div class="panel-sub">The most the AI receptionist may offer on its own when a customer asks for a deal</div></div>
+          <div><div class="panel-title">🤝 AI Discount Limit — café-wide default</div>
+          <div class="panel-sub">Used when a customer asks for a deal without naming a specific item. Per-item limits (the "AI Max %" column above) override this for that item.</div></div>
         </div>
         <div class="panel-body">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <label for="ai-max-discount" style="font-size:13px;font-weight:600">Maximum discount AI can offer</label>
+            <label for="ai-max-discount" style="font-size:13px;font-weight:600">Default maximum discount AI can offer</label>
             <div style="display:flex;align-items:center;gap:6px">
               <input class="form-input" id="ai-max-discount" type="number" min="0" max="100" step="1" value="0" style="width:80px"/>
               <span style="font-weight:600">%</span>
@@ -2115,7 +2116,7 @@ function renderMenuEditor(){
   }
   el.innerHTML=menuData.map((item,i)=>{
     const avail = item.available !== false;
-    return `<div class="menu-item-row" style="grid-template-columns:1fr 90px 70px 60px 120px 36px auto;${!avail?'opacity:0.5':''}">
+    return `<div class="menu-item-row" style="grid-template-columns:1fr 90px 70px 60px 64px 120px 36px auto;${!avail?'opacity:0.5':''}">
       <div style="display:flex;flex-direction:column;gap:4px">
         <input class="form-input" value="${esc(item.name)}" onchange="menuData[${i}].name=this.value" placeholder="Item name" style="font-weight:600"/>
         <input class="form-input" value="${esc(item.description||'')}" onchange="menuData[${i}].description=this.value" placeholder="Description (shown to customer)" style="font-size:12px"/>
@@ -2126,7 +2127,8 @@ function renderMenuEditor(){
         <input class="form-input menu-cat-custom" style="display:none;font-size:12px" placeholder="New category" onchange="setCustomCategory(${i},this.value)"/>
       </div>
       <input class="form-input" type="number" value="${item.price}" onchange="menuData[${i}].price=+this.value" placeholder="₹"/>
-      <input class="form-input" type="number" value="${item.discount||0}" onchange="menuData[${i}].discount=+this.value" placeholder="%"/>
+      <input class="form-input" type="number" value="${item.discount||0}" onchange="menuData[${i}].discount=+this.value" placeholder="%" title="Standard discount shown to customers"/>
+      <input class="form-input" type="number" min="0" max="100" value="${item.aiMaxDiscount||0}" onchange="menuData[${i}].aiMaxDiscount=Math.max(0,Math.min(100,Math.round(+this.value||0)));this.value=menuData[${i}].aiMaxDiscount" placeholder="%" title="Max % the AI may offer on this item (0 = use café-wide limit)" style="border-color:var(--caramel)"/>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;white-space:nowrap">
         <input type="checkbox" ${avail?'checked':''} onchange="menuData[${i}].available=this.checked;renderMenuEditor()" style="width:15px;height:15px;accent-color:var(--sage)"/>
         ${avail?'<span style="color:var(--sage)">Available</span>':'<span style="color:var(--rose)">86\'d</span>'}
@@ -2137,7 +2139,7 @@ function renderMenuEditor(){
 }
 
 function addMenuItem(){
-  menuData.push({id:'m_'+Date.now(),name:'New Item',category:'Coffee',price:100,discount:0,description:'',image:'',available:true});
+  menuData.push({id:'m_'+Date.now(),name:'New Item',category:'Coffee',price:100,discount:0,aiMaxDiscount:0,description:'',image:'',available:true});
   renderMenuEditor();
 }
 
