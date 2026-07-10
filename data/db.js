@@ -203,6 +203,15 @@ db.exec(`
     resolved_by       TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_escalations_biz_status ON escalations(business_id, status);
+
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id TEXT NOT NULL, phone TEXT NOT NULL,
+    customer_name TEXT, direction TEXT NOT NULL,   -- in|out
+    message TEXT NOT NULL, channel TEXT DEFAULT 'whatsapp',  -- whatsapp|web|simulator
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_chat_biz ON chat_messages(business_id, phone, created_at);
 `);
 
 
@@ -1143,3 +1152,22 @@ function resolveEscalation(businessId, id, staffId) {
 }
 
 Object.assign(module.exports, { createEscalation, listEscalations, resolveEscalation });
+
+// ── Chat message log ──────────────────────────────────────────────────────────
+// Persisted for every AI conversation channel (WhatsApp webhook, web widget,
+// manager chat simulator) so the manager/owner can browse full history.
+const insertChatMessageStmt = db.prepare(`
+  INSERT INTO chat_messages (business_id, phone, customer_name, direction, message, channel)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+
+function saveChatMessage(businessId, phone, customerName, direction, message, channel) {
+  try {
+    insertChatMessageStmt.run(
+      businessId, phone ? normalizePhone(phone) : '',
+      customerName || null, direction, message || '', channel || 'whatsapp'
+    );
+  } catch (e) { console.error('[chat_messages] insert failed:', e.message); }
+}
+
+Object.assign(module.exports, { saveChatMessage });

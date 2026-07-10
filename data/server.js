@@ -839,13 +839,22 @@ async function runWeeklyGrowthSuggestions() {
 }
 
 // AI response brain
-// Thin wrapper: logs inbound/outbound chat events around the real dispatcher
-// below, so every channel (webhook, chat simulator, /chat endpoint) gets
-// logging for free without threading logEvent through every return branch.
-async function processCafeBotReply(branchId, fromPhone, incomingMessage) {
-  if (db) db.logEvent(branchId, 'chat.inbound', { customerPhone: fromPhone, actor: 'customer', metadata: { text: incomingMessage } });
+// Thin wrapper: logs inbound/outbound chat events AND persists both messages to
+// chat_messages around the real dispatcher below, so every channel (webhook,
+// chat simulator, /chat endpoint) gets logging + history for free without
+// threading it through every return branch.
+async function processCafeBotReply(branchId, fromPhone, incomingMessage, opts = {}) {
+  const channel = opts.channel || 'web';
+  const customerName = opts.customerName || null;
+  if (db) {
+    db.logEvent(branchId, 'chat.inbound', { customerPhone: fromPhone, actor: 'customer', metadata: { text: incomingMessage } });
+    db.saveChatMessage(branchId, fromPhone, customerName, 'in', incomingMessage, channel);
+  }
   const reply = await processCafeBotReplyInner(branchId, fromPhone, incomingMessage);
-  if (db) db.logEvent(branchId, 'chat.outbound', { customerPhone: fromPhone, actor: 'ai', metadata: { text: reply } });
+  if (db) {
+    db.logEvent(branchId, 'chat.outbound', { customerPhone: fromPhone, actor: 'ai', metadata: { text: reply } });
+    db.saveChatMessage(branchId, fromPhone, customerName, 'out', reply, channel);
+  }
   return reply;
 }
 
@@ -2004,10 +2013,11 @@ app.post('/api/webhook/whatsapp', (req, res) => {
 
             waApi.markAsRead(cfg.phoneNumberId, cfg.accessToken, message.id).catch(() => {});
 
-            // processCafeBotReply already logs chat.inbound/outbound (LP1) and
-            // runs the full reservation/feedback/loyalty state machine —
-            // identical behavior to the web chat widget and the simulator.
-            const reply = await processCafeBotReply(branchId, fromPhone, incomingText);
+            // processCafeBotReply already logs chat.inbound/outbound (LP1),
+            // persists both messages to chat_messages, and runs the full
+            // reservation/feedback/loyalty state machine — identical behavior
+            // to the web chat widget and the simulator.
+            const reply = await processCafeBotReply(branchId, fromPhone, incomingText, { channel: 'whatsapp' });
             await sendWhatsAppToCustomer(branchId, fromPhone, reply);
 
             emitToBranch(branchId, 'inbound_chat', {
@@ -2333,7 +2343,7 @@ io.on('connection', (socket) => {
     });
 
     // Run pricing reasoning / reservation engine on the server
-    const aiReply = await processCafeBotReply(branchId, phone, text);
+    const aiReply = await processCafeBotReply(branchId, phone, text, { channel: 'simulator', customerName });
 
     // Simulate thinking delay
     setTimeout(() => {

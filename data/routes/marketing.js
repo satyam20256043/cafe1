@@ -17,19 +17,9 @@ module.exports = function register(ctx) {
     sendWhatsAppToCustomer,
   } = ctx;
 
-// ── Chat message log ─────────────────────────────────────────────────────────
-try {
-  db.raw().exec(`CREATE TABLE IF NOT EXISTS chat_messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    business_id TEXT NOT NULL, phone TEXT NOT NULL,
-    customer_name TEXT, direction TEXT NOT NULL,
-    message TEXT NOT NULL, channel TEXT DEFAULT 'whatsapp',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  ); CREATE INDEX IF NOT EXISTS idx_chat_biz ON chat_messages(business_id,phone,created_at)`);
-} catch(e) { console.error('[chat_messages] table init failed:', e.message); }
-function saveMsg(b,p,n,d,m,c){
-  try{db.raw().prepare('INSERT INTO chat_messages(business_id,phone,customer_name,direction,message,channel)VALUES(?,?,?,?,?,?)').run(b,p||'',n||null,d,m||'',c||'whatsapp');}catch(e){ console.error('[chat_messages] insert failed:', e.message); }
-}
+// Chat persistence note: chat_messages table + saveChatMessage live in db.js;
+// processCafeBotReply (server.js wrapper) persists both directions for every
+// channel, so route code here never writes chat rows directly.
 
 // ════════════════════════════════════════════════════════════════════════════
 // Google Review Verification Routes
@@ -669,10 +659,8 @@ app.post('/api/businesses/:id/chat', async (req, res) => {
   if (customerName) {
     updateCustomerProfile(id, phone, customerName, 'chat_initiated');
   }
-  // Run pricing/reservation logic
-  const reply = await processCafeBotReply(id, phone, text);
-  saveMsg(id, phone, customerName||null, 'in', text, 'simulator');
-  saveMsg(id, phone, customerName||null, 'out', reply, 'simulator');
+  // Run pricing/reservation logic (persists both messages to chat_messages)
+  const reply = await processCafeBotReply(id, phone, text, { channel: 'web', customerName });
   res.json({ success: true, reply });
 });
 
@@ -964,16 +952,13 @@ function initializeWhatsAppClient() {
       sender: 'customer',
       timestamp: new Date().toLocaleTimeString()
     });
-    saveMsg(activeRealBotBusinessId, fromPhone, null, 'in', incomingText, 'whatsapp');
-
-    // Run response through AI NLP engine
-    const reply = await processCafeBotReply(activeRealBotBusinessId, fromPhone, incomingText);
+    // Run response through AI NLP engine (persists both messages to chat_messages)
+    const reply = await processCafeBotReply(activeRealBotBusinessId, fromPhone, incomingText, { channel: 'whatsapp' });
 
     // Send WhatsApp Outbound reply
     await msg.reply(reply);
-    
+
     console.log(`[WhatsApp Outbound] To ${fromPhone}: "${reply}"`);
-    saveMsg(activeRealBotBusinessId, fromPhone, null, 'out', reply, 'whatsapp');
 
     // Stream AI response to UI console
     io.emit('inbound_chat', {
