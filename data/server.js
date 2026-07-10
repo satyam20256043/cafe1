@@ -2060,12 +2060,18 @@ app.post('/api/webhook/whatsapp', (req, res) => {
   (async () => {
     try {
       const body = req.body;
+      // TEMP DIAGNOSTIC: logs every webhook hit (incl. delivery receipts) so we can
+      // confirm whether Meta is delivering anything at all. Remove after debugging.
+      console.log('[WA DEBUG] webhook hit:', JSON.stringify(body).slice(0, 700));
       if (body.object !== 'whatsapp_business_account') return;
 
       for (const entry of (body.entry || [])) {
         for (const change of (entry.changes || [])) {
           const value = change.value;
-          if (!value?.messages?.length) continue; // ignore status callbacks (sent/delivered/read)
+          if (!value?.messages?.length) {
+            console.log('[WA DEBUG] non-message event (status/receipt) for phone_number_id:', value?.metadata?.phone_number_id);
+            continue; // ignore status callbacks (sent/delivered/read)
+          }
 
           const phoneNumberId = value.metadata?.phone_number_id;
           const branchId = findBranchByPhoneNumberId(phoneNumberId);
