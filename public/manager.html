@@ -593,6 +593,29 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           <div id="menu-editor"></div>
         </div>
       </div>
+
+      <div class="panel" style="margin-top:14px;border-left:3px solid var(--caramel)">
+        <div class="panel-head">
+          <div><div class="panel-title">🤝 AI Discount Limit</div>
+          <div class="panel-sub">The most the AI receptionist may offer on its own when a customer asks for a deal</div></div>
+        </div>
+        <div class="panel-body">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <label for="ai-max-discount" style="font-size:13px;font-weight:600">Maximum discount AI can offer</label>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input class="form-input" id="ai-max-discount" type="number" min="0" max="100" step="1" value="0" style="width:80px"/>
+              <span style="font-weight:600">%</span>
+            </div>
+            <button class="btn primary" onclick="saveAiDiscount()">Save Limit</button>
+            <span id="ai-max-discount-msg" style="font-size:12.5px"></span>
+          </div>
+          <div style="font-size:12px;color:#9A8870;margin-top:10px;line-height:1.5">
+            Set to <strong>0</strong> (default) and the AI forwards every discount request to you for approval.
+            Set it above 0 and the AI instantly grants a goodwill discount up to this % — with a tracked coupon
+            code the customer shows at billing. Requests beyond this limit are still sent to you.
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- CRM -->
@@ -2020,11 +2043,68 @@ async function loadMenu(){
     const r=await fetch(`/api/businesses/${branchId}/menu`);
     menuData=await r.json();
     renderMenuEditor();
-
+    loadAiDiscount();
   } catch(e) {
     console.error('[loadMenu]', e);
     if(typeof toast==='function') toast('loadMenu failed — check console','error');
   }
+}
+
+async function loadAiDiscount(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/settings`,{headers:getAuthHeaders()});
+    if(!r.ok) return;
+    const s=await r.json();
+    const inp=document.getElementById('ai-max-discount');
+    if(inp) inp.value=Number(s.aiMaxDiscount)||0;
+  } catch(e){ console.error('[loadAiDiscount]', e); }
+}
+
+async function saveAiDiscount(){
+  const inp=document.getElementById('ai-max-discount');
+  const msg=document.getElementById('ai-max-discount-msg');
+  let val=Math.max(0,Math.min(100,Math.round(Number(inp.value)||0)));
+  inp.value=val;
+  msg.textContent='Saving…'; msg.style.color='#9A8870';
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/settings`,{
+      method:'PUT',headers:{'Content-Type':'application/json',...getAuthHeaders()},
+      body:JSON.stringify({aiMaxDiscount:val})
+    });
+    const d=await r.json();
+    if(d.success){
+      msg.textContent=val>0?`✓ AI can now offer up to ${val}%`:'✓ AI will forward all discount requests to you';
+      msg.style.color='var(--sage)';
+    } else { msg.textContent='✕ '+(d.error||'Failed'); msg.style.color='var(--rose)'; }
+  } catch(e){
+    console.error('[saveAiDiscount]', e);
+    msg.textContent='✕ Error — check console'; msg.style.color='var(--rose)';
+  }
+}
+
+// Common café/restaurant categories offered in the dropdown. Any category already
+// used in this café's menu is merged in, so nothing is ever lost; "+ Custom…" lets
+// the owner type a brand-new one.
+const DEFAULT_MENU_CATEGORIES=['Coffee','Tea','Cold Beverages','Shakes & Smoothies','Mocktails','Breakfast','Starters','Soups & Salads','Sandwiches','Wraps & Rolls','Burgers','Pizza','Pasta','Fries & Sides','Main Course','Rice & Biryani','Chinese','Desserts','Combo','Snacks'];
+function menuCategoryList(){
+  const used=menuData.map(m=>m.category).filter(Boolean);
+  return [...new Set([...DEFAULT_MENU_CATEGORIES,...used])];
+}
+function catOptionsHtml(current){
+  return menuCategoryList().map(c=>`<option value="${esc(c)}" ${c===current?'selected':''}>${esc(c)}</option>`).join('');
+}
+function onMenuCategoryChange(i,sel){
+  if(sel.value==='__custom__'){
+    const input=sel.parentElement.querySelector('.menu-cat-custom');
+    input.style.display='block'; input.value=''; input.focus();
+  } else {
+    menuData[i].category=sel.value;
+  }
+}
+function setCustomCategory(i,val){
+  val=(val||'').trim();
+  if(val) menuData[i].category=val;
+  renderMenuEditor(); // re-render so the new category becomes a normal selected option
 }
 
 function renderMenuEditor(){
@@ -2041,7 +2121,10 @@ function renderMenuEditor(){
         <input class="form-input" value="${esc(item.description||'')}" onchange="menuData[${i}].description=this.value" placeholder="Description (shown to customer)" style="font-size:12px"/>
         <input class="form-input" value="${esc(item.image||'')}" onchange="menuData[${i}].image=this.value" placeholder="Image URL (optional)" style="font-size:11px;color:#aaa"/>
       </div>
-      <input class="form-input" value="${esc(item.category)}" onchange="menuData[${i}].category=this.value" placeholder="Category"/>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <select class="form-input" onchange="onMenuCategoryChange(${i},this)">${catOptionsHtml(item.category)}<option value="__custom__">+ Custom…</option></select>
+        <input class="form-input menu-cat-custom" style="display:none;font-size:12px" placeholder="New category" onchange="setCustomCategory(${i},this.value)"/>
+      </div>
       <input class="form-input" type="number" value="${item.price}" onchange="menuData[${i}].price=+this.value" placeholder="₹"/>
       <input class="form-input" type="number" value="${item.discount||0}" onchange="menuData[${i}].discount=+this.value" placeholder="%"/>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;white-space:nowrap">

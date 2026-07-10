@@ -538,6 +538,7 @@ app.get('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, 
       keyId:     s.razorpay?.keyId     || '',
       keySecret: maskSecret(s.razorpay?.keySecret),
     },
+    aiMaxDiscount: Number.isFinite(s.aiMaxDiscount) ? s.aiMaxDiscount : 0,
     updatedAt: s.updatedAt || null,
     updatedBy: s.updatedBy || null,
   });
@@ -554,6 +555,10 @@ app.put('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, 
     if (b.razorpay.keyId     !== undefined) s.razorpay.keyId = b.razorpay.keyId;
     if (b.razorpay.keySecret !== undefined && !isMasked(b.razorpay.keySecret))
       s.razorpay.keySecret = b.razorpay.keySecret;
+  }
+
+  if (b.aiMaxDiscount !== undefined) {
+    s.aiMaxDiscount = Math.max(0, Math.min(100, Math.round(Number(b.aiMaxDiscount) || 0)));
   }
 
   s.updatedAt = new Date().toISOString();

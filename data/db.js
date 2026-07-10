@@ -1012,7 +1012,7 @@ const redeemCouponStmt = db.prepare(`
 function generateCouponCode(sourceType) {
   const prefixMap = {
     ai_campaign: 'AI', offer_request: 'OFR', feedback5: 'THX', review: 'REV',
-    winback: 'WIN', birthday: 'BDAY', autopilot: 'AUTO',
+    winback: 'WIN', birthday: 'BDAY', autopilot: 'AUTO', ai_instant: 'DEAL',
   };
   const prefix = prefixMap[sourceType] || 'ZRD';
   const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();

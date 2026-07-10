@@ -453,6 +453,9 @@ async function generateGeminiReply(branchId, text, fromPhone) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const business = businesses.find(b => b.id === branchId) || businesses[0];
     const menu = getBranchData(branchId, 'menu.json');
+    const geminiBranchSettings = getBranchData(branchId, 'branch-settings.json');
+    const aiMaxDiscount = Array.isArray(geminiBranchSettings) ? 0
+      : Math.max(0, Math.min(100, Math.round(Number(geminiBranchSettings.aiMaxDiscount) || 0)));
 
     // ── Pull real loyalty data from SQLite ──────────────────────────────────
     let customerName = 'Valued Customer';
@@ -539,7 +542,9 @@ CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
    words. Instead your ENTIRE response must be exactly this and nothing else:
    INTENT:ESCALATE|unanswerable|<one short sentence summarising their question>
 2. Table booking → output exactly: INTENT:RESERVATION
-3. Custom/special discount request → output exactly: INTENT:OFFER_REQUEST [details]
+3. Custom/special discount request → ${aiMaxDiscount > 0
+     ? `you MAY grant a goodwill discount of up to ${aiMaxDiscount}% — but do NOT reply yourself; still output exactly: INTENT:OFFER_REQUEST [details] (the system issues the tracked coupon). If they demand MORE than ${aiMaxDiscount}%, also output exactly: INTENT:OFFER_REQUEST [details].`
+     : `output exactly: INTENT:OFFER_REQUEST [details]`}
 4. Feedback/review/rating → output exactly: INTENT:FEEDBACK
 5. Customer asks "what are my points", "how many stamps", "mera balance", "my rewards", "loyalty card" → output exactly: INTENT:LOYALTY_QUERY
 6. Customer wants to redeem stamps/points ("redeem", "free item", "use points") → output exactly: INTENT:LOYALTY_REDEEM
@@ -841,6 +846,33 @@ async function runWeeklyGrowthSuggestions() {
       console.error(`[Growth Suggestions] Failed for branch ${b.id}:`, e.message);
     }
   }
+}
+
+// AI instant discount: when the owner has authorised the AI to give a discount on
+// its own (settings.aiMaxDiscount > 0), issue a tracked coupon for that ceiling and
+// return the warm customer reply. Returns null if not authorised (caller then falls
+// back to the escalate-to-manager flow). A ceiling of 0 preserves ask-first behaviour.
+function aiInstantDiscountReply(branchId, fromPhone, lang) {
+  // aiMaxDiscount lives in branch-settings.json (managed by PUT /businesses/:id/settings)
+  const branchSettings = getBranchData(branchId, 'branch-settings.json');
+  const aiMaxDiscount = Array.isArray(branchSettings) ? 0
+    : Math.max(0, Math.min(100, Math.round(Number(branchSettings.aiMaxDiscount) || 0)));
+  if (aiMaxDiscount <= 0) return null;
+  let couponCode = null;
+  if (db) {
+    try {
+      const c = db.issueCoupon({ businessId: branchId, sourceType: 'ai_instant',
+        customerPhone: fromPhone, discountType: 'percent', discountValue: aiMaxDiscount, expiresInDays: 7 });
+      couponCode = c.code;
+    } catch (e) { console.error('[AI instant discount] coupon issue failed:', e.message); }
+  }
+  updateCustomerProfile(branchId, fromPhone, null, 'requested_offer');
+  if (lang === 'hinglish') {
+    return `Great news! 😊 Main aapko *${aiMaxDiscount}% off* de sakta hoon aapke agle order par!${couponCode ? ` Billing par code *${couponCode}* batayein (7 din valid).` : ''} 🎉`;
+  } else if (lang === 'hindi') {
+    return `खुशखबरी! 😊 मैं आपको आपके अगले ऑर्डर पर *${aiMaxDiscount}% छूट* दे सकता हूँ!${couponCode ? ` बिलिंग पर कोड *${couponCode}* बताएं (7 दिन मान्य)।` : ''} 🎉`;
+  }
+  return `Good news! 😊 I can offer you *${aiMaxDiscount}% off* your next order!${couponCode ? ` Just show code *${couponCode}* at billing (valid 7 days).` : ''} 🎉`;
 }
 
 // AI response brain
@@ -1215,6 +1247,10 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
   ];
   const containsCustomOfferRequest = customOfferKeywords.some(kw => lowercaseText.includes(kw));
   if (containsCustomOfferRequest) {
+    // If the owner authorised the AI to grant discounts on its own, do so directly
+    // (tracked coupon, no manager approval). Otherwise fall through to escalation.
+    const instant = aiInstantDiscountReply(branchId, fromPhone, lang);
+    if (instant) return instant;
     const offerRequests = getBranchData(branchId, 'offer_requests.json');
     const newRequest = {
       id: 'o_' + Date.now(),
@@ -1259,6 +1295,9 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
           : 'Sure! Let\'s get your table reserved. \nPlease share:\n1. Your Name';
       }
       if (geminiReply.includes('INTENT:OFFER_REQUEST')) {
+        // Owner-authorised AI discount grants directly; otherwise escalate for approval.
+        const instant = aiInstantDiscountReply(branchId, fromPhone, lang);
+        if (instant) return instant;
         const details = geminiReply.split('INTENT:OFFER_REQUEST')[1] || text;
         const offerRequests = getBranchData(branchId, 'offer_requests.json');
         const newRequest = {
