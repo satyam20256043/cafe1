@@ -658,6 +658,41 @@ function getDailyRevenue(businessId, days=14) {
   `).all(businessId, days);
 }
 
+// Average paid revenue per weekday over the last N days — the basis for the
+// weekly growth suggestion (G4). Returns per-weekday totals plus how many
+// times each weekday actually occurred in the window (not just days/7, since
+// the window rarely divides evenly), so averages are accurate either way.
+function getWeekdayRevenue(businessId, days=28) {
+  const rows = db.prepare(`
+    SELECT CAST(strftime('%w', created_at) AS INTEGER) AS weekday,
+           COALESCE(SUM(CASE WHEN payment_status='paid' THEN total ELSE 0 END),0) AS revenue,
+           COUNT(CASE WHEN payment_status='paid' THEN 1 END) AS orders
+    FROM orders WHERE business_id=? AND date(created_at)>=date('now','-'||?||' days')
+    GROUP BY weekday
+  `).all(businessId, days);
+
+  const WEEKDAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const occurrences = [0,0,0,0,0,0,0];
+  const now = new Date();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    occurrences[d.getDay()]++;
+  }
+
+  const byWeekday = WEEKDAY_NAMES.map((name, idx) => {
+    const row = rows.find(r => r.weekday === idx);
+    const totalRevenue = row ? row.revenue : 0;
+    const occ = occurrences[idx] || 1;
+    return { weekday: idx, name, totalRevenue, occurrences: occ, avgRevenue: totalRevenue / occ };
+  });
+
+  const totalRevenue = byWeekday.reduce((s, w) => s + w.totalRevenue, 0);
+  const overallDailyAvg = days ? totalRevenue / days : 0;
+
+  return { byWeekday, overallDailyAvg, totalRevenue };
+}
+
 function getTopItems(businessId, limit=5) {
   // Parse JSON items and aggregate — done in JS since SQLite JSON_EACH requires extension
   const orders = db.prepare(
@@ -680,7 +715,7 @@ function getTopItems(businessId, limit=5) {
 Object.assign(module.exports, {
   createOrder, getOrderById, listOrders,
   updateOrderStatus, updateOrderPayment,
-  getRevenueStats, getDailyRevenue, getTopItems,
+  getRevenueStats, getDailyRevenue, getWeekdayRevenue, getTopItems,
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

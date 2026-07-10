@@ -484,6 +484,13 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         <div class="panel-body" id="escalations-body" style="display:flex;flex-direction:column;gap:12px"></div>
       </div>
 
+      <div class="panel" id="growth-suggestion-card" style="display:none;margin-bottom:20px;border-color:var(--sage)">
+        <div class="panel-head">
+          <div><div class="panel-title">📈 Growth Suggestion</div><div class="panel-sub">One thing worth trying this week</div></div>
+        </div>
+        <div class="panel-body" id="growth-suggestion-body"></div>
+      </div>
+
       <div class="panel" id="setup-checklist-card" style="display:none;margin-bottom:20px;border-color:var(--z-gold,#C9A84C)">
         <div class="panel-head">
           <div><div class="panel-title">🚀 Get Set Up</div><div class="panel-sub">A few quick steps to get your café fully live</div></div>
@@ -1598,6 +1605,7 @@ async function loadBranch(){
     loadTrafficChart();
     loadSetupChecklist();
     loadEscalations();
+    loadGrowthSuggestion();
 
   } catch(e) {
     console.error('[loadBranch]', e);
@@ -1648,6 +1656,44 @@ async function resolveEscalation(id){
     await fetch(`/api/businesses/${branchId}/escalations/${id}/resolve`, { method:'POST', headers: getAuthHeaders() });
     loadEscalations();
   } catch(e) { console.error('[resolveEscalation]', e); if(typeof toast==='function') toast('resolveEscalation failed — check console','error'); }
+}
+
+// ── Weekly growth suggestions (G4) ───────────────────────────────────────────
+async function loadGrowthSuggestion(){
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/growth-suggestion`, { headers: getAuthHeaders() });
+    if (!r.ok) return;
+    const s = await r.json();
+    renderGrowthSuggestion(s);
+  } catch(e) { console.error('[loadGrowthSuggestion]', e); }
+}
+function renderGrowthSuggestion(s){
+  const card = document.getElementById('growth-suggestion-card');
+  const body = document.getElementById('growth-suggestion-body');
+  if (!s || s.status !== 'suggested') { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  body.innerHTML = `
+    <div style="font-size:14.5px;font-weight:600;color:var(--ink,#333);margin-bottom:6px">${esc(s.title)}</div>
+    <div style="font-size:13px;color:#666;margin-bottom:12px">${esc(s.reason)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn sm success" onclick="acceptGrowthSuggestion()">✓ Run This Campaign</button>
+      <button class="btn sm" onclick="dismissGrowthSuggestion()">Dismiss</button>
+    </div>
+  `;
+}
+async function acceptGrowthSuggestion(){
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/growth-suggestion/accept`, { method:'POST', headers: getAuthHeaders() });
+    const d = await r.json();
+    if (d.success) { toast(d.message || 'Campaign started!', 'success'); loadGrowthSuggestion(); }
+    else if (typeof toast==='function') toast(d.error || 'Could not accept suggestion', 'error');
+  } catch(e) { console.error('[acceptGrowthSuggestion]', e); if(typeof toast==='function') toast('acceptGrowthSuggestion failed — check console','error'); }
+}
+async function dismissGrowthSuggestion(){
+  try {
+    await fetch(`/api/businesses/${branchId}/growth-suggestion/dismiss`, { method:'POST', headers: getAuthHeaders() });
+    loadGrowthSuggestion();
+  } catch(e) { console.error('[dismissGrowthSuggestion]', e); }
 }
 
 // ── First-run setup checklist (UI2) ──────────────────────────────────────────
@@ -2811,6 +2857,11 @@ socket.on('escalation_new', function(data) {
 socket.on('escalation_resolved', function(data) {
   if (data.branchId !== branchId) return;
   loadEscalations();
+});
+socket.on('growth_suggestion_new', function(data) {
+  if (data.branchId !== branchId) return;
+  loadGrowthSuggestion();
+  if (typeof showToast === 'function') showToast('📈 New growth suggestion available');
 });
 
 // ── LOYALTY TAB ──────────────────────────────────────────────────────────────

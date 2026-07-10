@@ -13,6 +13,8 @@ module.exports = function register(ctx) {
     db,
     whatsappClient,
     emitToBranch,
+    loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion,
+    sendWhatsAppToCustomer,
   } = ctx;
 
 // ── Chat message log ─────────────────────────────────────────────────────────
@@ -769,6 +771,111 @@ app.post('/api/businesses/:id/escalations/:eid/resolve', requireAuth, requireBra
   if (!result.success) return res.status(404).json({ error: 'Escalation not found or already resolved' });
   emitToBranch(id, 'escalation_resolved', { branchId: id, id: eid });
   res.json({ success: true });
+});
+
+// ── Weekly growth suggestions (G4) ────────────────────────────────────────────
+app.get('/api/businesses/:id/growth-suggestion', requireAuth, requireBranchAccess, (req, res) => {
+  res.json(loadGrowthSuggestion(req.params.id) || null);
+});
+
+// Manual trigger for one branch — same pattern as /autopilot/trigger, useful
+// for testing and for an owner who wants a fresh suggestion without waiting
+// for Monday.
+app.post('/api/businesses/:id/growth-suggestion/recompute', requireAuth, requireBranchAccess, (req, res) => {
+  const suggestion = computeGrowthSuggestion(req.params.id);
+  if (!suggestion) {
+    saveGrowthSuggestion(req.params.id, null);
+    return res.json({ success: true, suggestion: null });
+  }
+  const record = { ...suggestion, status: 'suggested', computedAt: new Date().toISOString() };
+  saveGrowthSuggestion(req.params.id, record);
+  emitToBranch(req.params.id, 'growth_suggestion_new', { branchId: req.params.id, suggestion: record });
+  res.json({ success: true, suggestion: record });
+});
+
+app.post('/api/businesses/:id/growth-suggestion/dismiss', requireAuth, requireBranchAccess, (req, res) => {
+  const { id } = req.params;
+  const current = loadGrowthSuggestion(id);
+  if (!current) return res.status(404).json({ error: 'No suggestion to dismiss' });
+  current.status = 'dismissed';
+  saveGrowthSuggestion(id, current);
+  res.json({ success: true });
+});
+
+// Accepting a suggestion actually runs the underlying campaign:
+// - slow_day: upserts a low-traffic-day campaign for that weekday (Settings
+//   tab picks it up automatically — same autopilot campaigns feature).
+// - winback / birthday: sends the offer to every currently-qualifying
+//   customer via the café's own connected WhatsApp number (degrades
+//   silently if not connected, same as everywhere else).
+app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBranchAccess, async (req, res) => {
+  const { id } = req.params;
+  const current = loadGrowthSuggestion(id);
+  if (!current || current.status !== 'suggested') {
+    return res.status(404).json({ error: 'No pending suggestion to accept' });
+  }
+
+  if (current.type === 'slow_day') {
+    const weekday = current.detail && current.detail.weekday;
+    const settings = getBranchData(id, 'settings.json');
+    settings.lowTrafficCampaigns = settings.lowTrafficCampaigns || [];
+    const defaultOffer = `${weekday} Special — 15% off your order today! 🎉`;
+    const existing = settings.lowTrafficCampaigns.find(c => c.day.toLowerCase() === String(weekday).toLowerCase());
+    if (existing) existing.offer = defaultOffer;
+    else settings.lowTrafficCampaigns.push({ day: weekday, offer: defaultOffer });
+    writeBranchData(id, 'settings.json', settings);
+    current.status = 'accepted';
+    saveGrowthSuggestion(id, current);
+    return res.json({ success: true, message: `${weekday} campaign added to your Auto-Pilot settings.` });
+  }
+
+  if (current.type === 'winback') {
+    const crmFile = path.join(DATA_DIR, id, 'crm.json');
+    let crm = [];
+    try { if (fs.existsSync(crmFile)) crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8')); } catch (e) {}
+    const now = Date.now();
+    const atRisk = crm.filter(c => {
+      if (!c.lastVisit) return false;
+      const daysSince = (now - new Date(c.lastVisit).getTime()) / 86400000;
+      return daysSince >= 21 && c.visits >= 2;
+    });
+    const results = await Promise.all(atRisk.map(async c => {
+      const coupon = db ? db.issueCoupon({ businessId: id, sourceType: 'winback', customerPhone: c.phone,
+        discountType: 'percent', discountValue: 15 }) : null;
+      const msg = `Hi ${c.name || 'there'}! We miss you at our café ☕ Come back and enjoy 15% off your next visit! 🎁` +
+        (coupon ? `\n\n🎟 Use code *${coupon.code}* at checkout!` : '');
+      return sendWhatsAppToCustomer(id, c.phone, msg).catch(() => false);
+    }));
+    const sentCount = results.filter(Boolean).length;
+    if (db) db.logEvent(id, 'campaign.sent', { actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'growth_suggestion_winback', targeted: atRisk.length, sent: sentCount } });
+    current.status = 'accepted';
+    saveGrowthSuggestion(id, current);
+    const message = sentCount > 0
+      ? `Win-back offer sent to ${sentCount} of ${atRisk.length} customer${atRisk.length === 1 ? '' : 's'} via WhatsApp.`
+      : `${atRisk.length} customer${atRisk.length === 1 ? '' : 's'} targeted, but WhatsApp isn't connected — connect it in Settings to actually send the offer.`;
+    return res.json({ success: true, message });
+  }
+
+  if (current.type === 'birthday') {
+    const upcoming = db ? db.getUpcomingBirthdays(id, 7) : [];
+    const results = await Promise.all(upcoming.map(async c => {
+      const coupon = db.issueCoupon({ businessId: id, sourceType: 'birthday', customerPhone: c.phone,
+        discountType: 'free_item', discountValue: 0 });
+      const msg = `🎂 Happy Birthday, ${c.name || 'friend'}! Enjoy a FREE item on us today — just show this message! 🎁` +
+        (coupon ? `\n🎟 Code: *${coupon.code}*` : '');
+      return sendWhatsAppToCustomer(id, c.phone, msg).catch(() => false);
+    }));
+    const sentCount = results.filter(Boolean).length;
+    if (db) db.logEvent(id, 'campaign.sent', { actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'growth_suggestion_birthday', targeted: upcoming.length, sent: sentCount } });
+    current.status = 'accepted';
+    saveGrowthSuggestion(id, current);
+    const message = sentCount > 0
+      ? `Birthday wishes sent to ${sentCount} of ${upcoming.length} customer${upcoming.length === 1 ? '' : 's'} via WhatsApp.`
+      : `${upcoming.length} customer${upcoming.length === 1 ? '' : 's'} targeted, but WhatsApp isn't connected — connect it in Settings to actually send the wishes.`;
+    return res.json({ success: true, message });
+  }
+
+  res.status(400).json({ error: 'Unknown suggestion type' });
 });
 
 

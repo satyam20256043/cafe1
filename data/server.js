@@ -737,6 +737,107 @@ async function triggerEscalation(branchId, fromPhone, category, customerMessage,
   return escalationHoldingReply(category, lang);
 }
 
+// ── Weekly growth suggestions (G4) ────────────────────────────────────────────
+// One concrete, deterministic, revenue-framed suggestion per café per week —
+// no Gemini involved in the numbers or the decision, same INTENT discipline
+// as everywhere else in this file.
+const GROWTH_SLOW_DAY_RATIO = 0.7; // slowest weekday must be under 70% of the daily average to suggest
+
+// Minimal, read-only reuse of the same at-risk filter the CRM tab's
+// /at-risk-customers endpoint uses (21+ days since last visit, 2+ visits —
+// regulars only, not one-timers). Kept as its own tiny check here rather
+// than importing the route handler, so this stays a pure read with no
+// route/response coupling.
+function getAtRiskCount(branchId) {
+  try {
+    const crmFile = path.join(DATA_DIR, branchId, 'crm.json');
+    if (!fs.existsSync(crmFile)) return 0;
+    const crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8'));
+    const now = Date.now();
+    return crm.filter(c => {
+      if (!c.lastVisit) return false;
+      const daysSince = (now - new Date(c.lastVisit).getTime()) / 86400000;
+      return daysSince >= 21 && c.visits >= 2;
+    }).length;
+  } catch (e) { return 0; }
+}
+
+function loadGrowthSuggestion(branchId) {
+  try {
+    const f = path.join(DATA_DIR, branchId, 'growth_suggestions.json');
+    if (!fs.existsSync(f)) return null;
+    return JSON.parse(fs.readFileSync(f, 'utf-8'));
+  } catch (e) { return null; }
+}
+
+function saveGrowthSuggestion(branchId, suggestion) {
+  const dir = path.join(DATA_DIR, branchId);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'growth_suggestions.json'), JSON.stringify(suggestion, null, 2));
+}
+
+// Deterministic decision chain: slow weekday -> at-risk customers -> upcoming
+// birthdays -> nothing this week. Returns null when there's nothing worth
+// suggesting (not enough data, nothing at risk, no birthdays) rather than
+// forcing a suggestion every week.
+function computeGrowthSuggestion(branchId) {
+  if (!db) return null;
+
+  const { byWeekday, overallDailyAvg } = db.getWeekdayRevenue(branchId, 28);
+  const hasOrderData = byWeekday.some(w => w.totalRevenue > 0);
+  if (hasOrderData && overallDailyAvg > 0) {
+    const slowest = byWeekday.reduce((a, b) => (a.avgRevenue < b.avgRevenue ? a : b));
+    if (slowest.avgRevenue < overallDailyAvg * GROWTH_SLOW_DAY_RATIO) {
+      return {
+        type: 'slow_day',
+        title: `Run a ${slowest.name} offer`,
+        reason: `${slowest.name}s average ₹${Math.round(slowest.avgRevenue).toLocaleString('en-IN')} vs ₹${Math.round(overallDailyAvg).toLocaleString('en-IN')} overall — filling your quietest day is the cheapest revenue you can add.`,
+        detail: { weekday: slowest.name },
+      };
+    }
+  }
+
+  const atRiskCount = getAtRiskCount(branchId);
+  if (atRiskCount > 0) {
+    return {
+      type: 'winback',
+      title: `Send a win-back offer to ${atRiskCount} lapsed customer${atRiskCount === 1 ? '' : 's'}`,
+      reason: `${atRiskCount} regular${atRiskCount === 1 ? ' hasn\'t' : 's haven\'t'} visited in 3+ weeks. Reaching out now costs far less than replacing that customer.`,
+      detail: { count: atRiskCount },
+    };
+  }
+
+  const upcomingBirthdays = db.getUpcomingBirthdays(branchId, 7);
+  if (upcomingBirthdays.length > 0) {
+    return {
+      type: 'birthday',
+      title: `Send birthday wishes to ${upcomingBirthdays.length} customer${upcomingBirthdays.length === 1 ? '' : 's'}`,
+      reason: `${upcomingBirthdays.length} customer${upcomingBirthdays.length === 1 ? ' has' : 's have'} a birthday in the next 7 days — a birthday offer is one of the highest-response campaigns you can run.`,
+      detail: { count: upcomingBirthdays.length },
+    };
+  }
+
+  return null; // nothing worth suggesting this week
+}
+
+async function runWeeklyGrowthSuggestions() {
+  for (const b of businesses) {
+    try {
+      const suggestion = computeGrowthSuggestion(b.id);
+      if (!suggestion) continue;
+      const record = { ...suggestion, status: 'suggested', computedAt: new Date().toISOString() };
+      saveGrowthSuggestion(b.id, record);
+      emitToBranch(b.id, 'growth_suggestion_new', { branchId: b.id, suggestion: record });
+      if (b.ownerPhone) {
+        const msg = `📈 *Weekly Growth Suggestion*\n\nCafé: ${b.name}\n\n${suggestion.title}\n\n💡 ${suggestion.reason}\n\nOpen your dashboard to approve: ${(process.env.BASE_URL || 'http://localhost:3010')}/manager/${b.id}`;
+        sendWhatsAppToCustomer(b.id, b.ownerPhone, msg).catch(() => {});
+      }
+    } catch (e) {
+      console.error(`[Growth Suggestions] Failed for branch ${b.id}:`, e.message);
+    }
+  }
+}
+
 // AI response brain
 // Thin wrapper: logs inbound/outbound chat events around the real dispatcher
 // below, so every channel (webhook, chat simulator, /chat endpoint) gets
@@ -1610,6 +1711,8 @@ const routeCtx = {
   updateCustomerProfile, processCafeBotReply,
   initializeBusinessFiles,
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
+  loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
+  sendWhatsAppToCustomer, getWaConfig,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
   waApi, genAI, razorpay: (() => { try { return new (require('razorpay'))({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }); } catch(e){ return null; } })(),
@@ -2323,4 +2426,25 @@ server.listen(PORT, () => {
       }
     });
   }, 1000 * 60 * 60 * 12); // Check every 12 hours
+
+  // Weekly growth suggestions (G4) — Mondays ~10:00 server time, then every 7
+  // days after that. Server runs in UTC; the exact hour isn't critical since
+  // this is a once-a-week nudge, not a time-sensitive alert.
+  (function scheduleWeeklyGrowthSuggestions() {
+    function msUntilNextMonday10AM() {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(10, 0, 0, 0);
+      const daysUntilMonday = (1 - next.getDay() + 7) % 7;
+      next.setDate(next.getDate() + daysUntilMonday);
+      if (next <= now) next.setDate(next.getDate() + 7);
+      return next - now;
+    }
+    const wait = msUntilNextMonday10AM();
+    console.log(`[Growth Suggestions] Next run in ${Math.floor(wait / 3600000)}h (Monday 10:00)`);
+    setTimeout(() => {
+      runWeeklyGrowthSuggestions();
+      setInterval(runWeeklyGrowthSuggestions, 7 * 24 * 60 * 60 * 1000); // then every 7 days
+    }, wait);
+  })();
 });
