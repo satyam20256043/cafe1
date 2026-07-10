@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zordic — The AI employee that fills your tables</title>
+<meta name="description" content="Zordic pitch deck for café & restaurant owners: AI WhatsApp receptionist, QR ordering, loyalty, win-back campaigns and weekly growth ideas.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#C9A84C; --gold-lt:#E2C97E; --gold-dk:#A07830;
+  --espresso:#0D0705; --espresso2:#1A1008;
+  --bg:#FAF7F0; --surface:#FFFFFF; --border:#E8E0D0;
+  --ink:#2A2018; --ink2:#6B5D4A; --ink3:#9A8870; --cream:#FAF3E0;
+  --success:#2d7a2d; --danger:#C0392B;
+  --fd:'DM Serif Display',Georgia,serif; --fb:'DM Sans',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--fb);background:var(--espresso);color:var(--ink)}
+
+/* ── Deck engine ── */
+#deck{position:relative;height:100%;width:100%}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:56px 28px 92px;overflow-y:auto;background:var(--bg);color:var(--ink)}
+.slide.active{display:flex;animation:slideIn .45s cubic-bezier(.22,.8,.3,1)}
+.slide.dark{background:radial-gradient(1200px 700px at 70% -10%,#2a1c0d 0%,var(--espresso) 60%);color:#F5EFE2}
+@keyframes slideIn{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+.inner{width:100%;max-width:860px;margin:auto}
+
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--gold-dk);margin-bottom:14px}
+.dark .eyebrow{color:var(--gold-lt)}
+h1{font-family:var(--fd);font-size:clamp(34px,6vw,58px);line-height:1.08;font-weight:400;margin-bottom:16px}
+h2{font-family:var(--fd);font-size:clamp(26px,4.4vw,40px);line-height:1.12;font-weight:400;margin-bottom:10px}
+.lead{font-size:clamp(15px,2.2vw,18px);line-height:1.6;color:var(--ink2);max-width:640px}
+.dark .lead{color:rgba(245,239,226,.75)}
+.gold{color:var(--gold)}
+
+/* ── Controls ── */
+#controls{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:14px;
+  padding:12px 18px;z-index:50;background:linear-gradient(transparent,rgba(13,7,5,.06))}
+#progress{flex:1;height:3px;background:rgba(154,136,112,.3);border-radius:2px;overflow:hidden}
+#progress b{display:block;height:100%;width:0;background:var(--gold);transition:width .3s}
+#counter{font-size:12px;color:var(--ink3);min-width:44px;text-align:center;font-variant-numeric:tabular-nums}
+.navbtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--surface);
+  color:var(--ink);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 10px rgba(42,32,24,.12);transition:all .15s;flex-shrink:0}
+.navbtn:hover{background:var(--gold);color:#fff;border-color:var(--gold)}
+.navbtn:disabled{opacity:.3;pointer-events:none}
+
+/* ── Cards / grids ── */
+.grid{display:grid;gap:14px;margin-top:26px}
+.grid.c2{grid-template-columns:repeat(2,1fr)}
+.grid.c3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:640px){.grid.c2,.grid.c3{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 20px;text-align:left;
+  box-shadow:0 2px 10px rgba(42,32,24,.05)}
+.card .ic{font-size:26px;margin-bottom:10px}
+.card h3{font-size:15.5px;font-weight:700;margin-bottom:6px}
+.card p{font-size:13.5px;line-height:1.55;color:var(--ink2)}
+.pill{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  background:var(--cream);color:var(--gold-dk);border:1px solid var(--border);border-radius:20px;padding:5px 13px}
+
+/* ── Phone mockup / WhatsApp demo ── */
+.phone{width:min(330px,88vw);margin:22px auto 0;background:#111;border-radius:26px;padding:10px;box-shadow:0 18px 50px rgba(13,7,5,.35)}
+.phone .screen{background:#E7DFD4;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;height:420px}
+.wa-head{background:#075E54;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.wa-head .avatar{width:30px;height:30px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:15px}
+.wa-head .nm{font-size:13.5px;font-weight:700}
+.wa-head .st{font-size:10.5px;opacity:.8}
+.wa-body{flex:1;overflow-y:auto;padding:12px 10px;display:flex;flex-direction:column;gap:7px;
+  background:#EFE7DB url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" opacity="0.04"><circle cx="10" cy="10" r="2" fill="%232A2018"/><circle cx="40" cy="35" r="2" fill="%232A2018"/></svg>')}
+.wa-msg{max-width:82%;padding:7px 11px;border-radius:10px;font-size:12.8px;line-height:1.45;box-shadow:0 1px 1px rgba(0,0,0,.08);
+  opacity:0;transform:translateY(8px);transition:all .3s;white-space:pre-wrap;word-break:break-word}
+.wa-msg.show{opacity:1;transform:none}
+.wa-msg.cust{align-self:flex-end;background:#DCF8C6;border-bottom-right-radius:3px}
+.wa-msg.ai{align-self:flex-start;background:#fff;border-bottom-left-radius:3px}
+.wa-msg .t{display:block;font-size:9.5px;color:#8a8a8a;text-align:right;margin-top:3px}
+.wa-typing{align-self:flex-start;background:#fff;border-radius:10px;padding:9px 13px;display:none;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.wa-typing.show{display:flex;gap:4px}
+.wa-typing i{width:6px;height:6px;border-radius:50%;background:#b5a98f;animation:blink 1.2s infinite}
+.wa-typing i:nth-child(2){animation-delay:.2s}.wa-typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.scenario-tabs{display:flex;gap:8px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+.scenario-tabs button{font-family:var(--fb);font-size:12.5px;font-weight:600;padding:8px 16px;border-radius:20px;
+  border:1px solid var(--border);background:var(--surface);color:var(--ink2);cursor:pointer;transition:all .15s}
+.scenario-tabs button.on{background:var(--espresso);color:var(--gold-lt);border-color:var(--espresso)}
+
+/* ── Escalation demo ── */
+.esc-chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:22px 0 16px}
+.esc-chips button{font-family:var(--fb);font-size:13px;font-weight:600;padding:9px 16px;border-radius:22px;
+  border:1.5px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;transition:all .15s}
+.esc-chips button.on{border-color:var(--gold);background:var(--cream);color:var(--gold-dk)}
+.esc-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;max-width:640px;margin:0 auto;text-align:left}
+.esc-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.esc-row{grid-template-columns:1fr}}
+.esc-box{border-radius:10px;padding:13px 14px;font-size:12.8px;line-height:1.55}
+.esc-box .lbl{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;display:block}
+.esc-box.cust{background:#EFE7DB}.esc-box.cust .lbl{color:#075E54}
+.esc-box.own{background:var(--cream);border:1px solid var(--gold-lt)}.esc-box.own .lbl{color:var(--gold-dk)}
+
+/* ── ROI calculator ── */
+.roi{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:620px;margin:24px auto 0;text-align:left}
+.roi .row{margin-bottom:18px}
+.roi label{display:flex;justify-content:space-between;font-size:13.5px;font-weight:600;margin-bottom:8px}
+.roi label output{color:var(--gold-dk);font-variant-numeric:tabular-nums}
+.roi input[type=range]{width:100%;accent-color:var(--gold)}
+.roi .result{border-top:1px dashed var(--border);padding-top:16px;margin-top:4px;text-align:center}
+.roi .big{font-family:var(--fd);font-size:clamp(30px,5vw,42px);color:var(--gold-dk)}
+.roi .mult{font-size:13.5px;color:var(--ink2);margin-top:4px}
+.roi .assume{font-size:11.5px;color:var(--ink3);line-height:1.5;margin-top:12px;text-align:center}
+
+/* ── Steps / timeline ── */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:26px}
+@media(max-width:700px){.steps{grid-template-columns:repeat(2,1fr)}}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 14px;text-align:center}
+.step .n{width:34px;height:34px;border-radius:50%;background:var(--espresso);color:var(--gold-lt);font-weight:700;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:15px}
+.step h3{font-size:14px;font-weight:700;margin-bottom:5px}
+.step p{font-size:12px;color:var(--ink2);line-height:1.5}
+
+/* ── Pricing ── */
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:26px}
+@media(max-width:700px){.plans{grid-template-columns:1fr;max-width:360px;margin-left:auto;margin-right:auto}}
+.plan{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;padding:22px 18px;text-align:center;position:relative}
+.plan.hot{border-color:var(--gold);box-shadow:0 8px 30px rgba(201,168,76,.22)}
+.plan .badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--gold);color:#fff;
+  font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:4px 13px;border-radius:20px;white-space:nowrap}
+.plan h3{font-family:var(--fd);font-size:21px;font-weight:400;margin-bottom:6px}
+.plan .pr{font-size:26px;font-weight:700;margin-bottom:2px}
+.plan .pr small{font-size:12px;color:var(--ink3);font-weight:400}
+.plan ul{list-style:none;margin-top:14px;text-align:left}
+.plan li{font-size:12.6px;line-height:1.5;color:var(--ink2);padding:5px 0 5px 20px;position:relative}
+.plan li::before{content:'✓';position:absolute;left:0;color:var(--gold-dk);font-weight:700}
+
+/* ── CTA ── */
+.cta-btn{display:inline-block;background:var(--gold);color:var(--espresso);font-weight:700;font-size:16px;
+  padding:15px 34px;border-radius:12px;text-decoration:none;margin-top:24px;transition:all .15s;box-shadow:0 8px 26px rgba(201,168,76,.35)}
+.cta-btn:hover{background:var(--gold-lt);transform:translateY(-2px)}
+.qr-wrap{background:#fff;border-radius:16px;padding:14px;display:inline-block;margin-top:26px}
+.hint{font-size:12px;color:var(--ink3);margin-top:34px}
+.dark .hint{color:rgba(245,239,226,.45)}
+.dl-link{color:var(--gold-lt);font-size:12.5px;text-decoration:underline;text-underline-offset:3px}
+
+.kbd-hint{position:fixed;top:14px;right:18px;font-size:11px;color:var(--ink3);z-index:50;background:rgba(250,247,240,.85);
+  padding:5px 11px;border-radius:14px;border:1px solid var(--border)}
+@media(max-width:640px){.kbd-hint{display:none}}
+</style>
+</head>
+<body>
+
+<div class="kbd-hint">← → keys or swipe</div>
+
+<div id="deck">
+
+<!-- 1 ▸ COVER -->
+<section class="slide dark">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">For café &amp; restaurant owners</div>
+    <h1 style="font-size:clamp(44px,8vw,76px);letter-spacing:1px">ZORDIC</h1>
+    <h2 style="color:var(--gold-lt)">The AI employee that fills your tables</h2>
+    <p class="lead" style="margin:14px auto 0">More customers. More repeat visits. More revenue —
+      while you focus on great food and great service.</p>
+    <p class="hint">Tap →, press an arrow key, or swipe to begin · zordic.in</p>
+  </div>
+</section>
+
+<!-- 2 ▸ PROBLEM -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">The problem</div>
+    <h2>Every café loses money in the same four places</h2>
+    <div class="grid c2">
+      <div class="card"><div class="ic">🌙</div><h3>Missed enquiries</h3>
+        <p>A customer WhatsApps at 11 pm about tomorrow's booking. No reply until morning — and the booking goes to the café next door.</p></div>
+      <div class="card"><div class="ic">👋</div><h3>One-time visitors</h3>
+        <p>Most guests visit once and forget you. Not because the food was bad — because nothing ever reminded them to come back.</p></div>
+      <div class="card"><div class="ic">🪑</div><h3>Empty weekdays</h3>
+        <p>Weekends are packed, Tuesdays are dead. You can see it happening, but there's no easy way to move demand to slow days.</p></div>
+      <div class="card"><div class="ic">⏰</div><h3>No time for marketing</h3>
+        <p>You're running a kitchen, managing staff, buying stock. Nobody has two spare hours a day for follow-ups and campaigns.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 ▸ THE FIX -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">The fix</div>
+    <h2>Zordic is an AI employee — not another app</h2>
+    <p class="lead" style="margin:0 auto">It works inside the app your customers already use every day: <b>WhatsApp</b>.
+      Nothing for them to download. Nothing for you to learn.</p>
+    <div class="grid c3" style="margin-top:30px">
+      <div class="card" style="text-align:center"><div class="ic">💬</div><h3>Receptionist, 24/7</h3><p>Answers &amp; books tables round the clock</p></div>
+      <div class="card" style="text-align:center"><div class="ic">📲</div><h3>QR ordering</h3><p>Scan → order → kitchen. No waiters needed for taking orders</p></div>
+      <div class="card" style="text-align:center"><div class="ic">⭐</div><h3>Loyalty</h3><p>Points &amp; rewards that bring guests back</p></div>
+      <div class="card" style="text-align:center"><div class="ic">🎯</div><h3>Win-back</h3><p>Spots regulars who stopped coming — and re-invites them</p></div>
+      <div class="card" style="text-align:center"><div class="ic">📈</div><h3>Growth ideas</h3><p>A concrete revenue suggestion every Monday</p></div>
+      <div class="card" style="text-align:center"><div class="ic">🔔</div><h3>Knows its limits</h3><p>Escalates big decisions to you, with advice</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 ▸ AI RECEPTIONIST (interactive) -->
+<section class="slide" id="slide-wa">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Feature 1 · AI receptionist</div>
+    <h2>Watch it take a booking — live</h2>
+    <div class="scenario-tabs">
+      <button class="on" onclick="playScenario('booking',this)">📅 Table booking</button>
+      <button onclick="playScenario('menu',this)">🍔 Menu question</button>
+      <button onclick="playScenario('night',this)">🌙 11:30 pm enquiry</button>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="wa-head">
+          <div class="avatar">☕</div>
+          <div><div class="nm">Your Café</div><div class="st">online · replies instantly</div></div>
+        </div>
+        <div class="wa-body" id="wa-body"></div>
+      </div>
+    </div>
+    <div class="grid c2" style="max-width:640px;margin-left:auto;margin-right:auto;text-align:left">
+      <div class="card"><p>✅ Answers <b>menu, prices, timings, location, WiFi</b> — instantly, any hour</p></div>
+      <div class="card"><p>✅ Books tables <b>end-to-end</b> — the reservation lands in your dashboard in real time</p></div>
+      <div class="card"><p>✅ Understands <b>English and Hindi</b>, replies in the customer's language</p></div>
+      <div class="card"><p>✅ Every conversation is <b>saved and visible live</b> in your dashboard</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 ▸ ESCALATIONS (interactive) -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Feature 2 · Human judgment, protected</div>
+    <h2>Routine is automatic. Important is escalated.</h2>
+    <p class="lead" style="margin:0 auto">The AI never gambles with your reputation. On big moments it calms the customer,
+      then immediately alerts <b>you</b> — with a suggested action. Tap each one:</p>
+    <div class="esc-chips">
+      <button class="on" onclick="showEsc('complaint',this)">😠 Complaint / refund</button>
+      <button onclick="showEsc('group',this)">👥 Big group (8+)</button>
+      <button onclick="showEsc('payment',this)">💳 Payment dispute</button>
+      <button onclick="showEsc('unknown',this)">❓ Unusual question</button>
+    </div>
+    <div class="esc-panel">
+      <div class="esc-row">
+        <div class="esc-box cust"><span class="lbl">What the customer sees</span><span id="esc-cust"></span></div>
+        <div class="esc-box own"><span class="lbl">What you get, instantly</span><span id="esc-own"></span></div>
+      </div>
+      <p style="font-size:12px;color:var(--ink3);margin-top:12px;text-align:center">
+        Alerts arrive on your WhatsApp <b>and</b> as a "Needs You" card on your dashboard — one tap to mark handled.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 ▸ QR ORDERING -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Feature 3 · QR table ordering</div>
+    <h2>Scan. Order. Cooking.</h2>
+    <div class="steps" style="grid-template-columns:repeat(3,1fr)">
+      <div class="step"><div class="n">1</div><h3>Guest scans the table QR</h3><p>Menu opens in their browser — no app to install, ever</p></div>
+      <div class="step"><div class="n">2</div><h3>Orders &amp; tracks</h3><p>Order goes in with the table number; guest sees live status</p></div>
+      <div class="step"><div class="n">3</div><h3>Kitchen screen</h3><p>Ticket appears on a live kitchen display — any phone or tablet works</p></div>
+    </div>
+    <div class="grid c2" style="max-width:640px;margin-left:auto;margin-right:auto;text-align:left">
+      <div class="card"><p>🖨️ Per-table QR codes are <b>auto-generated and printable</b> from your dashboard in one click</p></div>
+      <div class="card"><p>⭐ Loyalty points are <b>awarded automatically</b> when the order is served</p></div>
+      <div class="card"><p>📝 No mishearing, no wrong orders — the guest typed it themselves</p></div>
+      <div class="card"><p>⚡ Faster table turns at rush hour — staff serve instead of scribbling</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 ▸ LOYALTY -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Feature 4 · Loyalty &amp; rewards</div>
+    <h2>Give guests a reason to pick you — again</h2>
+    <div class="grid c3">
+      <div class="card" style="text-align:center"><div class="ic">🎯</div><h3>Points on every order</h3><p>Earned automatically — no punch cards, no staff effort</p></div>
+      <div class="card" style="text-align:center"><div class="ic">🏆</div><h3>Tiers</h3><p>New → Regular → VIP. Your best customers feel recognised</p></div>
+      <div class="card" style="text-align:center"><div class="ic">🎂</div><h3>Birthday offers</h3><p>Zordic keeps the birthday list and sends the wish + offer for you</p></div>
+    </div>
+    <p class="lead" style="margin:22px auto 0">Customers can check their points just by asking on WhatsApp.
+      You manage rewards from one screen — redemptions are staff-verified so nobody games it.</p>
+  </div>
+</section>
+
+<!-- 8 ▸ WIN-BACK -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Feature 5 · The win-back engine</div>
+    <h2>Your regulars quietly disappear.<br>Zordic notices.</h2>
+    <div class="grid c3" style="margin-top:26px">
+      <div class="card"><div class="ic">👀</div><h3>Detects</h3><p>Flags every customer who hasn't visited in 14+ days — from your real order data</p></div>
+      <div class="card"><div class="ic">✍️</div><h3>Re-invites</h3><p>AI writes a personalised WhatsApp offer with a unique coupon code — you approve with one tap</p></div>
+      <div class="card"><div class="ic">📊</div><h3>Proves it</h3><p>The coupon is tracked to the order that redeems it — you see exactly how much revenue came back</p></div>
+    </div>
+    <p class="lead" style="margin:22px auto 0">Marketing you can measure in <b>₹, not likes</b>.</p>
+  </div>
+</section>
+
+<!-- 9 ▸ GROWTH IDEAS -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Feature 6 · Weekly growth ideas</div>
+    <h2>Every Monday, one concrete way to make more money</h2>
+    <div class="card" style="max-width:560px;margin:24px auto 0;border-left:3px solid var(--gold)">
+      <p style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gold-dk);margin-bottom:8px">Example — Monday 10:00 am</p>
+      <h3 style="font-size:16px">"Tuesdays earn 38% less than your average day."</h3>
+      <p style="margin-top:8px">Suggested fix: a <b>Tuesday Treat</b> — 15% off between 3–6 pm, announced to your regulars on WhatsApp.
+        Based on your own sales data from the last 4 weeks.</p>
+      <p style="margin-top:12px"><span class="pill">✓ Run this campaign — one tap</span></p>
+    </div>
+    <p class="lead" style="margin:22px auto 0">Slow-day fixes, lapsed-regular pushes, birthday batches — always with the
+      <b>reason</b> shown, always your decision. Delivered to your WhatsApp and dashboard.</p>
+  </div>
+</section>
+
+<!-- 10 ▸ REVIEWS -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Feature 7 · Reviews &amp; feedback</div>
+    <h2>Happy guests go to Google.<br>Unhappy ones come to you.</h2>
+    <div class="grid c2" style="margin-top:26px">
+      <div class="card"><div class="ic">🌟</div><h3>5-star feedback</h3>
+        <p>Gets a gentle nudge to post it on Google — with a thank-you coupon for doing it. Your rating climbs on autopilot.</p></div>
+      <div class="card"><div class="ic">🛡️</div><h3>Unhappy feedback</h3>
+        <p>Comes to you <b>first</b> — privately, as an escalation with a suggested fix — before it ever becomes a public 1-star review.</p></div>
+      <div class="card"><div class="ic">🤖</div><h3>AI reply drafts</h3>
+        <p>Every review gets a ready-to-post reply draft in your voice. Approve, edit, or ignore.</p></div>
+      <div class="card"><div class="ic">📱</div><h3>Collected automatically</h3>
+        <p>Feedback is requested over WhatsApp after the visit — no tablets at the counter, no awkward asking.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 ▸ VISIBILITY -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Feature 8 · Full visibility</div>
+    <h2>You see everything. From anywhere.</h2>
+    <div class="grid c3" style="margin-top:26px">
+      <div class="card"><div class="ic">📟</div><h3>Live orders &amp; revenue</h3><p>Today's numbers, updating in real time</p></div>
+      <div class="card"><div class="ic">💬</div><h3>Customer chats</h3><p>Every WhatsApp conversation, live and searchable</p></div>
+      <div class="card"><div class="ic">👥</div><h3>CRM</h3><p>Every customer with visits, tier, tags and history</p></div>
+      <div class="card"><div class="ic">💸</div><h3>Expenses &amp; P&amp;L</h3><p>Log costs, see profit — not just sales</p></div>
+      <div class="card"><div class="ic">📑</div><h3>Data sheets</h3><p>Every table exportable to CSV — your data is yours</p></div>
+      <div class="card"><div class="ic">📱</div><h3>Owner portal</h3><p>The whole business on your phone, wherever you are</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 ▸ ROI CALCULATOR (interactive) -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">The maths</div>
+    <h2>What is this worth to <i>your</i> café?</h2>
+    <div class="roi">
+      <div class="row">
+        <label>Customers per day <output id="roi-cust-out">60</output></label>
+        <input type="range" id="roi-cust" min="20" max="300" step="5" value="60" oninput="calcROI()">
+      </div>
+      <div class="row">
+        <label>Average bill <output id="roi-bill-out">₹250</output></label>
+        <input type="range" id="roi-bill" min="100" max="1000" step="25" value="250" oninput="calcROI()">
+      </div>
+      <div class="result">
+        <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">Estimated extra revenue</div>
+        <div class="big" id="roi-big">₹51,000<span style="font-size:16px;color:var(--ink3)"> / month</span></div>
+        <div class="mult" id="roi-mult"></div>
+      </div>
+      <p class="assume">Conservative assumptions: loyalty + win-back lift repeat visits by just <b>8%</b>,
+        and 24/7 instant replies add <b>2 extra covers a day</b>. Your numbers may be higher — this is the floor, not the ceiling.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 13 ▸ SETUP -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Getting started</div>
+    <h2>Live the same day. Seriously.</h2>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Sign up</h3><p>2 minutes at zordic.in/onboard — no card, no commitment</p></div>
+      <div class="step"><div class="n">2</div><h3>Add your menu</h3><p>Type it in, or just send it to us and we'll do it</p></div>
+      <div class="step"><div class="n">3</div><h3>Print QR codes</h3><p>One click generates a printable QR for every table</p></div>
+      <div class="step"><div class="n">4</div><h3>Connect WhatsApp</h3><p>Guided setup links your business number to the AI</p></div>
+    </div>
+    <div class="card" style="max-width:520px;margin:24px auto 0;border:1.5px solid var(--gold);text-align:center">
+      <h3 style="font-size:16px">🎁 10-day free trial on every plan</h3>
+      <p>Full access from day one. If it doesn't earn its keep, walk away — your data exports with you.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 14 ▸ PRICING -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Pricing</div>
+    <h2>Priced for cafés, not corporates</h2>
+    <div class="plans">
+      <div class="plan">
+        <h3>Starter</h3><div class="pr">₹1,500<small> /month</small></div>
+        <ul>
+          <li>AI WhatsApp receptionist — never miss an order enquiry</li>
+          <li>QR table ordering</li>
+          <li>Basic customer CRM</li>
+        </ul>
+      </div>
+      <div class="plan hot">
+        <div class="badge">Most Popular</div>
+        <h3>Growth</h3><div class="pr">₹3,000<small> /month</small></div>
+        <ul>
+          <li>Everything in Starter</li>
+          <li>Loyalty &amp; rewards — turn one-time visitors into regulars</li>
+          <li>AI win-back campaigns for lapsed customers</li>
+          <li>Google review management</li>
+        </ul>
+      </div>
+      <div class="plan">
+        <div class="badge" style="background:var(--espresso)">Best Value</div>
+        <h3>Pro</h3><div class="pr">₹5,000<small> /month</small></div>
+        <ul>
+          <li>Everything in Growth</li>
+          <li>Full AI marketing automation</li>
+          <li>Weekly growth &amp; revenue reports</li>
+          <li>Priority WhatsApp support</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:12.5px;color:var(--ink3);margin-top:18px">10-day free trial on every plan · cancel anytime · pay by UPI, bank transfer or card</p>
+  </div>
+</section>
+
+<!-- 15 ▸ TRUST -->
+<section class="slide">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Trust &amp; safety</div>
+    <h2>Your café. Your customers. Your data.</h2>
+    <div class="grid c2" style="margin-top:26px">
+      <div class="card"><div class="ic">🔒</div><h3>Fully isolated account</h3>
+        <p>Your café's data lives in its own sealed account. No other café — and no one else — can ever see it.</p></div>
+      <div class="card"><div class="ic">💾</div><h3>Daily automatic backups</h3>
+        <p>Every night, everything is backed up automatically. A crashed phone never costs you your customer list.</p></div>
+      <div class="card"><div class="ic">🔑</div><h3>Staff logins with roles</h3>
+        <p>Give staff their own logins for kitchen or counter — without handing over the owner keys.</p></div>
+      <div class="card"><div class="ic">📤</div><h3>Leave with everything</h3>
+        <p>Every customer, order and expense exports to CSV whenever you want. No lock-in, ever.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 16 ▸ CTA -->
+<section class="slide dark">
+  <div class="inner" style="text-align:center">
+    <div class="eyebrow">Ready?</div>
+    <h1 style="font-size:clamp(32px,5.5vw,52px)">Let's make your café busier.</h1>
+    <p class="lead" style="margin:10px auto 0">Start free today — 10 days, full access, no card.
+      Your AI employee starts work the moment you sign up.</p>
+    <div class="qr-wrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 27 27" shape-rendering="crispEdges"><path fill="#FFFFFF" d="M0 0h27v27H0z"/><path stroke="#2A2018" d="M1 1.5h7m4 0h3m4 0h7M1 2.5h1m5 0h1m2 0h3m1 0h3m2 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h1m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h2m3 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h3m1 0h2m2 0h1m1 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h2m2 0h5m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h1m3 0h1m1 0h2M1 9.5h1m1 0h5m2 0h1m1 0h1m1 0h2m3 0h5M1 10.5h2m7 0h1m1 0h3m2 0h1m2 0h1m3 0h1M3 11.5h2m2 0h3m2 0h5m1 0h1m2 0h2m1 0h2M1 12.5h1m1 0h1m5 0h5m3 0h2m2 0h1m3 0h1M2 13.5h2m1 0h5m1 0h1m1 0h3m2 0h4m1 0h3M1 14.5h2m1 0h1m1 0h1m2 0h2m7 0h1m1 0h1m1 0h1m1 0h1M1 15.5h1m3 0h1m1 0h3m1 0h4m1 0h2m1 0h4m1 0h2M1 16.5h1m4 0h1m5 0h1m7 0h2m3 0h1M1 17.5h1m1 0h3m1 0h3m2 0h10m1 0h1M9 18.5h1m1 0h1m1 0h2m1 0h2m3 0h2M1 19.5h7m2 0h2m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3M1 20.5h1m5 0h1m1 0h2m4 0h1m1 0h1m3 0h2m1 0h2M1 21.5h1m1 0h3m1 0h1m1 0h2m2 0h9m1 0h1M1 22.5h1m1 0h3m1 0h1m1 0h4m5 0h2m1 0h5M1 23.5h1m1 0h3m1 0h1m1 0h2m2 0h1m2 0h2m4 0h2m1 0h1M1 24.5h1m5 0h1m2 0h4m1 0h8m2 0h1M1 25.5h7m1 0h2m3 0h2m3 0h7"/></svg>
+    </div>
+    <div><a class="cta-btn" href="https://zordic.in/onboard" target="_blank">Start your 10-day free trial →</a></div>
+    <p class="hint" style="margin-top:26px">zordic.in/onboard · scan the code or tap the button<br><br>
+      <a class="dl-link" href="/Zordic-Pitch.pptx" download>Download this deck as PowerPoint</a></p>
+  </div>
+</section>
+
+</div>
+
+<div id="controls">
+  <button class="navbtn" id="btn-prev" onclick="go(-1)" aria-label="Previous slide">←</button>
+  <div id="progress"><b id="progress-fill"></b></div>
+  <div id="counter">1/16</div>
+  <button class="navbtn" id="btn-next" onclick="go(1)" aria-label="Next slide">→</button>
+</div>
+
+<script>
+// ── Slide engine ──────────────────────────────────────────────────────────────
+const slides = Array.from(document.querySelectorAll('.slide'));
+let cur = 0;
+
+function show(i, pushHash = true) {
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, j) => s.classList.toggle('active', j === cur));
+  document.getElementById('progress-fill').style.width = ((cur + 1) / slides.length * 100) + '%';
+  document.getElementById('counter').textContent = (cur + 1) + '/' + slides.length;
+  document.getElementById('btn-prev').disabled = cur === 0;
+  document.getElementById('btn-next').disabled = cur === slides.length - 1;
+  if (pushHash) history.replaceState(null, '', '#' + (cur + 1));
+  // Slide-enter hooks
+  if (slides[cur].id === 'slide-wa') playScenario(waCurrent, null, true);
+}
+function go(d) { show(cur + d); }
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(1); }
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); }
+  if (e.key === 'Home') show(0);
+  if (e.key === 'End') show(slides.length - 1);
+});
+
+// Swipe (ignore swipes that start on interactive controls)
+let tx = null, ty = null;
+document.addEventListener('touchstart', e => {
+  if (e.target.closest('input,button,a,.wa-body')) { tx = null; return; }
+  tx = e.touches[0].clientX; ty = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (tx === null) return;
+  const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+  if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
+  tx = null;
+}, { passive: true });
+
+// ── WhatsApp demo ─────────────────────────────────────────────────────────────
+const SCENARIOS = {
+  booking: [
+    ['cust', 'Hi! Do you have a table for 4 tomorrow at 8pm?'],
+    ['ai',   'Hello! 😊 Yes we do. May I have a name for the reservation?'],
+    ['cust', 'Rahul'],
+    ['ai',   'Perfect — table for 4, tomorrow at 8:00 PM under Rahul ✅\nWe look forward to seeing you!'],
+  ],
+  menu: [
+    ['cust', 'do you have veg burgers? how much?'],
+    ['ai',   'Yes! 🍔 Our Veg Supreme Burger is ₹149 and the Paneer Tikka Burger is ₹179 — both fresh and very popular.'],
+    ['cust', 'and what time do you close?'],
+    ['ai',   'We\'re open till 10:00 PM tonight ⏰ Plenty of time — see you soon!'],
+  ],
+  night: [
+    ['cust', '🕦 11:32 pm — anyone there? need a table for 6 on Sunday'],
+    ['ai',   'We\'re here! 😊 Happy to book that. What time on Sunday works for you?'],
+    ['cust', '1pm lunch'],
+    ['ai',   'Booked ✅ Table for 6, Sunday 1:00 PM. A confirmation is saved — sleep well! 🌙'],
+  ],
+};
+let waCurrent = 'booking', waTimer = [];
+
+function playScenario(name, btn, force) {
+  if (name === waCurrent && !force && btn) return;
+  waCurrent = name;
+  if (btn) {
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  }
+  waTimer.forEach(clearTimeout); waTimer = [];
+  const body = document.getElementById('wa-body');
+  body.innerHTML = '';
+  const typing = document.createElement('div');
+  typing.className = 'wa-typing'; typing.innerHTML = '<i></i><i></i><i></i>';
+  let delay = 500;
+  SCENARIOS[name].forEach(([who, text]) => {
+    if (who === 'ai') {
+      waTimer.push(setTimeout(() => { body.appendChild(typing); typing.classList.add('show'); body.scrollTop = 1e6; }, delay));
+      delay += 900;
+    }
+    waTimer.push(setTimeout(() => {
+      typing.classList.remove('show'); if (typing.parentElement) typing.remove();
+      const m = document.createElement('div');
+      m.className = 'wa-msg ' + who;
+      m.textContent = text;
+      const t = document.createElement('span'); t.className = 't'; t.textContent = who === 'ai' ? '✓✓' : '';
+      m.appendChild(t);
+      body.appendChild(m);
+      requestAnimationFrame(() => m.classList.add('show'));
+      body.scrollTop = 1e6;
+    }, delay));
+    delay += who === 'ai' ? 1400 : 1100;
+  });
+}
+
+// ── Escalation demo ───────────────────────────────────────────────────────────
+const ESC = {
+  complaint: {
+    cust: '"The food was cold and I want a refund."\n\nAI: "I\'m so sorry to hear that — this isn\'t the experience we want for you. I\'ve alerted the owner right now, and you\'ll hear from us within minutes. 🙏"',
+    own:  '🔔 Complaint / refund — Priya (98•••• 4321)\n"Food was cold, wants refund."\n\n💡 AI suggests: offer a fresh replacement or 15% off today\'s bill — resolving now protects your Google rating.',
+  },
+  group: {
+    cust: '"Table for 12 this Saturday 7pm — birthday!"\n\nAI: "Wonderful! 🎉 For a group this size I\'ve looped in the owner to make sure everything is perfect. You\'ll get a confirmation shortly."',
+    own:  '🔔 Large booking — Arjun wants a table for 12, Sat 7:00 PM (birthday)\n\n💡 AI suggests: confirm seating layout and consider a complimentary dessert — group bookings average 4× a normal table\'s bill.',
+  },
+  payment: {
+    cust: '"I paid twice for order #142, money got deducted two times!"\n\nAI: "That sounds stressful — I\'m sorry. I\'ve escalated this to the owner immediately with your order details. We\'ll sort it out fast."',
+    own:  '🔔 Payment dispute — order #142, customer reports double charge\n\n💡 AI suggests: check the payment record for #142 and confirm the refund before replying — a fast resolution here usually earns a loyal customer.',
+  },
+  unknown: {
+    cust: '"Do you do wedding catering for 200 people in Jaipur?"\n\nAI: "Great question — that\'s one for the owner personally. I\'ve passed it along and you\'ll hear back soon!"',
+    own:  '🔔 Question the AI couldn\'t answer — "Wedding catering for 200 in Jaipur?"\n\n💡 AI suggests: this could be a large catering lead — worth a personal call rather than a text reply.',
+  },
+};
+function showEsc(key, btn) {
+  if (btn) {
+    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  }
+  document.getElementById('esc-cust').textContent = ESC[key].cust;
+  document.getElementById('esc-own').textContent = ESC[key].own;
+}
+showEsc('complaint', null);
+
+// ── ROI calculator ────────────────────────────────────────────────────────────
+function calcROI() {
+  const cust = +document.getElementById('roi-cust').value;
+  const bill = +document.getElementById('roi-bill').value;
+  document.getElementById('roi-cust-out').textContent = cust;
+  document.getElementById('roi-bill-out').textContent = '₹' + bill;
+  // Conservative model: +8% repeat visits + 2 extra covers/day from 24/7 replies
+  const extra = Math.round((cust * bill * 30 * 0.08 + 2 * bill * 30) / 500) * 500;
+  document.getElementById('roi-big').innerHTML = '₹' + extra.toLocaleString('en-IN') +
+    '<span style="font-size:16px;color:var(--ink3)"> / month</span>';
+  const mult = (extra / 3000).toFixed(1);
+  document.getElementById('roi-mult').textContent = 'That\'s ' + mult + '× the Growth plan (₹3,000/month)';
+}
+calcROI();
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+const startAt = parseInt(location.hash.slice(1), 10);
+show(isNaN(startAt) ? 0 : startAt - 1, false);
+window.addEventListener('hashchange', () => {
+  const n = parseInt(location.hash.slice(1), 10);
+  if (!isNaN(n) && n - 1 !== cur) show(n - 1, false);
+});
+</script>
+</body>
+</html>

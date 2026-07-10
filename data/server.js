@@ -113,6 +113,11 @@ app.get('/onboard', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'onboard.html'));
 });
 
+// ── Sales pitch deck (share with prospective café owners) ────────────────────
+app.get('/pitch', (req, res) => {
+  res.sendFile(path.join(ROOT_DIR, 'public', 'pitch.html'));
+});
+
 app.get('/hq', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'hq.html'));
 });
