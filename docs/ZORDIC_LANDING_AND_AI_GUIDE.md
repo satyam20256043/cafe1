@@ -5,6 +5,12 @@ self-contained: read §0–§3 fully before touching any file. Every product dec
 made explicitly by the user on 2026-07-09 — do **not** re-ask them. The only permitted
 ASK THE USER moment is flagged inside G1.
 
+**Status: G0–G5 all complete and DEPLOYED to production** (commits `f0be98c`…`bb50a91` on
+`master`, deployed 2026-07-10, all 5 post-deploy smoke tests passed: `/` 200 no admin strings,
+`/onboard` 200 with 10-Day copy, `/api/plans` 200, `/hq` 401, `/api/businesses` 200 `[]`).
+Known pre-existing item not touched: a stray `data/data/backups/` phantom-path artifact
+predates this guide's work and was deliberately left alone (see G4 commit message).
+
 ---
 
 ## 0. Context — read first
