@@ -1,5 +1,14 @@
 # ZORDIC OWNER MANUAL GUIDE — v1.0 (for a Sonnet execution session)
 
+**Status: M0–M4 all complete** (2026-07-11) — `public/Zordic-Owner-Guide.pdf` shipped, 32 pages,
+3.2MB, 21 annotated screenshots across 20 screens + 5 written-only chapters (Getting Started,
+Daily Routine, How the AI Works, Connecting WhatsApp, FAQ). Verified via Chromium's native PDF
+viewer (correct pagination, no mid-page image cuts, back cover isolated). One real bug caught
+and fixed during build: the legend CSS's leftover `display:grid` rule was squeezing badge titles
+into a 26px column — removed, badges render correctly. Live at `zordic.in/Zordic-Owner-Guide.pdf`
+once deployed. To regenerate for a future UI change: re-run M0–M4 below (the seed script, shoot
+rig, and guide builder are not committed — recreate them in a scratchpad from this doc).
+
 Build **`public/Zordic-Owner-Guide.pdf`** — a complete, branded manual for café owners and
 managers with an annotated screenshot of every screen and an explanation of **every button
 and feature**. Execute packages **M0 → M4 in order, committing after each**. Everything in
