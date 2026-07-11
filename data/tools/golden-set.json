@@ -1,0 +1,404 @@
+[
+  { "id": "greet_hi", "tier": "llm", "turns": [
+    { "text": "hi", "expect": { "replyIncludesAny": ["welcome", "hello", "help", "swagat"] } }
+  ]},
+  { "id": "greet_hello", "tier": "llm", "turns": [
+    { "text": "hello", "expect": { "replyIncludesAny": ["welcome", "hello", "help"] } }
+  ]},
+  { "id": "greet_hindi", "tier": "llm", "turns": [
+    { "text": "नमस्ते", "expect": { "replyIncludesAny": ["स्वागत", "नमस्ते", "मदद"] } }
+  ]},
+  { "id": "greet_hinglish", "tier": "llm", "turns": [
+    { "text": "hey bhai kya haal hai", "expect": { "replyIncludesAny": ["badhiya", "accha", "help", "madad"] } }
+  ]},
+  { "id": "greet_good_morning", "tier": "llm", "turns": [
+    { "text": "good morning", "expect": { "replyIncludesAny": ["welcome", "morning", "help"] } }
+  ]},
+  { "id": "greet_regular_customer", "tier": "llm", "turns": [
+    { "text": "hi", "expect": { "replyIncludesAny": ["rahul", "welcome back", "regular", "vapas"] } }
+  ], "phone": "9811100011", "customerName": "Rahul Regular", "notes": "seeded 3-visit Regular-tier customer; personalization instructions already exist in the prompt today" },
+  { "id": "greet_namaskar", "tier": "llm", "turns": [
+    { "text": "namaskar", "expect": { "replyIncludesAny": ["welcome", "swagat", "namaste", "help"] } }
+  ]},
+
+  { "id": "menu_price_cold_coffee", "tier": "llm", "turns": [
+    { "text": "how much is cold coffee", "expect": { "replyIncludes": ["149"] } }
+  ]},
+  { "id": "menu_price_typo_coffee", "tier": "llm", "turns": [
+    { "text": "cold cofee price", "expect": { "replyIncludes": ["149"] } }
+  ], "notes": "typo robustness — informational, not required" },
+  { "id": "menu_price_typo_burger", "tier": "llm", "turns": [
+    { "text": "burgr price", "expect": { "replyIncludesAny": ["143", "179"] } }
+  ], "notes": "typo + 20% discount math (179*0.8=143.2->143)" },
+  { "id": "menu_price_pasta", "tier": "llm", "turns": [
+    { "text": "price of pasta", "expect": { "replyIncludes": ["229"] } }
+  ]},
+  { "id": "menu_price_mojito", "tier": "llm", "turns": [
+    { "text": "how much for virgin mojito", "expect": { "replyIncludes": ["139"] } }
+  ]},
+  { "id": "menu_price_fries", "tier": "llm", "turns": [
+    { "text": "peri peri fries price", "expect": { "replyIncludesAny": ["107", "119"] } }
+  ]},
+  { "id": "menu_price_combo", "tier": "llm", "turns": [
+    { "text": "what's the price of your combo", "expect": { "replyIncludesAny": ["299", "349", "combo"] } }
+  ]},
+  { "id": "menu_dikhao", "tier": "llm", "turns": [
+    { "text": "menu dikhao", "expect": { "replyIncludesAny": ["coffee", "pasta", "burger"] } }
+  ]},
+  { "id": "menu_whats_on_it", "tier": "llm", "turns": [
+    { "text": "what do you have on the menu", "expect": { "replyIncludesAny": ["coffee", "pasta", "burger", "fries"] } }
+  ]},
+  { "id": "menu_hinglish_khane", "tier": "llm", "turns": [
+    { "text": "kya kya milta hai khane ko", "expect": { "replyIncludesAny": ["coffee", "pasta", "burger", "menu"] } }
+  ]},
+  { "id": "menu_do_you_have_burgers", "tier": "llm", "turns": [
+    { "text": "do you have burgers", "expect": { "replyIncludesAny": ["burger"] } }
+  ]},
+  { "id": "menu_pasta_veg_faq", "tier": "llm", "deferredUntil": "AI3", "turns": [
+    { "text": "is the alfredo pasta veg or non veg", "expect": { "replyIncludesAny": ["veg", "vegetarian", "non-veg"] } }
+  ], "notes": "real FAQ, not derivable from the menu description today — knowledge base territory" },
+  { "id": "menu_hallucination_guard", "tier": "llm", "deferredUntil": "AI4", "turns": [
+    { "text": "how much is the paneer tikka", "expect": { "replyIncludesAny": ["don't have", "not available", "nahi hai", "not on our menu", "doesn't seem", "no such"] } }
+  ], "notes": "item not on menu — AI4 adds an explicit anti-hallucination guardrail; baseline may already get this right sometimes" },
+  { "id": "menu_recommend_hinglish", "tier": "llm", "turns": [
+    { "text": "best seller kya hai", "expect": { "replyIncludesAny": ["coffee", "fries", "pasta", "burger"] } }
+  ]},
+  { "id": "menu_recommend_en", "tier": "llm", "turns": [
+    { "text": "what do you recommend", "expect": { "replyIncludesAny": ["coffee", "fries", "pasta", "burger"] } }
+  ]},
+  { "id": "menu_bestseller_en", "tier": "llm", "turns": [
+    { "text": "what's your bestseller", "expect": { "replyIncludesAny": ["coffee", "fries", "pasta", "burger"] } }
+  ]},
+  { "id": "menu_quantity_math", "tier": "llm", "turns": [
+    { "text": "how much for 2 cold coffees", "expect": { "replyIncludesAny": ["298", "149"] } }
+  ]},
+
+  { "id": "faq_wifi_hinglish", "tier": "llm", "turns": [
+    { "text": "wifi hai kya", "expect": { "replyIncludesAny": ["wifi", "wi-fi"] } }
+  ]},
+  { "id": "faq_wifi_hindi", "tier": "llm", "turns": [
+    { "text": "क्या आपके पास वाईफाई है", "expect": { "replyIncludesAny": ["वाईफाई", "wifi"] } }
+  ]},
+  { "id": "faq_wifi_en", "tier": "llm", "turns": [
+    { "text": "do you have wifi", "expect": { "replyIncludesAny": ["wifi", "wi-fi"] } }
+  ]},
+  { "id": "faq_timings_hinglish", "tier": "llm", "turns": [
+    { "text": "aap kab tak khule rehte ho", "expect": { "replyIncludesAny": ["9:00", "10:00", "am", "pm"] } }
+  ]},
+  { "id": "faq_timings_en", "tier": "llm", "turns": [
+    { "text": "what are your timings", "expect": { "replyIncludesAny": ["9:00", "10:00", "am", "pm"] } }
+  ]},
+  { "id": "faq_timings_hindi", "tier": "llm", "turns": [
+    { "text": "आप कब खुलते हैं", "expect": { "replyIncludesAny": ["9:00", "10:00", "बजे"] } }
+  ]},
+  { "id": "faq_location_hinglish", "tier": "llm", "turns": [
+    { "text": "kaha ho aap", "expect": { "replyIncludesAny": ["india", "location", "maps"] } }
+  ]},
+  { "id": "faq_location_en", "tier": "llm", "turns": [
+    { "text": "where are you located", "expect": { "replyIncludesAny": ["india", "location", "maps"] } }
+  ]},
+  { "id": "faq_charging_hinglish", "tier": "llm", "turns": [
+    { "text": "charging point hai kya", "expect": { "replyIncludesAny": ["charging", "wifi", "socket", "plug"] } }
+  ]},
+  { "id": "faq_parking", "tier": "llm", "deferredUntil": "AI3", "turns": [
+    { "text": "do you have parking", "expect": { "replyIncludesAny": ["parking"] } }
+  ]},
+  { "id": "faq_parking_hinglish", "tier": "llm", "deferredUntil": "AI3", "turns": [
+    { "text": "kya yaha parking milegi", "expect": { "replyIncludesAny": ["parking"] } }
+  ]},
+  { "id": "faq_pure_veg", "tier": "llm", "deferredUntil": "AI3", "turns": [
+    { "text": "is this pure veg or also non veg", "expect": { "replyIncludesAny": ["veg", "non-veg", "non veg"] } }
+  ]},
+  { "id": "faq_pets", "tier": "llm", "deferredUntil": "AI3", "turns": [
+    { "text": "can I bring my dog", "expect": { "replyIncludesAny": ["pet", "dog", "allowed"] } }
+  ]},
+  { "id": "faq_delivery", "tier": "llm", "deferredUntil": "AI3", "turns": [
+    { "text": "do you do zomato or swiggy delivery", "expect": { "replyIncludesAny": ["zomato", "swiggy", "delivery"] } }
+  ]},
+
+  { "id": "disc_generic_en", "tier": "deterministic", "turns": [
+    { "text": "give me discount please", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_special_discount", "tier": "deterministic", "turns": [
+    { "text": "any special discount for me", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_kardo_hinglish", "tier": "deterministic", "turns": [
+    { "text": "discount kardo please", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_koi_milega", "tier": "deterministic", "turns": [
+    { "text": "koi discount milega kya", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_item_cold_coffee", "tier": "deterministic", "turns": [
+    { "text": "discount on cold coffee", "expect": { "replyIncludesAny": ["25%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 25 } } }
+  ], "notes": "per-item aiMaxDiscount=25 override beats the café-wide 10% default" },
+  { "id": "disc_item_pasta_fallback", "tier": "deterministic", "turns": [
+    { "text": "discount on pasta please", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ], "notes": "no per-item override on pasta -> falls back to café-wide 10%" },
+  { "id": "disc_item_burger_fallback", "tier": "deterministic", "turns": [
+    { "text": "give discount on burger", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_party", "tier": "deterministic", "turns": [
+    { "text": "party discount for a group", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_extra", "tier": "deterministic", "turns": [
+    { "text": "extra discount please", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_personal_offer", "tier": "deterministic", "turns": [
+    { "text": "personal offer de do", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_coupon_code", "tier": "deterministic", "turns": [
+    { "text": "coupon code chahiye", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_kitna", "tier": "deterministic", "turns": [
+    { "text": "kitna discount doge", "expect": { "replyIncludesAny": ["10%"], "couponIssued": { "sourceType": "ai_instant", "minValue": 10 } } }
+  ]},
+  { "id": "disc_student_indirect", "tier": "llm", "turns": [
+    { "text": "do you have a student discount", "expect": { "replyIncludesAny": ["10%", "student"] } }
+  ], "notes": "doesn't match the customOfferKeywords substrings -> falls to Gemini; may answer directly or escalate, genuinely ambiguous today" },
+
+  { "id": "comp_cold_food", "tier": "deterministic", "deferredUntil": "AI2", "turns": [
+    { "text": "the food was cold", "expect": { "escalationCategory": "complaint_refund" } }
+  ], "notes": "REAL GAP: keyword net has 'cold food' but not 'food was cold' — today Gemini routes it to feedback instead of escalating. AI2's LLM-first escalate intent closes this." },
+  { "id": "comp_disgusting", "tier": "deterministic", "turns": [
+    { "text": "this is disgusting", "expect": { "escalationCategory": "complaint_refund" } }
+  ]},
+  { "id": "comp_bad_service", "tier": "deterministic", "turns": [
+    { "text": "very bad service today", "expect": { "escalationCategory": "complaint_refund" } }
+  ]},
+  { "id": "comp_worst", "tier": "deterministic", "turns": [
+    { "text": "worst experience ever", "expect": { "escalationCategory": "complaint_refund" } }
+  ]},
+  { "id": "comp_paise_wapas", "tier": "deterministic", "turns": [
+    { "text": "mujhe paise wapas chahiye", "expect": { "escalationCategory": "complaint_refund" } }
+  ]},
+  { "id": "comp_kharab_hinglish", "tier": "deterministic", "turns": [
+    { "text": "khana bilkul kharab tha", "expect": { "escalationCategory": "complaint_refund" } }
+  ]},
+  { "id": "comp_manager_bulao", "tier": "deterministic", "deferredUntil": "AI2", "turns": [
+    { "text": "manager ko bulao abhi", "expect": { "escalationCategory": "complaint_refund" } }
+  ], "notes": "REAL GAP: keyword net has 'manager bulao' but 'manager KO bulao' doesn't substring-match — falls through to Gemini smalltalk. AI2's LLM-first escalate intent closes this." },
+  { "id": "comp_hair", "tier": "deterministic", "turns": [
+    { "text": "there was hair in my food", "expect": { "escalationCategory": "complaint_refund" } }
+  ]},
+  { "id": "comp_refund", "tier": "deterministic", "turns": [
+    { "text": "I want a refund", "expect": { "escalationCategory": "complaint_refund" } }
+  ]},
+
+  { "id": "pay_charged_twice", "tier": "deterministic", "turns": [
+    { "text": "I was charged twice for my order", "expect": { "escalationCategory": "payment_dispute" } }
+  ]},
+  { "id": "pay_money_deducted", "tier": "deterministic", "turns": [
+    { "text": "money deducted but no order placed", "expect": { "escalationCategory": "payment_dispute" } }
+  ]},
+  { "id": "pay_double_payment", "tier": "deterministic", "turns": [
+    { "text": "double payment happened on my card", "expect": { "escalationCategory": "payment_dispute" } }
+  ]},
+  { "id": "pay_paisa_kat_gaya", "tier": "deterministic", "turns": [
+    { "text": "paisa kat gaya par order nahi mila", "expect": { "escalationCategory": "payment_dispute" } }
+  ]},
+  { "id": "pay_galat_bill", "tier": "deterministic", "turns": [
+    { "text": "aapne galat bill diya hai", "expect": { "escalationCategory": "payment_dispute" } }
+  ]},
+  { "id": "pay_failed_deducted", "tier": "deterministic", "turns": [
+    { "text": "payment failed but amount deducted from my account", "expect": { "escalationCategory": "payment_dispute" } }
+  ]},
+  { "id": "pay_overcharged", "tier": "deterministic", "turns": [
+    { "text": "I think I was overcharged for my order", "expect": { "escalationCategory": "payment_dispute" } }
+  ]},
+
+  { "id": "resv_large_en", "tier": "llm", "turns": [
+    { "text": "I want to book a table" },
+    { "text": "Amit" },
+    { "text": "10" },
+    { "text": "tonight 9pm", "expect": { "escalationCategory": "large_booking", "reservationCreated": { "guests": 10 } } }
+  ]},
+  { "id": "resv_large_words", "tier": "llm", "turns": [
+    { "text": "book a table for us" },
+    { "text": "Sneha" },
+    { "text": "12 people" },
+    { "text": "Saturday 8pm", "expect": { "escalationCategory": "large_booking", "reservationCreated": { "guests": 12 } } }
+  ]},
+  { "id": "resv_large_threshold", "tier": "llm", "turns": [
+    { "text": "reservation please" },
+    { "text": "Karan" },
+    { "text": "8" },
+    { "text": "tomorrow 7pm", "expect": { "escalationCategory": "large_booking", "reservationCreated": { "guests": 8 } } }
+  ], "notes": "exactly the >=8 threshold" },
+  { "id": "resv_large_9", "tier": "llm", "turns": [
+    { "text": "table booking" },
+    { "text": "Priya" },
+    { "text": "9" },
+    { "text": "friday 6pm", "expect": { "escalationCategory": "large_booking", "reservationCreated": { "guests": 9 } } }
+  ]},
+  { "id": "resv_large_hinglish", "tier": "llm", "turns": [
+    { "text": "table book karni hai" },
+    { "text": "Rohit" },
+    { "text": "15" },
+    { "text": "kal raat 8 baje", "expect": { "escalationCategory": "large_booking", "reservationCreated": { "guests": 15 } } }
+  ]},
+
+  { "id": "resv_normal_en", "tier": "llm", "turns": [
+    { "text": "book a table" },
+    { "text": "Neha" },
+    { "text": "2" },
+    { "text": "tonight 7pm", "expect": { "replyIncludesAny": ["booked", "successfully", "book ho gayi"], "reservationCreated": { "guests": 2 } } }
+  ]},
+  { "id": "resv_normal_reserve", "tier": "llm", "turns": [
+    { "text": "reserve a table" },
+    { "text": "Dev" },
+    { "text": "4" },
+    { "text": "sunday 1pm", "expect": { "replyIncludesAny": ["booked", "successfully"], "reservationCreated": { "guests": 4 } } }
+  ]},
+  { "id": "resv_normal_hinglish", "tier": "llm", "turns": [
+    { "text": "table chahiye" },
+    { "text": "Anjali" },
+    { "text": "3" },
+    { "text": "aaj shaam 6 baje", "expect": { "replyIncludesAny": ["book", "ho gayi", "successfully"], "reservationCreated": { "guests": 3 } } }
+  ]},
+  { "id": "resv_normal_seat_for_two", "tier": "llm", "turns": [
+    { "text": "seat for two please" },
+    { "text": "Vikram" },
+    { "text": "2" },
+    { "text": "8pm today", "expect": { "replyIncludesAny": ["booked", "successfully"], "reservationCreated": { "guests": 2 } } }
+  ]},
+
+  { "id": "unans_hiring", "tier": "llm", "turns": [
+    { "text": "are you hiring baristas right now", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+  { "id": "unans_catering", "tier": "llm", "turns": [
+    { "text": "do you do wedding catering for 200 people", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+  { "id": "unans_franchise", "tier": "llm", "turns": [
+    { "text": "can I franchise your café in another city", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+  { "id": "unans_weather", "tier": "llm", "turns": [
+    { "text": "what's the weather today", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+  { "id": "unans_pm", "tier": "llm", "turns": [
+    { "text": "who is the prime minister of india", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+  { "id": "unans_homework", "tier": "llm", "turns": [
+    { "text": "can you help me solve my math homework", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+  { "id": "unans_furniture", "tier": "llm", "turns": [
+    { "text": "do you sell your café furniture", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+  { "id": "unans_job_delivery", "tier": "llm", "turns": [
+    { "text": "any job openings for a delivery boy", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+  { "id": "unans_invest", "tier": "llm", "turns": [
+    { "text": "can I invest in your café business", "expect": { "escalationCategory": "unanswerable" } }
+  ]},
+
+  { "id": "fb_five_star_en", "tier": "llm", "turns": [
+    { "text": "I want to give feedback" },
+    { "text": "5" },
+    { "text": "amazing food and service!", "expect": { "replyIncludesAny": ["thank", "shukriya", "dhanyawad"], "couponIssued": { "sourceType": "feedback5", "minValue": 15 } } }
+  ]},
+  { "id": "fb_five_star_hinglish", "tier": "llm", "turns": [
+    { "text": "feedback dena hai" },
+    { "text": "5" },
+    { "text": "bahut accha tha", "expect": { "replyIncludesAny": ["shukriya", "thank"], "couponIssued": { "sourceType": "feedback5", "minValue": 15 } } }
+  ]},
+  { "id": "fb_three_star", "tier": "llm", "turns": [
+    { "text": "rating dena chahta hoon" },
+    { "text": "3" },
+    { "text": "theek tha, aur accha ho sakta hai", "expect": { "replyIncludesAny": ["thank", "shukriya", "behtar", "improve"] } }
+  ]},
+  { "id": "fb_four_star_google", "tier": "llm", "turns": [
+    { "text": "review dena hai" },
+    { "text": "4" },
+    { "text": "very good experience overall", "expect": { "replyIncludesAny": ["google", "review"] } }
+  ]},
+  { "id": "fb_five_star_leave_review", "tier": "llm", "turns": [
+    { "text": "I want to leave a review" },
+    { "text": "5" },
+    { "text": "perfect experience, will come again!", "expect": { "couponIssued": { "sourceType": "feedback5", "minValue": 15 } } }
+  ]},
+
+  { "id": "loy_points_regular", "tier": "llm", "phone": "9811100011", "customerName": "Rahul Regular", "turns": [
+    { "text": "what are my points", "expect": { "replyIncludesAny": ["points", "stamps"] } }
+  ]},
+  { "id": "loy_balance_hinglish_regular", "tier": "llm", "phone": "9811100011", "customerName": "Rahul Regular", "turns": [
+    { "text": "mera balance kitna hai", "expect": { "replyIncludesAny": ["points", "stamps"] } }
+  ]},
+  { "id": "loy_redeem_regular", "tier": "llm", "phone": "9811100011", "customerName": "Rahul Regular", "turns": [
+    { "text": "I want to redeem my points", "expect": { "replyIncludesAny": ["points", "stamps", "redeem"] } }
+  ]},
+  { "id": "loy_points_new_customer", "tier": "llm", "turns": [
+    { "text": "what are my points", "expect": { "replyIncludesAny": ["points", "stamps"] } }
+  ]},
+  { "id": "loy_card_hinglish", "tier": "llm", "turns": [
+    { "text": "mera loyalty card dikhao", "expect": { "replyIncludesAny": ["card", "points", "stamps"] } }
+  ]},
+  { "id": "loy_stamps_en", "tier": "llm", "turns": [
+    { "text": "how many stamps do I have", "expect": { "replyIncludesAny": ["stamps"] } }
+  ]},
+
+  { "id": "persona_human_check", "tier": "llm", "deferredUntil": "AI4", "turns": [
+    { "text": "are you a real person?", "expect": { "replyIncludesAny": ["ai", "assistant", "bot"] } }
+  ]},
+  { "id": "persona_bot_check", "tier": "llm", "deferredUntil": "AI4", "turns": [
+    { "text": "am I talking to a human or a bot", "expect": { "replyIncludesAny": ["ai", "assistant", "bot"] } }
+  ]},
+  { "id": "persona_whats_your_name", "tier": "llm", "deferredUntil": "AI4", "turns": [
+    { "text": "what's your name", "expect": { "replyIncludesAny": ["asha"] } }
+  ]},
+  { "id": "persona_regular_remembers", "tier": "llm", "deferredUntil": "AI4", "phone": "9811100011", "customerName": "Rahul Regular", "turns": [
+    { "text": "hi, I'm back again, remember me?", "expect": { "replyIncludesAny": ["rahul", "welcome back"] } }
+  ]},
+
+  { "id": "mem_pasta_then_two", "tier": "llm", "deferredUntil": "AI1", "turns": [
+    { "text": "how much is the alfredo pasta" },
+    { "text": "ok make it two", "expect": { "replyIncludesAny": ["458", "229"] } }
+  ], "notes": "2x229=458 — requires remembering the previous turn's subject" },
+  { "id": "mem_coffee_then_fries", "tier": "llm", "deferredUntil": "AI1", "turns": [
+    { "text": "what's the price of cold coffee" },
+    { "text": "and the peri peri fries?", "expect": { "replyIncludesAny": ["107", "119"] } }
+  ]},
+  { "id": "mem_wifi_then_parking", "tier": "llm", "deferredUntil": "AI1", "turns": [
+    { "text": "do you have wifi" },
+    { "text": "what about parking", "expect": { "replyIncludesAny": ["parking"] } }
+  ], "notes": "compound: needs memory (AI1) and knowledge base (AI3); tagged AI1 as the first blocker" },
+  { "id": "mem_reservation_context_switch", "tier": "llm", "deferredUntil": "AI2", "turns": [
+    { "text": "I want to book a table" },
+    { "text": "actually never mind, what's on the menu", "expect": { "replyIncludesAny": ["coffee", "pasta", "burger", "menu"] } }
+  ], "notes": "today's blind slot-filling treats this whole sentence as the reservation NAME — a real bug; AI2's smarter routing is the natural fix" },
+  { "id": "mem_regular_recommend", "tier": "llm", "deferredUntil": "AI4", "phone": "9811100011", "customerName": "Rahul Regular", "turns": [
+    { "text": "hi" },
+    { "text": "what do you recommend", "expect": { "replyIncludesAny": ["rahul", "regular", "coffee", "fries"] } }
+  ]},
+  { "id": "mem_coffee_then_pasta_hinglish", "tier": "llm", "deferredUntil": "AI1", "turns": [
+    { "text": "cold coffee kitne ka hai" },
+    { "text": "aur pasta?", "expect": { "replyIncludesAny": ["229"] } }
+  ]},
+
+  { "id": "offers_generic_en", "tier": "llm", "turns": [
+    { "text": "what offers do you have", "expect": { "replyIncludesAny": ["student", "10%", "offer"] } }
+  ]},
+  { "id": "offers_generic_deals", "tier": "llm", "turns": [
+    { "text": "any ongoing deals right now", "expect": { "replyIncludesAny": ["student", "10%", "offer", "deal"] } }
+  ]},
+  { "id": "offers_hinglish", "tier": "llm", "turns": [
+    { "text": "kya offers chal rahe hain", "expect": { "replyIncludesAny": ["student", "10%", "offer"] } }
+  ]},
+
+  { "id": "smalltalk_how_are_you", "tier": "llm", "turns": [
+    { "text": "how are you", "expect": { "replyIncludesAny": ["good", "great", "fine", "badhiya", "welcome"] } }
+  ]},
+  { "id": "smalltalk_thanks", "tier": "llm", "turns": [
+    { "text": "thank you so much", "expect": { "replyIncludesAny": ["welcome", "shukriya", "dhanyawad"] } }
+  ]},
+  { "id": "smalltalk_appreciation", "tier": "llm", "turns": [
+    { "text": "you guys are great", "expect": { "replyIncludesAny": ["thank", "welcome"] } }
+  ]},
+  { "id": "smalltalk_recommend_today", "tier": "llm", "turns": [
+    { "text": "what do you recommend for today", "expect": { "replyIncludesAny": ["coffee", "fries", "pasta", "burger"] } }
+  ]},
+  { "id": "smalltalk_sasta_hinglish", "tier": "llm", "turns": [
+    { "text": "sabse sasta item kya hai", "expect": { "replyIncludesAny": ["₹", "coffee", "fries", "mojito"] } }
+  ]},
+  { "id": "smalltalk_special_hinglish", "tier": "llm", "turns": [
+    { "text": "aaj ka special kya hai", "expect": { "replyIncludesAny": ["coffee", "fries", "pasta", "burger"] } }
+  ]}
+]
