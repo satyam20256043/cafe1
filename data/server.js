@@ -31,12 +31,39 @@ try {
 }
 
 
-// Initialize Gemini API client if API key is provided
+// Initialize Gemini API client if API key is provided.
+// GEMINI_MODEL env var switches models without a code change (pulled forward
+// from AI5 of docs/ZORDIC_AI_RECEPTIONIST_GUIDE.md — free-tier quotas are
+// per-model, so the ability to switch matters even while dogfooding).
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
 if (genAI) {
-  console.log('[AI Engine] Google Gemini LLM Mode Active 🚀');
+  console.log(`[AI Engine] Google Gemini LLM Mode Active 🚀 (model: ${GEMINI_MODEL})`);
 } else {
   console.log('[AI Engine] Local Conversational NLP Mode Active (Fallback) 🤖');
+}
+
+// Premium AI tier (user decision 2026-07-11): cafés on paid plans ≥ ₹3,000
+// (growth, pro) get Claude Haiku as the receptionist brain; Starter and trial
+// cafés use Gemini. Requires ANTHROPIC_API_KEY in .env — without it everything
+// silently stays on Gemini (ground rule: every AI feature has a fallback).
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
+const PREMIUM_AI_PLANS = ['growth', 'pro'];
+let anthropic = null;
+if (process.env.ANTHROPIC_API_KEY) {
+  try {
+    const Anthropic = require('@anthropic-ai/sdk');
+    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    console.log(`[AI Engine] Claude premium tier active ✨ (model: ${CLAUDE_MODEL}, plans: ${PREMIUM_AI_PLANS.join('/')})`);
+  } catch (e) {
+    console.error('[AI Engine] Claude SDK init failed, premium tier disabled:', e.message);
+  }
+}
+
+function branchUsesPremiumAI(branchId) {
+  if (!anthropic) return false;
+  const business = businesses.find(b => b.id === branchId);
+  return !!(business && PREMIUM_AI_PLANS.includes(business.plan));
 }
 
 
@@ -446,11 +473,11 @@ function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFiel
   emitToBranch(branchId, 'crm_update', { branchId, profiles });
 }
 
-// AI Helper: Gemini API Reply Generator (Phase 4 — Loyalty Aware)
-async function generateGeminiReply(branchId, text, fromPhone) {
-  if (!genAI) return null;
+// AI Helper: receptionist prompt builder (Phase 4 — Loyalty Aware) — shared by
+// every provider so Gemini and Claude answer from identical context, including
+// the INTENT protocol rules.
+function buildReceptionistPrompt(branchId, text, fromPhone) {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const business = businesses.find(b => b.id === branchId) || businesses[0];
     const menu = getBranchData(branchId, 'menu.json');
     // ── Pull real loyalty data from SQLite ──────────────────────────────────
@@ -547,6 +574,17 @@ CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
 Customer query: "${text}"
 Your Response:`;
 
+    return prompt;
+  } catch (error) {
+    console.error('[AI Prompt Build Error]', error);
+    return null;
+  }
+}
+
+async function callGemini(prompt) {
+  if (!genAI) return null;
+  try {
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text().trim();
@@ -554,6 +592,36 @@ Your Response:`;
     console.error('[Gemini API Error]', error);
     return null;
   }
+}
+
+async function callClaude(prompt) {
+  if (!anthropic) return null;
+  try {
+    const msg = await anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 500,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const textOut = (msg.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
+    return textOut || null;
+  } catch (error) {
+    console.error('[Claude API Error]', error.message || error);
+    return null;
+  }
+}
+
+// Provider dispatch: growth/pro cafés get Claude Haiku (premium tier), everyone
+// else Gemini. Claude failures degrade to Gemini; Gemini failures return null
+// and the caller falls through to the local keyword tier — the pipeline never
+// hard-fails because a model is down.
+async function generateAIReply(branchId, text, fromPhone) {
+  const prompt = buildReceptionistPrompt(branchId, text, fromPhone);
+  if (!prompt) return null;
+  if (branchUsesPremiumAI(branchId)) {
+    const claudeReply = await callClaude(prompt);
+    if (claudeReply) return claudeReply;
+  }
+  return callGemini(prompt);
 }
 
 // AI Helper: Local Conversational Responder (Fallback)
@@ -650,7 +718,7 @@ function generateLocalConversationalReply(branchId, text, lang, fromPhone) {
 // Deterministic-first: keyword nets + a guest-count threshold decide what
 // counts as an escalation, so this all works even with Gemini disabled. Gemini
 // (when active) can additionally flag INTENT:ESCALATE for cases the keyword
-// nets miss, or for genuinely unanswerable questions (see generateGeminiReply).
+// nets miss, or for genuinely unanswerable questions (see generateAIReply).
 const LARGE_BOOKING_GUESTS = 8; // TODO: could become a per-café Settings value later
 
 const PAYMENT_DISPUTE_KEYWORDS = [
@@ -1304,9 +1372,9 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
     }
   }
 
-  // 4. CALL DYNAMIC GEMINI LLM IF ACTIVE
-  if (genAI) {
-    const geminiReply = await generateGeminiReply(branchId, text, fromPhone);
+  // 4. CALL DYNAMIC LLM IF ACTIVE (Claude Haiku for growth/pro plans, Gemini otherwise)
+  if (genAI || anthropic) {
+    const geminiReply = await generateAIReply(branchId, text, fromPhone);
     if (geminiReply) {
       if (geminiReply.includes('INTENT:ESCALATE')) {
         const parts = geminiReply.split('|');
@@ -1793,7 +1861,7 @@ const routeCtx = {
   initializeBusinessFiles,
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
-  sendWhatsAppToCustomer, getWaConfig,
+  sendWhatsAppToCustomer, getWaConfig, GEMINI_MODEL,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
   waApi, genAI, razorpay: (() => { try { return new (require('razorpay'))({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }); } catch(e){ return null; } })(),
