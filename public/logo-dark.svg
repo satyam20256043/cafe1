@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 76" fill="none">
+  <path d="M35 66 A9  9  0 0 1 53 66" stroke="#E2C97E" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M26 66 A18 18 0 0 1 62 66" stroke="#E2C97E" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <path d="M17 66 A27 27 0 0 1 71 66" stroke="#E2C97E" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <path d="M8  66 A36 36 0 0 1 80 66" stroke="#E2C97E" stroke-width="1.1" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <circle cx="44" cy="66" r="3" fill="#E2C97E"/>
+  <line x1="96" y1="14" x2="96" y2="66" stroke="#5A4A38" stroke-width="0.8"/>
+  <text x="110" y="48" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="600" font-size="34" letter-spacing="1" fill="#F5EFE2">ZORDIC</text>
+  <text x="112" y="62" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="300" font-size="9" letter-spacing="7" fill="#E2C97E">CALIFORNIA</text>
+</svg>
