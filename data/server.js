@@ -1889,6 +1889,7 @@ require('./routes/agency')(routeCtx);
 require('./routes/billing')(routeCtx);
 require('./routes/activity')(routeCtx);
 require('./routes/feedback')(routeCtx);
+require('./routes/leads')(routeCtx);
 
 // Socket.io Real-time Event Handling
 // -------------------------------------------------------------
