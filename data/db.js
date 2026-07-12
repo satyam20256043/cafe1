@@ -233,6 +233,14 @@ db.exec(`
     is_default INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 100
   );
+  -- Per-café daily counter for metered premium AI. Starter cafés get a limited
+  -- number of Claude (Haiku) replies per day; growth/pro are unmetered.
+  CREATE TABLE IF NOT EXISTS ai_daily_usage (
+    business_id  TEXT NOT NULL,
+    usage_date   TEXT NOT NULL,      -- YYYY-MM-DD (server-local)
+    claude_count INTEGER DEFAULT 0,
+    PRIMARY KEY (business_id, usage_date)
+  );
 `);
 
 
@@ -1290,3 +1298,21 @@ Object.assign(module.exports, {
   createLead, listLeads, updateLead, deleteLead,
   listLeadStatuses, addLeadStatus, deleteLeadStatus,
 });
+
+// ── Metered premium AI (Starter daily Claude cap) ──────────────────────────────
+const getClaudeUsageStmt  = db.prepare('SELECT claude_count FROM ai_daily_usage WHERE business_id = ? AND usage_date = ?');
+const bumpClaudeUsageStmt = db.prepare(`
+  INSERT INTO ai_daily_usage (business_id, usage_date, claude_count) VALUES (?, ?, 1)
+  ON CONFLICT(business_id, usage_date) DO UPDATE SET claude_count = claude_count + 1
+`);
+function getClaudeUsageToday(businessId, date) {
+  const row = getClaudeUsageStmt.get(businessId, date);
+  return row ? row.claude_count : 0;
+}
+// Records one Claude reply for the day and returns the new running total.
+function bumpClaudeUsage(businessId, date) {
+  bumpClaudeUsageStmt.run(businessId, date);
+  const row = getClaudeUsageStmt.get(businessId, date);
+  return row ? row.claude_count : 0;
+}
+Object.assign(module.exports, { getClaudeUsageToday, bumpClaudeUsage });

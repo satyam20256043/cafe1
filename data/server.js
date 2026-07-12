@@ -43,27 +43,49 @@ if (genAI) {
   console.log('[AI Engine] Local Conversational NLP Mode Active (Fallback) 🤖');
 }
 
-// Premium AI tier (user decision 2026-07-11): cafés on paid plans ≥ ₹3,000
-// (growth, pro) get Claude Haiku as the receptionist brain; Starter and trial
-// cafés use Gemini. Requires ANTHROPIC_API_KEY in .env — without it everything
-// silently stays on Gemini (ground rule: every AI feature has a fallback).
+// Premium AI tier (user decision 2026-07-11, extended 2026-07-12): cafés on
+// growth/pro plans get Claude Haiku as the receptionist brain with no cap.
+// Starter cafés ALSO get Claude Haiku, but only STARTER_CLAUDE_DAILY_LIMIT
+// replies per day — Haiku only, no Gemini fallback; once the day's cap is spent
+// the AI stays silent (deliberate nudge to upgrade). Trial cafés (no plan yet)
+// and everyone else use Gemini. Requires ANTHROPIC_API_KEY in .env — without it
+// everything silently stays on Gemini (ground rule: every AI feature has a fallback).
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 const PREMIUM_AI_PLANS = ['growth', 'pro'];
+const STARTER_CLAUDE_DAILY_LIMIT = parseInt(process.env.STARTER_CLAUDE_DAILY_LIMIT, 10) || 30;
 let anthropic = null;
 if (process.env.ANTHROPIC_API_KEY) {
   try {
     const Anthropic = require('@anthropic-ai/sdk');
     anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    console.log(`[AI Engine] Claude premium tier active ✨ (model: ${CLAUDE_MODEL}, plans: ${PREMIUM_AI_PLANS.join('/')})`);
+    console.log(`[AI Engine] Claude premium tier active ✨ (model: ${CLAUDE_MODEL}, unlimited: ${PREMIUM_AI_PLANS.join('/')}, starter cap: ${STARTER_CLAUDE_DAILY_LIMIT}/day)`);
   } catch (e) {
     console.error('[AI Engine] Claude SDK init failed, premium tier disabled:', e.message);
   }
 }
 
-function branchUsesPremiumAI(branchId) {
-  if (!anthropic) return false;
+// Local date key (YYYY-MM-DD) for the daily Starter Haiku quota; resets at the
+// server's local midnight.
+function aiUsageDateKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Which LLM answers for this branch on THIS message:
+//   'claude'        → growth/pro: Claude Haiku, unlimited (Gemini safety-net on failure)
+//   'claude_capped' → starter:    Claude Haiku, up to STARTER_CLAUDE_DAILY_LIMIT/day
+//   'silent'        → starter over today's cap: send nothing (no Gemini, no local reply)
+//   'gemini'        → trial / no Claude key / anything else
+function aiDecisionForBranch(branchId) {
   const business = businesses.find(b => b.id === branchId);
-  return !!(business && PREMIUM_AI_PLANS.includes(business.plan));
+  const plan = business && business.plan;
+  if (anthropic && PREMIUM_AI_PLANS.includes(plan)) return 'claude';
+  if (anthropic && plan === 'starter') {
+    if (!db) return 'gemini'; // no meter available → stay on Gemini rather than bill Claude uncapped
+    const used = db.getClaudeUsageToday(branchId, aiUsageDateKey());
+    return used < STARTER_CLAUDE_DAILY_LIMIT ? 'claude_capped' : 'silent';
+  }
+  return 'gemini';
 }
 
 
@@ -614,12 +636,23 @@ async function callClaude(prompt) {
 // else Gemini. Claude failures degrade to Gemini; Gemini failures return null
 // and the caller falls through to the local keyword tier — the pipeline never
 // hard-fails because a model is down.
-async function generateAIReply(branchId, text, fromPhone) {
+async function generateAIReply(branchId, text, fromPhone, decision) {
+  decision = decision || aiDecisionForBranch(branchId);
+  if (decision === 'silent') return null; // caller handles this before the local fallback
   const prompt = buildReceptionistPrompt(branchId, text, fromPhone);
   if (!prompt) return null;
-  if (branchUsesPremiumAI(branchId)) {
+  if (decision === 'claude') {
     const claudeReply = await callClaude(prompt);
     if (claudeReply) return claudeReply;
+    return callGemini(prompt); // growth/pro keep the Gemini safety net
+  }
+  if (decision === 'claude_capped') {
+    const claudeReply = await callClaude(prompt);
+    if (claudeReply) {
+      if (db) db.bumpClaudeUsage(branchId, aiUsageDateKey()); // count answered messages only
+      return claudeReply;
+    }
+    return null; // Starter is Haiku-only; a transient Claude miss drops to the local keyword tier
   }
   return callGemini(prompt);
 }
@@ -981,7 +1014,9 @@ async function processCafeBotReply(branchId, fromPhone, incomingMessage, opts = 
     db.saveChatMessage(branchId, fromPhone, customerName, 'in', incomingMessage, channel);
   }
   const reply = await processCafeBotReplyInner(branchId, fromPhone, incomingMessage);
-  if (db) {
+  // reply may be null when a Starter café is over its daily Haiku cap (stay silent) —
+  // don't log or persist an empty outbound in that case.
+  if (db && reply) {
     db.logEvent(branchId, 'chat.outbound', { customerPhone: fromPhone, actor: 'ai', metadata: { text: reply } });
     db.saveChatMessage(branchId, fromPhone, customerName, 'out', reply, channel);
   }
@@ -1372,9 +1407,17 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
     }
   }
 
-  // 4. CALL DYNAMIC LLM IF ACTIVE (Claude Haiku for growth/pro plans, Gemini otherwise)
+  // 4. CALL DYNAMIC LLM IF ACTIVE (Claude Haiku for growth/pro & starter; Gemini for trial/others)
+  const aiDecision = aiDecisionForBranch(branchId);
+  if (aiDecision === 'silent') {
+    // Starter café has spent its daily Haiku allowance — go quiet. No Gemini and
+    // no local keyword reply: silence is the deliberate nudge to upgrade to Growth.
+    if (db) db.logEvent(branchId, 'ai.daily_cap_reached',
+      { customerPhone: fromPhone, actor: 'system', metadata: { plan: 'starter', limit: STARTER_CLAUDE_DAILY_LIMIT } });
+    return null;
+  }
   if (genAI || anthropic) {
-    const geminiReply = await generateAIReply(branchId, text, fromPhone);
+    const geminiReply = await generateAIReply(branchId, text, fromPhone, aiDecision);
     if (geminiReply) {
       if (geminiReply.includes('INTENT:ESCALATE')) {
         const parts = geminiReply.split('|');
@@ -2159,16 +2202,20 @@ app.post('/api/webhook/whatsapp', (req, res) => {
             // reservation/feedback/loyalty state machine — identical behavior
             // to the web chat widget and the simulator.
             const reply = await processCafeBotReply(branchId, fromPhone, incomingText, { channel: 'whatsapp' });
-            await sendWhatsAppToCustomer(branchId, fromPhone, reply);
 
             emitToBranch(branchId, 'inbound_chat', {
               branchId, phone: fromPhone, text: incomingText, sender: 'customer',
               timestamp: new Date().toLocaleTimeString(),
             });
-            emitToBranch(branchId, 'inbound_chat', {
-              branchId, phone: fromPhone, text: reply, sender: 'ai',
-              timestamp: new Date().toLocaleTimeString(),
-            });
+            // reply is null when a Starter café is over its daily Haiku cap — stay
+            // silent: send nothing to the customer and don't stream an AI bubble.
+            if (reply) {
+              await sendWhatsAppToCustomer(branchId, fromPhone, reply);
+              emitToBranch(branchId, 'inbound_chat', {
+                branchId, phone: fromPhone, text: reply, sender: 'ai',
+                timestamp: new Date().toLocaleTimeString(),
+              });
+            }
           }
         }
       }
@@ -2486,16 +2533,19 @@ io.on('connection', (socket) => {
     // Run pricing reasoning / reservation engine on the server
     const aiReply = await processCafeBotReply(branchId, phone, text, { channel: 'simulator', customerName });
 
-    // Simulate thinking delay
-    setTimeout(() => {
-      emitToBranch(branchId, 'inbound_chat', {
-        branchId,
-        phone,
-        text: aiReply,
-        sender: 'ai',
-        timestamp: new Date().toLocaleTimeString()
-      });
-    }, 1200);
+    // Simulate thinking delay (aiReply is null when a Starter café is over its
+    // daily Haiku cap — stay silent rather than emit an empty AI bubble).
+    if (aiReply) {
+      setTimeout(() => {
+        emitToBranch(branchId, 'inbound_chat', {
+          branchId,
+          phone,
+          text: aiReply,
+          sender: 'ai',
+          timestamp: new Date().toLocaleTimeString()
+        });
+      }, 1200);
+    }
   });
 
   // Legacy WhatsApp Web (Puppeteer/QR) mode is retired — Cloud API is the only

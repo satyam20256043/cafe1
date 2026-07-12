@@ -955,19 +955,22 @@ function initializeWhatsAppClient() {
     // Run response through AI NLP engine (persists both messages to chat_messages)
     const reply = await processCafeBotReply(activeRealBotBusinessId, fromPhone, incomingText, { channel: 'whatsapp' });
 
-    // Send WhatsApp Outbound reply
-    await msg.reply(reply);
+    // reply is null when a Starter café is over its daily Haiku cap — stay silent.
+    if (reply) {
+      // Send WhatsApp Outbound reply
+      await msg.reply(reply);
 
-    console.log(`[WhatsApp Outbound] To ${fromPhone}: "${reply}"`);
+      console.log(`[WhatsApp Outbound] To ${fromPhone}: "${reply}"`);
 
-    // Stream AI response to UI console
-    io.emit('inbound_chat', {
-      branchId: activeRealBotBusinessId,
-      phone: fromPhone,
-      text: reply,
-      sender: 'ai',
-      timestamp: new Date().toLocaleTimeString()
-    });
+      // Stream AI response to UI console
+      io.emit('inbound_chat', {
+        branchId: activeRealBotBusinessId,
+        phone: fromPhone,
+        text: reply,
+        sender: 'ai',
+        timestamp: new Date().toLocaleTimeString()
+      });
+    }
   });
 
   whatsappClient.on('disconnected', (reason) => {
