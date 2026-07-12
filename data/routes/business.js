@@ -88,7 +88,7 @@ app.post('/api/businesses', requireAuth, (req, res) => {
 
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g,'').slice(0, 20);
   const id   = slug + '_' + Date.now().toString(36);
-  const trialEnds = new Date(Date.now() + 10*24*60*60*1000).toISOString().slice(0,10);
+  const trialEnds = new Date(Date.now() + 30*24*60*60*1000).toISOString().slice(0,10);
 
   const newBiz = {
     id, name, location,
@@ -181,7 +181,7 @@ app.post('/api/onboard', async (req, res) => {
   const id = slug + '_' + Date.now().toString(36);
 
   // Build business record with onboarding metadata
-  const trialEnds = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
+  const trialEnds = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0,10);
   const newBiz = {
     id,
     name: businessName,
