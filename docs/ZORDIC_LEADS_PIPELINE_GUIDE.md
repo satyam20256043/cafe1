@@ -6,7 +6,9 @@ operator can add). Execute packages **LEAD0 → LEAD3 in order, committing after
 §0–§2 fully before touching any file. Decisions in §1 were made by the user on 2026-07-11 —
 do **not** re-ask them.
 
-**Status: NOT YET EXECUTED** (written 2026-07-11).
+**Status: EXECUTED — LEAD0-LEAD3 all complete and committed 2026-07-12** (commits `8e60a51`,
+`447aab8`, `4a29ade`, and the LEAD3 commit). Not yet deployed to production — run the deploy
+line in §0 when ready.
 
 ---
 

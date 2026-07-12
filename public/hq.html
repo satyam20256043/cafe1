@@ -162,6 +162,8 @@
   .lead-status-select{border:1px solid var(--border);border-radius:20px;padding:5px 26px 5px 11px;font-size:11.5px;font-weight:600;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;background-repeat:no-repeat;background-position:right 8px center;background-size:10px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B5D4A' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
   .lead-del-btn{background:none;border:none;color:var(--ink-3);cursor:pointer;font-size:15px;padding:4px 8px;border-radius:6px;transition:all 0.12s}
   .lead-del-btn:hover{color:var(--rose);background:var(--rose-lt)}
+  .lead-convert-btn{background:none;border:1px solid var(--border);color:var(--gold-d);cursor:pointer;font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;transition:all 0.12s;margin-right:4px}
+  .lead-convert-btn:hover{background:var(--gold-lt);border-color:var(--gold)}
   .add-status-row{display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:12px;background:var(--gold-lt);border-radius:var(--r);margin-bottom:14px}
   .add-status-row.open{display:flex}
   </style>
@@ -305,7 +307,7 @@
   </div>
   <div class="ds-table-wrap"><div style="overflow-x:auto">
     <table class="leads-table">
-      <thead><tr><th style="min-width:170px">Café / Restaurant</th><th style="min-width:120px">Phone</th><th style="min-width:130px">Owner</th><th style="min-width:130px">Location</th><th style="min-width:140px">Status</th><th style="min-width:135px">Follow-up</th><th style="min-width:180px">Notes</th><th></th></tr></thead>
+      <thead><tr><th style="min-width:170px">Café / Restaurant</th><th style="min-width:120px">Phone</th><th style="min-width:130px">Owner</th><th style="min-width:130px">Location</th><th style="min-width:140px">Status</th><th style="min-width:135px">Follow-up</th><th style="min-width:180px">Notes</th><th style="min-width:90px"></th></tr></thead>
       <tbody id="leads-tbody"><tr><td colspan="8" style="padding:28px;color:var(--ink-3);text-align:center">Loading…</td></tr></tbody>
     </table>
   </div></div>
@@ -425,7 +427,7 @@ function renderLeadsTable(){
       <td><select class="lead-status-select" style="background-color:${color}18;color:${color};border-color:${color}55" onchange="updateLeadField('${l.id}','status',this.value)">${leadStatusOptionsHtml(l.status)}</select></td>
       <td><input class="lead-cell-input" type="date" value="${esc(l.follow_up_date||'')}" onchange="updateLeadField('${l.id}','follow_up_date',this.value)"></td>
       <td><textarea class="lead-cell-input" rows="1" placeholder="Notes" onchange="updateLeadField('${l.id}','notes',this.value)">${esc(l.notes||'')}</textarea></td>
-      <td><button class="lead-del-btn" title="Delete lead" onclick="deleteLeadRow('${l.id}')">✕</button></td>
+      <td style="white-space:nowrap"><button class="lead-convert-btn" title="Convert to café — opens onboarding" onclick="convertLeadRow('${l.id}')">→ Convert</button><button class="lead-del-btn" title="Delete lead" onclick="deleteLeadRow('${l.id}')">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -474,6 +476,13 @@ async function deleteLeadRow(id){
     console.error('[deleteLeadRow]',e);
     alert('Could not delete: '+friendly(e));
   }
+}
+async function convertLeadRow(id){
+  const lead=_leads.find(l=>l.id===id);
+  if(!lead) return;
+  if(!confirm('Open onboarding for "'+lead.cafe_name+'"? This will mark the lead as Paid.')) return;
+  window.open('/onboard','_blank');
+  await updateLeadField(id,'status','Paid');
 }
 function toggleAddStatusRow(){
   const row=document.getElementById('add-status-row');
