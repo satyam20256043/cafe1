@@ -150,6 +150,20 @@
   .btn-cancel-pw:hover{border-color:var(--rose);color:var(--rose)}
   .btn-change-pw{background:none;border:1px solid var(--border);color:var(--ink-2);padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;transition:all 0.12s}
   .btn-change-pw:hover{border-color:var(--gold);color:var(--gold)}
+  /* ── Leads Pipeline ── */
+  .leads-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .leads-table th{text-align:left;padding:9px 10px;background:var(--bg);color:var(--ink-3);font-size:10px;text-transform:uppercase;letter-spacing:0.6px;font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap}
+  .leads-table td{padding:5px 6px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .leads-table tr.overdue{border-left:3px solid var(--rose)}
+  .lead-cell-input{width:100%;border:1px solid transparent;background:none;font-family:var(--font-b);font-size:12.5px;color:var(--ink);padding:6px 7px;border-radius:6px;outline:none;transition:border 0.12s}
+  .lead-cell-input:hover{border-color:var(--border)}
+  .lead-cell-input:focus{border-color:var(--gold);background:var(--white)}
+  textarea.lead-cell-input{resize:vertical;min-height:32px;font-family:var(--font-b)}
+  .lead-status-select{border:1px solid var(--border);border-radius:20px;padding:5px 26px 5px 11px;font-size:11.5px;font-weight:600;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;background-repeat:no-repeat;background-position:right 8px center;background-size:10px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B5D4A' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
+  .lead-del-btn{background:none;border:none;color:var(--ink-3);cursor:pointer;font-size:15px;padding:4px 8px;border-radius:6px;transition:all 0.12s}
+  .lead-del-btn:hover{color:var(--rose);background:var(--rose-lt)}
+  .add-status-row{display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:12px;background:var(--gold-lt);border-radius:var(--r);margin-bottom:14px}
+  .add-status-row.open{display:flex}
   </style>
 </head>
 <body>
@@ -187,6 +201,7 @@
   <button class="hq-tab" onclick="switchHQTab('staff',this)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Staff</button>
   <button class="hq-tab" onclick="switchHQTab('billing',this)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Billing</button>
   <button class="hq-tab" onclick="switchHQTab('activity',this)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Activity</button>
+  <button class="hq-tab" onclick="switchHQTab('leads',this)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg> Leads</button>
 </div>
 <div id="pane-branches" class="tab-pane active">
   <div style="margin-bottom:24px">
@@ -264,6 +279,37 @@
 </div>
 <div id="pane-billing" class="tab-pane"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px"><div><h2 style="font-family:var(--font-d);font-size:20px;color:var(--ink);margin-bottom:4px">Billing &amp; Subscriptions</h2><p style="font-size:13px;color:var(--ink-3)">Manage subscription plans, generate Razorpay payment links, and view payment history.</p></div><button class="btn-primary" onclick="loadBillingPanel()">&#8635; Refresh</button></div><div id="billing-modal-wrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2000;align-items:center;justify-content:center"><div id="billing-modal-inner" style="background:var(--white);border-radius:var(--r);padding:28px 24px;max-width:420px;width:90%;box-shadow:var(--shadow-lg)"></div></div><div class="ds-table-wrap" style="margin-bottom:24px"><table class="ds-table"><thead><tr><th>Branch</th><th>Plan</th><th>Status</th><th>Expires</th><th>Last Payment</th><th>Actions</th></tr></thead><tbody id="billing-table-body"><tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">Loading&#8230;</td></tr></tbody></table></div><div><h3 style="font-family:var(--font-d);font-size:17px;color:var(--ink);margin-bottom:12px">Payment History</h3><div class="ds-table-wrap"><table class="ds-table"><thead><tr><th>Date</th><th>Branch</th><th>Plan</th><th>Amount</th><th>Payment ID</th></tr></thead><tbody id="billing-history-body"><tr><td colspan="5" style="padding:24px;color:var(--ink-3);text-align:center">Click Refresh to load</td></tr></tbody></table></div></div></div>
 <div id="pane-activity" class="tab-pane"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px"><div><h2 style="font-family:var(--font-d);font-size:20px;color:var(--ink);margin-bottom:4px">Activity &amp; Weekly Report</h2><p style="font-size:13px;color:var(--ink-3)">Weekly performance by branch and recent staff activity across the agency.</p></div><button class="btn-primary" onclick="loadActivityPanel()">&#8635; Refresh</button></div><div class="ds-stats-row" id="activity-kpis" style="margin-bottom:24px"></div><div style="margin-bottom:24px"><h3 style="font-family:var(--font-d);font-size:17px;color:var(--ink);margin-bottom:12px">Weekly Report by Branch</h3><div class="ds-table-wrap"><table class="ds-table"><thead><tr><th>Branch</th><th>Plan</th><th>Status</th><th>7-Day Revenue</th><th>7-Day Orders</th><th>Top Items</th></tr></thead><tbody id="activity-report-body"><tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">Click Refresh to load</td></tr></tbody></table></div></div><div><h3 style="font-family:var(--font-d);font-size:17px;color:var(--ink);margin-bottom:12px">Recent Activity Log</h3><div class="ds-table-wrap"><table class="ds-table"><thead><tr><th>Time</th><th>Event</th><th>User</th><th>Role</th><th>Business</th><th>IP</th></tr></thead><tbody id="activity-log-body"><tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">Click Refresh to load</td></tr></tbody></table></div></div></div>
+<div id="pane-leads" class="tab-pane">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+    <div>
+      <h2 style="font-family:var(--font-d);font-size:20px;color:var(--ink);margin-bottom:4px">Sales Pipeline</h2>
+      <p style="font-size:13px;color:var(--ink-3)">Prospective cafés you're pitching — private to you, separate from your signed-up clients.</p>
+    </div>
+  </div>
+  <div class="ds-toolbar">
+    <button class="btn-primary" onclick="addLeadRow()">+ Add Lead</button>
+    <input id="leads-search" type="search" placeholder="🔍 Search…" style="flex:1;min-width:160px" oninput="renderLeadsTable()">
+    <select id="leads-status-filter" onchange="renderLeadsTable()" style="min-width:150px"><option value="">All Statuses</option></select>
+    <button class="btn-primary" style="background:var(--white);color:var(--ink-2);border:1px solid var(--border)" onclick="toggleAddStatusRow()">+ Add Status</button>
+    <button class="btn-primary" style="background:var(--white);color:var(--ink-2);border:1px solid var(--border)" onclick="exportLeadsCSV()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV</button>
+    <button class="btn-primary" style="background:var(--white);color:var(--ink-2);border:1px solid var(--border)" onclick="document.getElementById('leads-import-file').click()">⇪ Import CSV</button>
+    <input type="file" id="leads-import-file" accept=".csv" style="display:none" onchange="importLeadsCSV(this.files[0])">
+  </div>
+  <div class="add-status-row" id="add-status-row">
+    <span style="font-size:12.5px;font-weight:600;color:var(--gold-d)">New status:</span>
+    <input id="new-status-label" class="settings-input" type="text" placeholder="e.g. Follow-up Friday" style="width:200px">
+    <input id="new-status-color" type="color" value="#8855CC" style="width:44px;height:34px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:none">
+    <button class="btn-save-pw" onclick="saveNewStatus()">Save</button>
+    <button class="btn-cancel-pw" onclick="toggleAddStatusRow()">Cancel</button>
+    <span id="new-status-msg" style="font-size:12px"></span>
+  </div>
+  <div class="ds-table-wrap"><div style="overflow-x:auto">
+    <table class="leads-table">
+      <thead><tr><th style="min-width:170px">Café / Restaurant</th><th style="min-width:120px">Phone</th><th style="min-width:130px">Owner</th><th style="min-width:130px">Location</th><th style="min-width:140px">Status</th><th style="min-width:135px">Follow-up</th><th style="min-width:180px">Notes</th><th></th></tr></thead>
+      <tbody id="leads-tbody"><tr><td colspan="8" style="padding:28px;color:var(--ink-3);text-align:center">Loading…</td></tr></tbody>
+    </table>
+  </div></div>
+</div>
 <script>
 let allBranches=[],currentFilter='all',_hqSheet='clients',_hqAllRows=[],_hqFiltRows=[],_hqPage=1;
 const HQ_PAGE=50,EMOJIS=['☕','🏠','🍵','🧁','🍰','🥐','🍮','🫖','🥤','🍫'];
@@ -273,7 +319,7 @@ function esc(s){const d=document.createElement('div');d.textContent=String(s??''
 function friendly(e){const msg=(e&&e.message)||String(e||'');const m=msg.match(/(?:^HTTP|Server error)\D*(\d{3})/i);if(m){const code=+m[1];if(code===401)return'Your session expired — please sign in again.';if(code===403)return"You don't have permission to do that.";if(code===404)return'Not found.';if(code>=500)return'Something went wrong on our end — please try again.';return'Something went wrong — please try again.';}if(/Failed to fetch|NetworkError|Load failed/i.test(msg))return"Couldn't connect — check your connection and try again.";return msg||'Something went wrong — please try again.';}
 function skelRows(cols,rows){rows=rows||3;let out='';for(let r=0;r<rows;r++){out+='<tr>';for(let c=0;c<cols;c++){const w=55+Math.floor(Math.random()*35);out+=`<td style="padding:11px 14px"><div class="z-skel" style="height:13px;width:${w}%"></div></td>`;}out+='</tr>';}return out;}
 function fmtDate(v){if(!v)return'—';try{return new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}catch{return String(v);}}
-function switchHQTab(id,btn){document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.hq-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pane-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='datasheet'&&!_hqAllRows.length)hqDsReload();if(id==='revenue')renderRevenue();if(id==='settings')loadSettings();if(id==='staff')loadStaffPanel();if(id==='billing')loadBillingPanel();if(id==='activity')loadActivityPanel();}
+function switchHQTab(id,btn){document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.hq-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pane-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='datasheet'&&!_hqAllRows.length)hqDsReload();if(id==='revenue')renderRevenue();if(id==='settings')loadSettings();if(id==='staff')loadStaffPanel();if(id==='billing')loadBillingPanel();if(id==='activity')loadActivityPanel();if(id==='leads')loadLeads();}
 async function init(){try{const r=await fetch('/api/agency/clients',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}});if(!r.ok)throw new Error('HTTP '+r.status+': '+await r.text());const data=await r.json();allBranches=Array.isArray(data)?data:[];updateKPIs();renderCards();populateBranchFilter();}catch(e){console.error('[init]',e);document.getElementById('branch-grid').innerHTML='<div class="empty-state"><div style="font-size:36px;margin-bottom:12px">⚠️</div><h3 style="color:var(--ink-2)">Could not load</h3><p>'+friendly(e)+'</p></div>';}}
 function updateKPIs(){const t=allBranches.length,a=allBranches.filter(b=>b.subscriptionStatus==='active').length,tr=allBranches.filter(b=>b.subscriptionStatus==='trial').length,rv=allBranches.reduce((s,b)=>s+(b.revenue||0),0),ex=allBranches.filter(b=>b.daysLeft!=null&&b.daysLeft<=7).length;document.getElementById('kpi-total').textContent=t;document.getElementById('kpi-active').textContent=a;document.getElementById('kpi-trial').textContent=tr;document.getElementById('kpi-revenue').textContent='₹'+Math.round(rv).toLocaleString('en-IN');document.getElementById('kpi-expiring').textContent=ex;document.getElementById('hdr-total').textContent=t;document.getElementById('hdr-active').textContent=a;}
 function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderCards();}
@@ -321,6 +367,190 @@ async function loadBillingPanel(){const tb=document.getElementById('billing-tabl
 async function openGenLink(bizId,bizName){_genLinkBizId=bizId;let plans=[];try{const pd=await fetch('/api/plans').then(r=>r.json());plans=Array.isArray(pd)?pd:(pd.plans||[]);}catch{}const wrap=document.getElementById('billing-modal-wrap'),inner=document.getElementById('billing-modal-inner');if(!wrap)return;inner.innerHTML=`<div style="font-family:var(--font-d);font-size:18px;color:var(--ink);margin-bottom:4px">Generate Payment Link</div><div style="font-size:13px;color:var(--ink-3);margin-bottom:20px">For: <strong>${esc(bizName)}</strong></div><div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">Select Plan</label><select id="gl-plan" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:var(--font-b);font-size:13px;background:var(--bg);outline:none">${(Array.isArray(plans)?plans:[]).map(p=>`<option value="${p.id}">${esc(p.name)} — ₹${p.price}</option>`).join('')}</select></div><div id="gl-out" style="margin-bottom:16px"></div><div style="display:flex;gap:10px;justify-content:flex-end"><button onclick="document.getElementById('billing-modal-wrap').style.display='none'" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--ink-3);cursor:pointer">Cancel</button><button class="btn-primary" onclick="doGenLink()">Generate Link</button></div>`;wrap.style.display='flex';}
 async function loadActivityPanel(){const kp=document.getElementById('activity-kpis'),rb=document.getElementById('activity-report-body'),lb=document.getElementById('activity-log-body');if(rb)rb.innerHTML='<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center"><div class="loading-spinner" style="margin:0 auto"></div></td></tr>';try{const[rep,log]=await Promise.all([fetch('/api/admin/weekly-report',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}}).then(r=>r.json()),fetch('/api/admin/activity-log?page=0&size=50',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}}).then(r=>r.json())]);const branches=rep.branches||[];const tr=branches.reduce((s,b)=>s+(b.weekRevenue||0),0),to=branches.reduce((s,b)=>s+(b.weekOrders||0),0);if(kp)kp.innerHTML=[{label:'7-Day Revenue',val:'₹'+Math.round(tr).toLocaleString('en-IN')},{label:'7-Day Orders',val:to.toLocaleString()},{label:'Logins (7d)',val:(rep.activity&&rep.activity.logins)||0},{label:'Total Events (7d)',val:(rep.activity&&rep.activity.totalEvents)||0}].map(x=>`<div class="ds-stat-card"><div class="ds-stat-val">${esc(String(x.val))}</div><div class="ds-stat-lbl">${esc(x.label)}</div></div>`).join('');if(rb)rb.innerHTML=branches.map(b=>`<tr><td><strong>${esc(b.name||b.id)}</strong></td><td>${esc(b.plan||'—')}</td><td><span class="status-badge ${SC[b.status]||'sb-active'}">${esc(SL[b.status]||b.status||'—')}</span></td><td style="font-weight:600;color:var(--gold-d)">₹${Math.round(b.weekRevenue||0).toLocaleString('en-IN')}</td><td>${b.weekOrders||0}</td><td style="font-size:12px">${(b.topItems||[]).map(i=>esc(i.name||'')+' ('+(i.qty||0)+')').join(', ')||'—'}</td></tr>`).join('')||'<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">No data</td></tr>';const entries=log.entries||[];if(lb)lb.innerHTML=entries.map(e=>`<tr><td style="font-size:12px">${fmtDate(e.timestamp)} ${new Date(e.timestamp).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(e.event||'—')}</td><td>${esc(e.username||'—')}</td><td>${esc(e.role||'—')}</td><td style="font-size:12px">${esc(e.businessId||'—')}</td><td style="font-size:11px;color:var(--ink-3)">${esc(e.ip||'—')}</td></tr>`).join('')||'<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">No activity yet</td></tr>';}catch(e){console.error('[loadActivityPanel]',e);if(rb)rb.innerHTML=`<tr><td colspan="6" style="padding:24px;color:var(--rose);text-align:center">${esc(friendly(e))}</td></tr>`;}}
 async function doGenLink(){const planId=document.getElementById('gl-plan')?.value,out=document.getElementById('gl-out');if(out)out.innerHTML='<div style="font-size:13px;color:var(--ink-3)">Generating…</div>';try{const r=await fetch('/api/admin/billing/generate-link',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('cafehq_token')},body:JSON.stringify({businessId:_genLinkBizId,planId})});const d=await r.json();if(d.error){if(out)out.innerHTML=`<div style="color:var(--rose);font-size:13px">❌ ${esc(d.error)}</div>`;return;}const url=d.short_url||d.url||'(no URL)';if(out)out.innerHTML=`<div style="padding:12px;background:var(--sage-lt);border:1px solid rgba(90,140,94,0.3);border-radius:8px"><div style="font-size:12px;color:var(--sage);font-weight:600;margin-bottom:6px">✅ Payment link created</div><a href="${url}" target="_blank" style="font-size:13px;color:var(--sky);word-break:break-all">${url}</a></div>`;}catch(e){console.error('[doGenLink]',e);if(out)out.innerHTML=`<div style="color:var(--rose);font-size:13px">❌ ${esc(friendly(e))}</div>`;}}
+/* ── Leads Pipeline (sales CRM — admin-only, separate from signed-up clients) ── */
+let _leads=[],_leadStatuses=[];
+function leadsAuthHdr(){return {'Authorization':'Bearer '+localStorage.getItem('cafehq_token')};}
+function statusColor(label){const s=_leadStatuses.find(s=>s.label===label);return s?s.color:'#9A8870';}
+async function loadLeads(){
+  const tbody=document.getElementById('leads-tbody');
+  tbody.innerHTML='<tr><td colspan="8" style="padding:28px;color:var(--ink-3);text-align:center"><div class="loading-spinner" style="margin:0 auto"></div></td></tr>';
+  try{
+    const [leadsRes,statusesRes]=await Promise.all([
+      fetch('/api/crm-leads',{headers:leadsAuthHdr()}),
+      fetch('/api/lead-statuses',{headers:leadsAuthHdr()}),
+    ]);
+    if(!leadsRes.ok) throw new Error('HTTP '+leadsRes.status+': '+await leadsRes.text());
+    _leads=await leadsRes.json();
+    _leadStatuses=statusesRes.ok?await statusesRes.json():[];
+    const filterSel=document.getElementById('leads-status-filter');
+    filterSel.innerHTML='<option value="">All Statuses</option>'+_leadStatuses.map(s=>`<option value="${esc(s.label)}">${esc(s.label)}</option>`).join('');
+    renderLeadsTable();
+  }catch(e){
+    console.error('[loadLeads]',e);
+    tbody.innerHTML=`<tr><td colspan="8" style="padding:24px;color:var(--rose);text-align:center">⚠️ ${esc(friendly(e))}</td></tr>`;
+  }
+}
+function leadStatusOptionsHtml(selected){
+  return _leadStatuses.map(s=>`<option value="${esc(s.label)}"${s.label===selected?' selected':''}>${esc(s.label)}</option>`).join('');
+}
+function isOverdue(lead){
+  if(!lead.follow_up_date) return false;
+  const today=new Date();today.setHours(0,0,0,0);
+  const d=new Date(lead.follow_up_date+'T00:00:00');
+  return d<today;
+}
+function renderLeadsTable(){
+  const tbody=document.getElementById('leads-tbody');
+  const q=(document.getElementById('leads-search').value||'').toLowerCase();
+  const statusFilter=document.getElementById('leads-status-filter').value;
+  let rows=_leads.filter(l=>{
+    if(statusFilter&&l.status!==statusFilter) return false;
+    if(q){
+      const hay=[l.cafe_name,l.phone,l.owner_name,l.location,l.notes].map(v=>String(v||'').toLowerCase()).join(' ');
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="8" style="padding:28px;color:var(--ink-3);text-align:center">No leads yet — click + Add Lead to start tracking a prospect.</td></tr>';
+    return;
+  }
+  tbody.innerHTML=rows.map(l=>{
+    const color=statusColor(l.status);
+    return `<tr id="lead-row-${esc(l.id)}"${isOverdue(l)?' class="overdue"':''}>
+      <td><input class="lead-cell-input" value="${esc(l.cafe_name||'')}" placeholder="Café name" onchange="updateLeadField('${l.id}','cafe_name',this.value)"></td>
+      <td><input class="lead-cell-input" value="${esc(l.phone||'')}" placeholder="Phone" onchange="updateLeadField('${l.id}','phone',this.value)"></td>
+      <td><input class="lead-cell-input" value="${esc(l.owner_name||'')}" placeholder="Owner" onchange="updateLeadField('${l.id}','owner_name',this.value)"></td>
+      <td><input class="lead-cell-input" value="${esc(l.location||'')}" placeholder="Location" onchange="updateLeadField('${l.id}','location',this.value)"></td>
+      <td><select class="lead-status-select" style="background-color:${color}18;color:${color};border-color:${color}55" onchange="updateLeadField('${l.id}','status',this.value)">${leadStatusOptionsHtml(l.status)}</select></td>
+      <td><input class="lead-cell-input" type="date" value="${esc(l.follow_up_date||'')}" onchange="updateLeadField('${l.id}','follow_up_date',this.value)"></td>
+      <td><textarea class="lead-cell-input" rows="1" placeholder="Notes" onchange="updateLeadField('${l.id}','notes',this.value)">${esc(l.notes||'')}</textarea></td>
+      <td><button class="lead-del-btn" title="Delete lead" onclick="deleteLeadRow('${l.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+async function updateLeadField(id,field,value){
+  const lead=_leads.find(l=>l.id===id);
+  if(lead) lead[field]=value;
+  renderLeadsTable(); // optimistic — updates status pill colour / overdue border instantly
+  try{
+    const r=await fetch('/api/crm-leads/'+encodeURIComponent(id),{
+      method:'PUT',headers:{'Content-Type':'application/json',...leadsAuthHdr()},
+      body:JSON.stringify({[field]:value}),
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status+': '+await r.text());
+  }catch(e){
+    console.error('[updateLeadField]',e);
+    alert('Could not save: '+friendly(e));
+    loadLeads(); // resync with server on failure
+  }
+}
+async function addLeadRow(){
+  try{
+    const r=await fetch('/api/crm-leads',{
+      method:'POST',headers:{'Content-Type':'application/json',...leadsAuthHdr()},
+      body:JSON.stringify({cafe_name:'New Lead'}),
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status+': '+await r.text());
+    const lead=await r.json();
+    _leads.unshift(lead);
+    renderLeadsTable();
+    const row=document.getElementById('lead-row-'+lead.id);
+    if(row){const inp=row.querySelector('input');if(inp){inp.focus();inp.select();}}
+  }catch(e){
+    console.error('[addLeadRow]',e);
+    alert('Could not add lead: '+friendly(e));
+  }
+}
+async function deleteLeadRow(id){
+  const lead=_leads.find(l=>l.id===id);
+  if(!confirm('Remove "'+(lead?lead.cafe_name:'this lead')+'" from your pipeline?')) return;
+  try{
+    const r=await fetch('/api/crm-leads/'+encodeURIComponent(id),{method:'DELETE',headers:leadsAuthHdr()});
+    if(!r.ok) throw new Error('HTTP '+r.status+': '+await r.text());
+    _leads=_leads.filter(l=>l.id!==id);
+    renderLeadsTable();
+  }catch(e){
+    console.error('[deleteLeadRow]',e);
+    alert('Could not delete: '+friendly(e));
+  }
+}
+function toggleAddStatusRow(){
+  const row=document.getElementById('add-status-row');
+  row.classList.toggle('open');
+  if(row.classList.contains('open')){
+    document.getElementById('new-status-label').value='';
+    document.getElementById('new-status-msg').textContent='';
+    document.getElementById('new-status-label').focus();
+  }
+}
+async function saveNewStatus(){
+  const label=document.getElementById('new-status-label').value.trim();
+  const color=document.getElementById('new-status-color').value;
+  const msg=document.getElementById('new-status-msg');
+  if(!label){msg.textContent='⚠️ Enter a name';msg.style.color='var(--rose)';return;}
+  msg.textContent='Saving…';msg.style.color='var(--ink-3)';
+  try{
+    const r=await fetch('/api/lead-statuses',{
+      method:'POST',headers:{'Content-Type':'application/json',...leadsAuthHdr()},
+      body:JSON.stringify({label,color}),
+    });
+    const d=await r.json();
+    if(!r.ok){msg.textContent='❌ '+(d.error||'Failed');msg.style.color='var(--rose)';return;}
+    toggleAddStatusRow();
+    await loadLeads();
+  }catch(e){
+    console.error('[saveNewStatus]',e);
+    msg.textContent='❌ '+friendly(e);msg.style.color='var(--rose)';
+  }
+}
+function exportLeadsCSV(){
+  if(!_leads.length){alert('No leads to export');return;}
+  const cols=['cafe_name','phone','owner_name','location','status','follow_up_date','notes'];
+  const csv=[cols.join(','),..._leads.map(l=>cols.map(c=>'"'+String(l[c]??'').replace(/"/g,'""')+'"').join(','))].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='zordic-leads-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+function parseLeadsCSV(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
+  if(!lines.length) return [];
+  const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line=>{
+    const vals=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){inQ=!inQ;continue;}
+      if(ch===','&&!inQ){vals.push(cur);cur='';continue;}
+      cur+=ch;
+    }
+    vals.push(cur);
+    const row={};
+    headers.forEach((h,i)=>row[h]=vals[i]||'');
+    return row;
+  });
+}
+async function importLeadsCSV(file){
+  if(!file) return;
+  try{
+    const text=await file.text();
+    const rows=parseLeadsCSV(text);
+    if(!rows.length){alert('No rows found in that CSV');return;}
+    const r=await fetch('/api/crm-leads/import',{
+      method:'POST',headers:{'Content-Type':'application/json',...leadsAuthHdr()},
+      body:JSON.stringify({rows}),
+    });
+    const d=await r.json();
+    if(!r.ok){alert('Import failed: '+(d.error||'Unknown error'));return;}
+    alert('Imported '+d.count+' lead(s).');
+    document.getElementById('leads-import-file').value='';
+    loadLeads();
+  }catch(e){
+    console.error('[importLeadsCSV]',e);
+    alert('Import failed: '+friendly(e));
+  }
+}
 const socket=io();
 socket.on('connect',()=>socket.emit('join_business',{token:localStorage.getItem('cafehq_token')})); // joins the 'agency' room (receives all branches)
 socket.on('new_order',({businessId})=>{const b=allBranches.find(x=>x.id===businessId);if(b){b.orders=(b.orders||0)+1;renderCards();}});
