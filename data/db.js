@@ -212,6 +212,27 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_chat_biz ON chat_messages(business_id, phone, created_at);
+
+  -- Sales pipeline (prospects who haven't signed up yet — no business_id, admin-only)
+  CREATE TABLE IF NOT EXISTS crm_leads (
+    id TEXT PRIMARY KEY,
+    cafe_name TEXT NOT NULL,
+    phone TEXT,
+    owner_name TEXT,
+    location TEXT,
+    status TEXT DEFAULT 'Prospect',
+    follow_up_date TEXT,            -- YYYY-MM-DD, nullable
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_crm_leads_status ON crm_leads(status);
+  CREATE TABLE IF NOT EXISTS crm_lead_statuses (
+    label TEXT PRIMARY KEY,
+    color TEXT NOT NULL,           -- hex, e.g. #C9A84C
+    is_default INTEGER DEFAULT 0,
+    sort_order INTEGER DEFAULT 100
+  );
 `);
 
 
@@ -1171,3 +1192,101 @@ function saveChatMessage(businessId, phone, customerName, direction, message, ch
 }
 
 Object.assign(module.exports, { saveChatMessage });
+
+// ── Sales pipeline (CRM leads) ─────────────────────────────────────────────────
+// Tracks prospective cafés the operator is pitching — global, not per-tenant
+// (no business_id: these cafés haven't signed up yet). Admin-only, always.
+const DEFAULT_LEAD_STATUSES = [
+  ['Prospect',    '#9A8870', 1],
+  ['Called',      '#2C6E9E', 2],
+  ['Messaged',    '#1D9E75', 3],
+  ['Trial',       '#B8860B', 4],
+  ['Progressing', '#C9A84C', 5],
+  ['Paid',        '#2d7a2d', 6],
+  ['Lost',        '#C0392B', 7],
+];
+const seedLeadStatusStmt = db.prepare(`
+  INSERT OR IGNORE INTO crm_lead_statuses (label, color, is_default, sort_order) VALUES (?, ?, 1, ?)
+`);
+for (const [label, color, order] of DEFAULT_LEAD_STATUSES) seedLeadStatusStmt.run(label, color, order);
+
+const insertLeadStmt = db.prepare(`
+  INSERT INTO crm_leads (id, cafe_name, phone, owner_name, location, status, follow_up_date, notes)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`);
+const listLeadsStmt = db.prepare(`SELECT * FROM crm_leads ORDER BY created_at DESC`);
+const deleteLeadStmt = db.prepare(`DELETE FROM crm_leads WHERE id = ?`);
+const listLeadStatusesStmt = db.prepare(`SELECT * FROM crm_lead_statuses ORDER BY sort_order ASC, label ASC`);
+const insertLeadStatusStmt = db.prepare(`
+  INSERT INTO crm_lead_statuses (label, color, is_default, sort_order) VALUES (?, ?, 0, 100)
+`);
+const deleteLeadStatusStmt = db.prepare(`DELETE FROM crm_lead_statuses WHERE label = ? AND is_default = 0`);
+
+function createLead({ cafeName, phone, ownerName, location, status, followUpDate, notes }) {
+  const id = `lead_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  insertLeadStmt.run(
+    id, cafeName, phone || null, ownerName || null, location || null,
+    status || 'Prospect', followUpDate || null, notes || null
+  );
+  return db.prepare('SELECT * FROM crm_leads WHERE id = ?').get(id);
+}
+
+function listLeads() {
+  return listLeadsStmt.all();
+}
+
+// Whitelisted partial update — only touches fields actually present in `fields`.
+const LEAD_EDITABLE_FIELDS = {
+  cafeName: 'cafe_name', phone: 'phone', ownerName: 'owner_name', location: 'location',
+  status: 'status', followUpDate: 'follow_up_date', notes: 'notes',
+};
+function updateLead(id, fields) {
+  const sets = [];
+  const params = [];
+  for (const [key, column] of Object.entries(LEAD_EDITABLE_FIELDS)) {
+    if (Object.prototype.hasOwnProperty.call(fields, key)) {
+      sets.push(`${column} = ?`);
+      params.push(fields[key]);
+    }
+  }
+  if (!sets.length) return db.prepare('SELECT * FROM crm_leads WHERE id = ?').get(id) || null;
+  sets.push(`updated_at = CURRENT_TIMESTAMP`);
+  params.push(id);
+  const result = db.prepare(`UPDATE crm_leads SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+  if (result.changes === 0) return null;
+  return db.prepare('SELECT * FROM crm_leads WHERE id = ?').get(id);
+}
+
+function deleteLead(id) {
+  const result = deleteLeadStmt.run(id);
+  return { success: result.changes > 0 };
+}
+
+function listLeadStatuses() {
+  return listLeadStatusesStmt.all();
+}
+
+// Returns { success, error? }
+function addLeadStatus(label, color) {
+  try {
+    insertLeadStatusStmt.run(label, color);
+    return { success: true };
+  } catch (e) {
+    if (e.message && e.message.includes('UNIQUE')) return { success: false, error: 'A status with that name already exists' };
+    return { success: false, error: e.message };
+  }
+}
+
+// Refuses to delete a default status. Returns { success, error? }
+function deleteLeadStatus(label) {
+  const row = db.prepare('SELECT * FROM crm_lead_statuses WHERE label = ?').get(label);
+  if (!row) return { success: false, error: 'Status not found' };
+  if (row.is_default) return { success: false, error: 'Default statuses cannot be deleted' };
+  deleteLeadStatusStmt.run(label);
+  return { success: true };
+}
+
+Object.assign(module.exports, {
+  createLead, listLeads, updateLead, deleteLead,
+  listLeadStatuses, addLeadStatus, deleteLeadStatus,
+});
