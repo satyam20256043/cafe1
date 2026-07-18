@@ -110,6 +110,7 @@ module.exports = function register(ctx) {
     end.setDate(end.getDate() + plan.duration_days);
 
     biz.plan = plan.id;
+    biz.subscriptionPlan = plan.id; // keep in sync with the HQ billing UI's field
     biz.subscriptionStatus = plan.id === 'trial' ? 'trial' : 'active';
     biz.subscriptionEnd = end.toISOString();
     biz.lastPayment = {
@@ -222,6 +223,7 @@ module.exports = function register(ctx) {
             const end = new Date();
             end.setDate(end.getDate() + plan.duration_days);
             biz.plan               = plan.id;
+            biz.subscriptionPlan   = plan.id; // keep in sync with the HQ billing UI's field
             biz.subscriptionStatus = plan.id === 'trial' ? 'trial' : 'active';
             biz.subscriptionEnd    = end.toISOString();
             biz.lastPayment        = {

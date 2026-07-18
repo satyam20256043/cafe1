@@ -1304,15 +1304,15 @@ const getClaudeUsageStmt  = db.prepare('SELECT claude_count FROM ai_daily_usage 
 const bumpClaudeUsageStmt = db.prepare(`
   INSERT INTO ai_daily_usage (business_id, usage_date, claude_count) VALUES (?, ?, 1)
   ON CONFLICT(business_id, usage_date) DO UPDATE SET claude_count = claude_count + 1
+  RETURNING claude_count
 `);
 function getClaudeUsageToday(businessId, date) {
   const row = getClaudeUsageStmt.get(businessId, date);
   return row ? row.claude_count : 0;
 }
-// Records one Claude reply for the day and returns the new running total.
+// Records one Claude reply for the day and returns the new running total
+// (single statement — RETURNING gives the post-increment value directly).
 function bumpClaudeUsage(businessId, date) {
-  bumpClaudeUsageStmt.run(businessId, date);
-  const row = getClaudeUsageStmt.get(businessId, date);
-  return row ? row.claude_count : 0;
+  return bumpClaudeUsageStmt.get(businessId, date).claude_count;
 }
 Object.assign(module.exports, { getClaudeUsageToday, bumpClaudeUsage });
