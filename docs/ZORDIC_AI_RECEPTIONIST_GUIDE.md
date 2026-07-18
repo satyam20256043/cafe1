@@ -4,6 +4,13 @@ Execute work packages **AI0 → AI6 in order, committing after each one**. This 
 self-contained: read §0–§3 fully before touching any file. Every product decision in §1 was
 made explicitly by the user on 2026-07-10 — do **not** re-ask them.
 
+**Status:** AI0 done (commit `01d408b`). **AI3 done out of order** (commit `2090713`,
+2026-07-18, user asked for it directly): knowledge.json + Settings form + WhatsApp owner
+interview + answer-only-from-facts prompt guardrail — built against the CURRENT keyword+LLM
+pipeline, not the AI2 router; when AI2 lands, route FAQ intents through the knowledge pairs.
+The AI3 eval step (flipping the FAQ golden cases) is still pending — run it with AI2/AI6.
+AI1, AI2, AI4, AI5, AI6 remain.
+
 **Goal in one line:** the WhatsApp AI must feel like a professional, warm human receptionist —
 remembers the conversation, knows the café inside out, greets regulars by name, mirrors the
 customer's language — while every decision that touches money or the database stays 100%
