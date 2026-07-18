@@ -1201,6 +1201,16 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
               <div class="form-group"><label class="form-label">Google Review Link</label><input class="form-input" id="s-review"/></div>
               <div class="form-group"><label class="form-label">Hero Image URL <span style="font-weight:400;color:#888">(optional — shown at the top of your customer website)</span></label><input class="form-input" id="s-hero-image" placeholder="https://…"/></div>
               <div class="form-group"><label class="form-label">Gallery Image URLs <span style="font-weight:400;color:#888">(optional — comma-separated)</span></label><input class="form-input" id="s-gallery-urls" placeholder="https://…, https://…"/></div>
+              <div class="form-group">
+                <label class="form-label">Ordering &amp; Social Links <span style="font-weight:400;color:#888">(Zomato, Swiggy, Instagram… shown on your café website — and your AI shares them when customers ask about delivery)</span></label>
+                <div id="platform-links-list"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                  <button type="button" class="btn" onclick="addPlatformLinkRow('Zomato')">+ Zomato</button>
+                  <button type="button" class="btn" onclick="addPlatformLinkRow('Swiggy')">+ Swiggy</button>
+                  <button type="button" class="btn" onclick="addPlatformLinkRow('Instagram')">+ Instagram</button>
+                  <button type="button" class="btn" onclick="addPlatformLinkRow('')">+ Other</button>
+                </div>
+              </div>
               <button class="btn primary full" onclick="saveSettings()">Save Details</button>
             </div>
           </div>
@@ -2473,6 +2483,7 @@ async function loadSettings(){
     document.getElementById('s-review').value=business.review||'';
     document.getElementById('s-hero-image').value=business.heroImageUrl||'';
     document.getElementById('s-gallery-urls').value=(business.galleryUrls||[]).join(', ');
+    renderPlatformLinks(business.platformLinks);
     const analytics=await(await fetch(`/api/businesses/${branchId}/analytics`)).json();
     const campaigns=(analytics.settings&&analytics.settings.lowTrafficCampaigns)||[];
     renderCampaignSettings(campaigns);
@@ -2553,6 +2564,36 @@ function toggleRzpSecret(btn) {
   else { el.type = 'password'; btn.textContent = 'Show'; }
 }
 
+// ── Ordering & social platform links (Zomato / Swiggy / Instagram / …) ──────
+function renderPlatformLinks(links){
+  const wrap=document.getElementById('platform-links-list');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  (links||[]).forEach(l=>addPlatformLinkRow(l.label,l.url));
+}
+function addPlatformLinkRow(label,url){
+  const wrap=document.getElementById('platform-links-list');
+  const row=document.createElement('div');
+  row.className='platform-link-row';
+  row.style.cssText='display:flex;gap:8px;margin-bottom:8px;align-items:center';
+  const lab=document.createElement('input');
+  lab.className='form-input pl-label';lab.placeholder='Platform';lab.style.flex='0 0 130px';lab.value=label||'';
+  const u=document.createElement('input');
+  u.className='form-input pl-url';u.placeholder='https://…';u.style.flex='1';u.value=url||'';
+  const del=document.createElement('button');
+  del.type='button';del.className='btn';del.textContent='✕';del.title='Remove link';
+  del.onclick=()=>row.remove();
+  row.append(lab,u,del);
+  wrap.appendChild(row);
+  if(!url)(label?u:lab).focus();
+}
+function collectPlatformLinks(){
+  return [...document.querySelectorAll('#platform-links-list .platform-link-row')].map(r=>({
+    label:r.querySelector('.pl-label').value.trim(),
+    url:r.querySelector('.pl-url').value.trim()
+  })).filter(l=>l.label&&l.url);
+}
+
 async function saveSettings(){
   try {
     const payload={
@@ -2564,7 +2605,8 @@ async function saveSettings(){
       map:document.getElementById('s-map').value.trim(),
       review:document.getElementById('s-review').value.trim(),
       heroImageUrl:document.getElementById('s-hero-image').value.trim(),
-      galleryUrls:document.getElementById('s-gallery-urls').value.split(',').map(s=>s.trim()).filter(Boolean)
+      galleryUrls:document.getElementById('s-gallery-urls').value.split(',').map(s=>s.trim()).filter(Boolean),
+      platformLinks:collectPlatformLinks()
     };
     const r=await fetch(`/api/businesses/${branchId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();

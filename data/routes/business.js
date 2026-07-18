@@ -22,8 +22,21 @@ module.exports = function register(ctx) {
 // any stored credentials must never leave via the unauthenticated endpoints.
 const PUBLIC_BUSINESS_FIELDS = [
   'id', 'name', 'location', 'timings', 'contact', 'map', 'wifi', 'review',
-  'status', 'theme', 'brandColor', 'tables', 'heroImageUrl', 'galleryUrls'
+  'status', 'theme', 'brandColor', 'tables', 'heroImageUrl', 'galleryUrls',
+  'platformLinks'
 ];
+
+// Platform links (Zomato, Swiggy, Instagram, …) are rendered on public pages and
+// fed into the AI prompt, so sanitize hard on save: array of {label, url}, http(s)
+// URLs only, capped counts/lengths. Returns a clean array (possibly empty).
+function sanitizePlatformLinks(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter(l => l && typeof l.label === 'string' && typeof l.url === 'string')
+    .map(l => ({ label: l.label.trim().slice(0, 30), url: l.url.trim().slice(0, 300) }))
+    .filter(l => l.label && /^https?:\/\//i.test(l.url))
+    .slice(0, 8);
+}
 function publicBusinessView(b) {
   const out = {};
   PUBLIC_BUSINESS_FIELDS.forEach(k => { if (b[k] !== undefined) out[k] = b[k]; });
@@ -123,6 +136,9 @@ app.post('/api/businesses/:id', requireAuth, requireBranchAccess, (req, res) => 
   const index = businesses.findIndex(b => b.id === id);
   if (index === -1) return res.status(404).json({ error: 'Business not found' });
 
+  if (req.body.platformLinks !== undefined) {
+    req.body.platformLinks = sanitizePlatformLinks(req.body.platformLinks);
+  }
   businesses[index] = { ...businesses[index], ...req.body };
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
   if (db) { try { db.upsertBusinessRow(businesses[index]); } catch(e) { console.error('[UpdateBusiness] SQLite business sync failed:', e.message); } }
@@ -335,7 +351,14 @@ app.post('/api/agency/clients/:id/status', requireAuth, requireRole('agency_admi
   const idx = businesses.findIndex(b => b.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   if (subscriptionStatus !== undefined) businesses[idx].subscriptionStatus = subscriptionStatus;
-  if (subscriptionPlan !== undefined) businesses[idx].subscriptionPlan = subscriptionPlan;
+  if (subscriptionPlan !== undefined) {
+    // Keep both historical plan fields in sync: `plan` is what the AI-tier
+    // dispatch and Razorpay flow read/write, `subscriptionPlan` is what the HQ
+    // billing UI reads. Writing only one silently broke premium AI for
+    // manually-assigned plans.
+    businesses[idx].subscriptionPlan = subscriptionPlan;
+    businesses[idx].plan = subscriptionPlan;
+  }
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
   res.json({ success: true, id, subscriptionStatus: businesses[idx].subscriptionStatus, subscriptionPlan: businesses[idx].subscriptionPlan });
 });

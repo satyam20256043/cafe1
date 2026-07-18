@@ -78,7 +78,10 @@ function aiUsageDateKey() {
 //   'gemini'        → trial / no Claude key / anything else
 function aiDecisionForBranch(branchId) {
   const business = businesses.find(b => b.id === branchId);
-  const plan = business && business.plan;
+  // Two plan fields exist historically: Razorpay checkout writes `plan`, the HQ
+  // manual assignment endpoint writes `subscriptionPlan`. Read both (writers now
+  // keep them in sync, but old records may have only one).
+  const plan = business && (business.plan || business.subscriptionPlan);
   if (anthropic && PREMIUM_AI_PLANS.includes(plan)) return 'claude';
   if (anthropic && plan === 'starter') {
     if (!db) return 'gemini'; // no meter available → stay on Gemini rather than bill Claude uncapped
@@ -360,16 +363,19 @@ function getSubscriptionStatus(business) {
   const status = business.subscriptionStatus || 'trial';
   const end    = business.subscriptionEnd ? new Date(business.subscriptionEnd) : null;
   const now    = new Date();
-  if (status === 'active') return { ok: true, status: 'active', plan: business.plan || 'starter' };
+  // `plan` (Razorpay checkout) and `subscriptionPlan` (HQ manual assignment) are
+  // kept in sync by writers now, but read both for old records.
+  const plan   = business.plan || business.subscriptionPlan || 'starter';
+  if (status === 'active') return { ok: true, status: 'active', plan };
   if (status === 'trial') {
     if (!end || now < end) {
-      const daysLeft = end ? Math.ceil((end - now) / 86400000) : 14;
-      return { ok: true, status: 'trial', daysLeft, plan: business.plan || 'starter' };
+      const daysLeft = end ? Math.ceil((end - now) / 86400000) : 30;
+      return { ok: true, status: 'trial', daysLeft, plan };
     }
     return { ok: false, status: 'expired', reason: 'Trial expired. Please upgrade to continue.' };
   }
   if (status === 'expired') return { ok: false, status: 'expired', reason: 'Subscription expired.' };
-  return { ok: true, status, plan: business.plan || 'starter' };
+  return { ok: true, status, plan };
 }
 
 function requireActiveSubscription(req, res, next) {
@@ -550,6 +556,17 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
 - Total Visits: ${customerVisits}`
       : `- New customer (no loyalty card yet — invite them to register!)`;
 
+    // Delivery/social platform links (Zomato, Swiggy, Instagram, …) the owner
+    // saved in Settings. When present, the AI shares them for delivery/online-
+    // ordering questions instead of escalating; when absent the prompt is
+    // unchanged and such questions still escalate to the owner.
+    const platformLinks = Array.isArray(business.platformLinks) ? business.platformLinks : [];
+    const platformsContext = platformLinks.length
+      ? `\n- Order online / find us on: ${platformLinks.map(l => `${l.label}: ${l.url}`).join(' | ')}
+  (If the customer asks about delivery, ordering online, or one of these platforms by name, warmly share the matching link(s) from the line above.)`
+      : '';
+    const platformsTopic = platformLinks.length ? ' delivery/online ordering,' : '';
+
     const prompt = `You are a warm, helpful, and natural human customer support assistant for "${business.name}" café.
 Your role is to:
 - Reply instantly, naturally, and warmly in a human-like host tone.
@@ -576,11 +593,11 @@ Café Context:
 - WiFi: ${business.wifi}
 - Google Review Link: ${business.review}
 - Menu:\n${menuStr}
-- Standard offers: Students 10% off with ID 🎓 | Loyalty: earn 1 point per ₹1 spent ☕
+- Standard offers: Students 10% off with ID 🎓 | Loyalty: earn 1 point per ₹1 spent ☕${platformsContext}
 
 CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
 1. If the question is NOT about this café's menu, prices, timings, location, WiFi,
-   reviews, loyalty points, or booking a table — for example: job applications/hiring,
+   reviews, loyalty points,${platformsTopic} or booking a table — for example: job applications/hiring,
    catering or events outside this café, franchise/business enquiries, questions about
    a completely different topic, or anything else you don't have real information about
    above — you MUST NOT answer it yourself and MUST NOT apologize or deflect in your own
@@ -632,10 +649,13 @@ async function callClaude(prompt) {
   }
 }
 
-// Provider dispatch: growth/pro cafés get Claude Haiku (premium tier), everyone
-// else Gemini. Claude failures degrade to Gemini; Gemini failures return null
-// and the caller falls through to the local keyword tier — the pipeline never
-// hard-fails because a model is down.
+// Provider dispatch (see aiDecisionForBranch): growth/pro → unlimited Claude
+// Haiku with Gemini safety net; starter → Claude Haiku metered per day, no
+// Gemini fallback (null on failure drops to the local keyword tier); over-cap
+// starter → 'silent' (handled by the caller BEFORE the local fallback);
+// trial/others → Gemini. Gemini failures return null and the caller falls
+// through to the local keyword tier — the pipeline never hard-fails because a
+// model is down.
 async function generateAIReply(branchId, text, fromPhone, decision) {
   decision = decision || aiDecisionForBranch(branchId);
   if (decision === 'silent') return null; // caller handles this before the local fallback

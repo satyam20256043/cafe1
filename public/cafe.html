@@ -1032,6 +1032,25 @@
       document.getElementById('footer-wa').href = waUrl;
       document.getElementById('footer-wa-link').href = waUrl;
 
+      // Ordering & social platform buttons (Zomato / Swiggy / Instagram … from Settings).
+      // Built with DOM APIs (textContent + validated href), never innerHTML.
+      if (Array.isArray(b.platformLinks) && b.platformLinks.length) {
+        const ctas = document.querySelector('.hero-ctas');
+        b.platformLinks.forEach(l => {
+          if (!l || !l.label || !/^https?:\/\//i.test(l.url || '')) return;
+          const a = document.createElement('a');
+          a.className = 'btn-outline';
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.href = l.url;
+          const lb = l.label.toLowerCase();
+          const social = lb.includes('insta') || lb.includes('face') || lb.includes('google') || lb.includes('youtube');
+          const emoji = lb.includes('insta') ? '📸' : lb.includes('face') ? '👍' : lb.includes('google') ? '⭐' : lb.includes('youtube') ? '▶️' : '🛵';
+          a.textContent = emoji + ' ' + (social ? l.label : 'Order on ' + l.label);
+          ctas.appendChild(a);
+        });
+      }
+
       // Hero background: café's own heroImageUrl if set, else the theme's stock default
       const heroImg = b.heroImageUrl ? `url('${b.heroImageUrl}')` : theme['--hero-image'];
       document.getElementById('hero-bg').style.backgroundImage =
