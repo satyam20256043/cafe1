@@ -504,6 +504,78 @@ function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFiel
 // AI Helper: receptionist prompt builder (Phase 4 — Loyalty Aware) — shared by
 // every provider so Gemini and Claude answer from identical context, including
 // the INTENT protocol rules.
+// ── AI3: Café knowledge base ("Teach your AI") ────────────────────────────────
+// Owner-authored Q&A facts stored in data/<branchId>/knowledge.json. The AI
+// answers ONLY from these (never guesses café facts); unanswered topics keep
+// escalating. Two ways to teach: the Settings form, and a WhatsApp interview
+// that asks the owner each unanswered suggested question one at a time.
+const SUGGESTED_KNOWLEDGE_QUESTIONS = [
+  'Is parking available? Where?',
+  'Is the café pure-veg, or veg + non-veg?',
+  'Do you deliver? (Zomato / Swiggy / own delivery)',
+  'Which payment methods do you accept?',
+  'Is there outdoor seating?',
+  'Is the café air-conditioned?',
+  'Is it kids-friendly?',
+  'Are pets allowed?',
+  'Do you do birthday / event decorations?',
+  'How big a group can you seat together?',
+  'Do you serve alcohol?',
+  'How long is the typical wait at peak hours?',
+];
+
+const knowledgeInterviews = {}; // branchId -> { phone10, queue, idx, savedCount }
+
+function startKnowledgeInterview(branchId) {
+  const business = businesses.find(b => b.id === branchId);
+  if (!business) return { success: false, error: 'Business not found' };
+  const ownerPhone10 = String(business.ownerPhone || '').replace(/[^0-9]/g, '').slice(-10);
+  if (!ownerPhone10) return { success: false, error: "No owner phone saved for this café — add it in Settings first" };
+  const cfg = getWaConfig(branchId);
+  if (!cfg?.phoneNumberId || !cfg?.accessToken) {
+    return { success: false, error: "Connect WhatsApp first (Settings → WhatsApp) — the interview happens on the owner's WhatsApp" };
+  }
+  const knowledge = getBranchData(branchId, 'knowledge.json');
+  const answered = new Set(knowledge.filter(k => k && k.a && String(k.a).trim()).map(k => k.q));
+  const queue = SUGGESTED_KNOWLEDGE_QUESTIONS.filter(q => !answered.has(q));
+  if (!queue.length) return { success: false, error: 'All suggested questions already have answers — add custom ones in the form' };
+  knowledgeInterviews[branchId] = { phone10: ownerPhone10, queue, idx: 0, savedCount: 0 };
+  const intro = `📚 *Teach your AI* — I'll ask ${queue.length} quick questions about your café. Reply with the answer, or "skip" to skip one, or "stop" to finish anytime.\n\nQ1: ${queue[0]}`;
+  sendWhatsAppToCustomer(branchId, business.ownerPhone, intro).catch(() => {});
+  return { success: true, questions: queue.length };
+}
+
+// Returns the next interview message when this inbound message IS the owner
+// answering an active interview; null otherwise (normal customer processing).
+function handleKnowledgeInterviewReply(branchId, fromPhone, text) {
+  const iv = knowledgeInterviews[branchId];
+  if (!iv) return null;
+  const phone10 = String(fromPhone || '').replace(/[^0-9]/g, '').slice(-10);
+  if (phone10 !== iv.phone10) return null; // customers are never affected
+  const t = String(text || '').trim();
+  if (/^(stop|end|done|bas|khatam)$/i.test(t)) {
+    const saved = iv.savedCount;
+    delete knowledgeInterviews[branchId];
+    return `👍 Done! Saved ${saved} answer(s). Your AI already knows them — add or edit facts anytime in Manager → Settings → Teach your AI.`;
+  }
+  if (!/^skip$/i.test(t)) {
+    const knowledge = getBranchData(branchId, 'knowledge.json');
+    knowledge.push({
+      id: 'k_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      q: iv.queue[iv.idx], a: t, updatedAt: new Date().toISOString(),
+    });
+    writeBranchData(branchId, 'knowledge.json', knowledge);
+    iv.savedCount++;
+  }
+  iv.idx++;
+  if (iv.idx >= iv.queue.length) {
+    const saved = iv.savedCount, total = iv.queue.length;
+    delete knowledgeInterviews[branchId];
+    return `🎉 That's all ${total} questions — ${saved} answer(s) saved. Your AI receptionist now answers these instantly, day and night!`;
+  }
+  return `Q${iv.idx + 1}: ${iv.queue[iv.idx]}`;
+}
+
 function buildReceptionistPrompt(branchId, text, fromPhone) {
   try {
     const business = businesses.find(b => b.id === branchId) || businesses[0];
@@ -567,6 +639,15 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
       : '';
     const platformsTopic = platformLinks.length ? ' delivery/online ordering,' : '';
 
+    // AI3: owner-authored café facts. Injected verbatim; the workflow rules pin
+    // the AI to answer ONLY from them so it never invents facts about the café.
+    const knowledgePairs = (getBranchData(branchId, 'knowledge.json') || [])
+      .filter(k => k && k.q && k.a && String(k.a).trim());
+    const knowledgeContext = knowledgePairs.length
+      ? `\n- Café facts from the owner (answer these EXACTLY from the fact given — never add to or guess beyond them):\n${knowledgePairs.map(k => `  • ${k.q} → ${k.a}`).join('\n')}`
+      : '';
+    const knowledgeTopic = knowledgePairs.length ? ' the café facts listed above,' : '';
+
     const prompt = `You are a warm, helpful, and natural human customer support assistant for "${business.name}" café.
 Your role is to:
 - Reply instantly, naturally, and warmly in a human-like host tone.
@@ -593,11 +674,11 @@ Café Context:
 - WiFi: ${business.wifi}
 - Google Review Link: ${business.review}
 - Menu:\n${menuStr}
-- Standard offers: Students 10% off with ID 🎓 | Loyalty: earn 1 point per ₹1 spent ☕${platformsContext}
+- Standard offers: Students 10% off with ID 🎓 | Loyalty: earn 1 point per ₹1 spent ☕${platformsContext}${knowledgeContext}
 
 CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
 1. If the question is NOT about this café's menu, prices, timings, location, WiFi,
-   reviews, loyalty points,${platformsTopic} or booking a table — for example: job applications/hiring,
+   reviews, loyalty points,${platformsTopic}${knowledgeTopic} or booking a table — for example: job applications/hiring,
    catering or events outside this café, franchise/business enquiries, questions about
    a completely different topic, or anything else you don't have real information about
    above — you MUST NOT answer it yourself and MUST NOT apologize or deflect in your own
@@ -1045,6 +1126,12 @@ async function processCafeBotReply(branchId, fromPhone, incomingMessage, opts = 
 
 async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
   updateTrafficStats(branchId);
+
+  // AI3: while a "Teach your AI" interview is active, the OWNER's messages are
+  // interview answers — handle them before any customer flow. Returns null for
+  // everyone else (and for the owner when no interview is running).
+  const interviewReply = handleKnowledgeInterviewReply(branchId, fromPhone, incomingMessage);
+  if (interviewReply) return interviewReply;
 
   const business = businesses.find(b => b.id === branchId) || businesses[0];
   const menu = getBranchData(branchId, 'menu.json');
@@ -1925,6 +2012,7 @@ const routeCtx = {
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
   sendWhatsAppToCustomer, getWaConfig, GEMINI_MODEL,
+  startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
   waApi, genAI, razorpay: (() => { try { return new (require('razorpay'))({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }); } catch(e){ return null; } })(),

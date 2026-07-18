@@ -1232,6 +1232,18 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
             </div>
           </div>
           <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head"><div><div class="panel-title">📚 Teach your AI</div><div class="panel-sub">Facts your AI answers from — parking, veg/non-veg, pets, payments… It never guesses: anything not covered here gets forwarded to you</div></div></div>
+            <div class="panel-body">
+              <div id="knowledge-list"></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                <button type="button" class="btn" onclick="addKnowledgeRow('','')">+ Add your own question</button>
+                <button type="button" class="btn" onclick="startWaInterview()">📱 Train over WhatsApp</button>
+              </div>
+              <button class="btn primary full" style="margin-top:10px" onclick="saveKnowledge()">Save Café Facts</button>
+              <div id="knowledge-msg" style="font-size:12px;margin-top:6px"></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:16px">
             <div class="panel-head"><div><div class="panel-title">WhatsApp Cloud API</div><div class="panel-sub">Connect this branch to Meta WhatsApp Business API</div></div></div>
             <div class="panel-body">
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px;background:var(--cream);border-radius:9px">
@@ -2484,6 +2496,7 @@ async function loadSettings(){
     document.getElementById('s-hero-image').value=business.heroImageUrl||'';
     document.getElementById('s-gallery-urls').value=(business.galleryUrls||[]).join(', ');
     renderPlatformLinks(business.platformLinks);
+    loadKnowledge();
     const analytics=await(await fetch(`/api/businesses/${branchId}/analytics`)).json();
     const campaigns=(analytics.settings&&analytics.settings.lowTrafficCampaigns)||[];
     renderCampaignSettings(campaigns);
@@ -2592,6 +2605,65 @@ function collectPlatformLinks(){
     label:r.querySelector('.pl-label').value.trim(),
     url:r.querySelector('.pl-url').value.trim()
   })).filter(l=>l.label&&l.url);
+}
+
+// ── AI3: "Teach your AI" café facts editor ──────────────────────────────────
+async function loadKnowledge(){
+  const wrap=document.getElementById('knowledge-list');
+  if(!wrap) return;
+  try{
+    const d=await(await fetch(`/api/businesses/${branchId}/knowledge`)).json();
+    wrap.innerHTML='';
+    const saved=Array.isArray(d.knowledge)?d.knowledge:[];
+    saved.forEach(k=>addKnowledgeRow(k.q,k.a));
+    const answered=new Set(saved.map(k=>k.q));
+    (d.suggested||[]).filter(q=>!answered.has(q)).forEach(q=>addKnowledgeRow(q,''));
+  }catch(e){console.error('[loadKnowledge]',e);}
+}
+function addKnowledgeRow(q,a){
+  const wrap=document.getElementById('knowledge-list');
+  const row=document.createElement('div');
+  row.className='knowledge-row';
+  row.style.cssText='display:flex;gap:8px;margin-bottom:8px;align-items:flex-start';
+  const qi=document.createElement('input');
+  qi.className='form-input k-q';qi.placeholder='Question (e.g. Is parking available?)';qi.style.flex='0 0 44%';qi.value=q||'';
+  const ai=document.createElement('textarea');
+  ai.className='form-input k-a';ai.placeholder='Your answer — blank = AI forwards this question to you';ai.rows=1;ai.style.flex='1';ai.style.resize='vertical';ai.value=a||'';
+  const del=document.createElement('button');
+  del.type='button';del.className='btn';del.textContent='✕';del.title='Remove';
+  del.onclick=()=>row.remove();
+  row.append(qi,ai,del);
+  wrap.appendChild(row);
+  if(!q&&!a) qi.focus();
+}
+async function saveKnowledge(){
+  const msg=document.getElementById('knowledge-msg');
+  const rows=[...document.querySelectorAll('#knowledge-list .knowledge-row')].map(r=>({
+    q:r.querySelector('.k-q').value.trim(),
+    a:r.querySelector('.k-a').value.trim()
+  })).filter(k=>k.q&&k.a);
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/knowledge`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({knowledge:rows})});
+    const d=await r.json();
+    if(d.success){msg.textContent=`✅ Saved ${d.count} fact(s) — your AI knows them from the very next message.`;msg.style.color='var(--sage,#2d7a2d)';}
+    else{msg.textContent='❌ '+(d.error||'Save failed');msg.style.color='var(--rose,#c0392b)';}
+  }catch(e){
+    console.error('[saveKnowledge]',e);
+    msg.textContent='❌ Save failed — check console';msg.style.color='var(--rose,#c0392b)';
+  }
+}
+async function startWaInterview(){
+  const msg=document.getElementById('knowledge-msg');
+  msg.textContent='Starting…';msg.style.color='var(--espresso,#555)';
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/knowledge/interview`,{method:'POST'});
+    const d=await r.json();
+    if(r.ok){msg.textContent=`📱 Interview started — ${d.questions} question(s) heading to the owner's WhatsApp. Reply there; answers save automatically.`;msg.style.color='var(--sage,#2d7a2d)';}
+    else{msg.textContent='❌ '+(d.error||'Could not start');msg.style.color='var(--rose,#c0392b)';}
+  }catch(e){
+    console.error('[startWaInterview]',e);
+    msg.textContent='❌ Could not start — check console';msg.style.color='var(--rose,#c0392b)';
+  }
 }
 
 async function saveSettings(){

@@ -13,6 +13,7 @@ module.exports = function register(ctx) {
     db,
     initializeBusinessFiles,
     whatsappClient,
+    startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   } = ctx;
 
 
@@ -361,6 +362,41 @@ app.post('/api/agency/clients/:id/status', requireAuth, requireRole('agency_admi
   }
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
   res.json({ success: true, id, subscriptionStatus: businesses[idx].subscriptionStatus, subscriptionPlan: businesses[idx].subscriptionPlan });
+});
+
+// ── AI3: "Teach your AI" knowledge base ──────────────────────────────────────
+// Owner-authored café facts (parking, veg/non-veg, pets…). The AI answers ONLY
+// from these; the suggested-question list seeds the Settings form.
+app.get('/api/businesses/:id/knowledge', requireAuth, requireBranchAccess, (req, res) => {
+  res.json({
+    knowledge: getBranchData(req.params.id, 'knowledge.json'),
+    suggested: SUGGESTED_KNOWLEDGE_QUESTIONS,
+  });
+});
+
+app.put('/api/businesses/:id/knowledge', requireAuth, requireBranchAccess, (req, res) => {
+  const { knowledge } = req.body;
+  if (!Array.isArray(knowledge)) return res.status(400).json({ error: 'knowledge must be an array' });
+  const clean = knowledge
+    .filter(k => k && typeof k.q === 'string' && typeof k.a === 'string')
+    .map(k => ({
+      id: (typeof k.id === 'string' && k.id) ? k.id.slice(0, 40)
+        : 'k_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      q: k.q.trim().slice(0, 200),
+      a: k.a.trim().slice(0, 600),
+      updatedAt: new Date().toISOString(),
+    }))
+    .filter(k => k.q && k.a)
+    .slice(0, 60);
+  writeBranchData(req.params.id, 'knowledge.json', clean);
+  res.json({ success: true, count: clean.length });
+});
+
+// Starts the WhatsApp owner interview (state machine lives in server.js).
+app.post('/api/businesses/:id/knowledge/interview', requireAuth, requireBranchAccess, (req, res) => {
+  const result = startKnowledgeInterview(req.params.id);
+  if (!result.success) return res.status(400).json({ error: result.error });
+  res.json(result);
 });
 
 };
