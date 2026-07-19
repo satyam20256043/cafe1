@@ -6,7 +6,17 @@ developer setup. Execute packages **QR0 → QR4 in order, committing after each*
 fully before touching any file. Decisions in §1 were locked by the user on 2026-07-18 — do
 **not** re-ask them.
 
-**Status: NOT YET EXECUTED** (written 2026-07-18).
+**Status: EXECUTED — QR0–QR4 complete & committed 2026-07-19** (commits `78cc68a`,
+`ed01228`, `81e3722`, `e41402a`, + the QR4 commit). NOT yet pushed/deployed. Two caveats
+recorded during execution: (1) the physical phone-scan acceptance test (scan → connected →
+restart-relink → live message round-trip) needs the operator's real WhatsApp and is pending —
+everything up to the live scan is automated-verified (QR renders, endpoints, mode-aware gates,
+bulk lockout). (2) QR4 retired the actual single-tenant bot (`initializeWhatsAppClient`,
+`activeRealBotBusinessId`, the `whatsapp_state`/`start_whatsapp` socket remnants) but
+deliberately LEFT the scattered `if (whatsappClient && …)` dead-guards in the route modules
+(orders/loyalty/business/marketing) — `whatsappClient` is a permanent `null` stub so they can
+never fire; rewriting ~30 inert sites across 6 files on a live system pre-deploy was judged
+higher risk than value. They're a safe low-risk follow-up sweep, not a blocker.
 
 ---
 

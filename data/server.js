@@ -331,10 +331,8 @@ if (backup) {
   backup.scheduleDaily();
 }
 
-// Shared active business for the real WhatsApp Web bot instance
-let activeRealBotBusinessId = 'indiranagar';
-// whatsappClient already declared above in optional deps block
-let whatsappQrCodeDataUrl = null;
+// Legacy Cloud-API connection-status string (still read by some route-module
+// dead-guards; QR linking uses the per-branch waweb state instead).
 let whatsappConnectionStatus = 'Disconnected';
 
 // Chat state memory: per business ID -> per sender number
@@ -2738,15 +2736,6 @@ io.on('connection', (socket) => {
     } catch (e) { /* invalid join payload — ignore */ }
   });
 
-  // Emit current WhatsApp linking state immediately on load
-  socket.emit('whatsapp_state', {
-    status: whatsappConnectionStatus,
-    qr: whatsappQrCodeDataUrl,
-    activeBusinessId: activeRealBotBusinessId,
-    number: whatsappClient && whatsappClient.info ? whatsappClient.info.wid.user : null,
-    geminiActive: !!genAI
-  });
-
   // Handle manual chatbot simulator triggers
   socket.on('simulate_chat', async (data) => {
     const { branchId, phone, text, customerName } = data;
@@ -2777,18 +2766,6 @@ io.on('connection', (socket) => {
         });
       }, 1200);
     }
-  });
-
-  // Legacy WhatsApp Web (Puppeteer/QR) mode is retired — Cloud API is the only
-  // supported channel (Manager → Settings → WhatsApp). The old handler called an
-  // undefined initializeWhatsAppClient() and crashed the process on click.
-  socket.on('start_whatsapp', () => {
-    socket.emit('whatsapp_state', {
-      status: 'Use WhatsApp Cloud API — Manager Dashboard → Settings → WhatsApp',
-      qr: null,
-      activeBusinessId: activeRealBotBusinessId,
-      geminiActive: !!genAI
-    });
   });
 
   // Handle dynamic campaign triggers — requires a staff token for the branch,
