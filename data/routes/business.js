@@ -322,6 +322,7 @@ app.get('/api/agency/clients', requireAuth, requireRole('agency_admin', 'admin')
       daysLeft,
       onboardedAt: b.onboardedAt || null,
       brandColor: b.brandColor || '#C9A84C',
+      waMode: ((getBranchData(b.id, 'whatsapp_config.json') || {}).mode) || null,
       revenue,
       orders
     };

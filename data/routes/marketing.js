@@ -15,7 +15,11 @@ module.exports = function register(ctx) {
     emitToBranch,
     loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion,
     sendWhatsAppToCustomer, GEMINI_MODEL,
+    qrBulkBlocked,
   } = ctx;
+
+  // Shared "campaigns need the Business API" response for QR-connected cafés.
+  const QR_BULK_MSG = "Campaign sends need the Business API — a quick-connect (QR) number only handles customer conversations. Connect the Business API in Settings → WhatsApp to send campaigns.";
 
 // Chat persistence note: chat_messages table + saveChatMessage live in db.js;
 // processCafeBotReply (server.js wrapper) persists both directions for every
@@ -818,6 +822,7 @@ app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBra
   }
 
   if (current.type === 'winback') {
+    if (qrBulkBlocked && qrBulkBlocked(id)) return res.json({ success: false, message: QR_BULK_MSG });
     const crmFile = path.join(DATA_DIR, id, 'crm.json');
     let crm = [];
     try { if (fs.existsSync(crmFile)) crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8')); } catch (e) {}
@@ -832,7 +837,7 @@ app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBra
         discountType: 'percent', discountValue: 15 }) : null;
       const msg = `Hi ${c.name || 'there'}! We miss you at our café ☕ Come back and enjoy 15% off your next visit! 🎁` +
         (coupon ? `\n\n🎟 Use code *${coupon.code}* at checkout!` : '');
-      return sendWhatsAppToCustomer(id, c.phone, msg).catch(() => false);
+      return sendWhatsAppToCustomer(id, c.phone, msg, { bulk: true }).catch(() => false);
     }));
     const sentCount = results.filter(Boolean).length;
     if (db) db.logEvent(id, 'campaign.sent', { actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'growth_suggestion_winback', targeted: atRisk.length, sent: sentCount } });
@@ -845,13 +850,14 @@ app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBra
   }
 
   if (current.type === 'birthday') {
+    if (qrBulkBlocked && qrBulkBlocked(id)) return res.json({ success: false, message: QR_BULK_MSG });
     const upcoming = db ? db.getUpcomingBirthdays(id, 7) : [];
     const results = await Promise.all(upcoming.map(async c => {
       const coupon = db.issueCoupon({ businessId: id, sourceType: 'birthday', customerPhone: c.phone,
         discountType: 'free_item', discountValue: 0 });
       const msg = `🎂 Happy Birthday, ${c.name || 'friend'}! Enjoy a FREE item on us today — just show this message! 🎁` +
         (coupon ? `\n🎟 Code: *${coupon.code}*` : '');
-      return sendWhatsAppToCustomer(id, c.phone, msg).catch(() => false);
+      return sendWhatsAppToCustomer(id, c.phone, msg, { bulk: true }).catch(() => false);
     }));
     const sentCount = results.filter(Boolean).length;
     if (db) db.logEvent(id, 'campaign.sent', { actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'growth_suggestion_birthday', targeted: upcoming.length, sent: sentCount } });

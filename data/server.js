@@ -1842,6 +1842,11 @@ function runAutoPilotCampaign(branchId, forceDay = null) {
     console.log(`[Auto-Pilot Campaign] Skipped for branch ${branchId} - Auto-Pilot is disabled.`);
     return { success: false, reason: 'Auto-Pilot is disabled' };
   }
+  // Auto-pilot is a bulk broadcast — refuse it on QR (unofficial) numbers.
+  if (qrBulkBlocked(branchId)) {
+    console.log(`[WA QR] bulk send skipped — autopilot campaign not sent for ${branchId} (QR mode is conversational-only; use the Business API for campaigns)`);
+    return { success: false, reason: 'Campaigns need the Business API on QR-connected cafés' };
+  }
 
   const now = new Date();
   const today = forceDay || now.toLocaleDateString('en-US', { weekday: 'long' });
@@ -2017,7 +2022,7 @@ const routeCtx = {
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
   sendWhatsAppToCustomer, getWaConfig, writeWaConfig, GEMINI_MODEL,
   startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
-  waweb, startQrClientForBranch,
+  waweb, startQrClientForBranch, qrBulkBlocked,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
   waApi, genAI, razorpay: (() => { try { return new (require('razorpay'))({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }); } catch(e){ return null; } })(),
@@ -2264,11 +2269,23 @@ function qrSendQueued(branchId, phone, text) {
   return next;
 }
 
+// QR mode is unofficial — bulk/marketing blasts are the classic ban trigger, so
+// they're refused on QR cafés (WA_QR_ALLOW_BULK=1 overrides). Conversational
+// traffic (AI replies, owner alerts, OTP) is always allowed.
+function qrBulkBlocked(branchId) {
+  const cfg = getWaConfig(branchId) || {};
+  return cfg.mode === 'qr' && process.env.WA_QR_ALLOW_BULK !== '1';
+}
+
 // Single outbound dispatcher for ALL owner/customer WhatsApp messages
 // (escalations, OTP, growth alerts, AI3 interview, AI replies). Routes by the
-// café's connection mode so every feature works on QR and Cloud alike.
-async function sendWhatsAppToCustomer(branchId, phone, text) {
+// café's connection mode so every feature works on QR and Cloud alike. Pass
+// { bulk:true } for campaign/marketing sends so the QR ban-hygiene rule applies.
+async function sendWhatsAppToCustomer(branchId, phone, text, opts = {}) {
   const cfg = getWaConfig(branchId) || {};
+  if (opts.bulk && qrBulkBlocked(branchId)) {
+    return false; // caller surfaces the "use Business API" notice; stay silent here to avoid per-recipient log spam
+  }
   if (cfg.mode === 'qr') {
     if (!waweb || !waweb.available) { console.warn('[WA QR] module unavailable for', branchId); return false; }
     return qrSendQueued(branchId, phone, text);
