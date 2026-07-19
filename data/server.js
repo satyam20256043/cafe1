@@ -19,6 +19,11 @@ try {
 }
 // Legacy stubs (kept for compatibility — all null, not used)
 let Client = null, LocalAuth = null, qrcode = null, whatsappClient = null;
+// QR-scan WhatsApp linking (per-branch whatsapp-web.js clients). Optional — if
+// the package isn't installed, waweb.available is false and QR mode is disabled.
+let waweb;
+try { waweb = require('./waweb'); }
+catch (e) { console.warn('[WA QR] module load failed:', e.message); waweb = { available: false }; }
 // ── Phase 1 modules (SQLite + Auth + Backup) ─────────────────────────────────
 let db, auth, backup;
 try {
@@ -2165,6 +2170,71 @@ function findBranchByPhoneNumberId(phoneNumberId) {
   return null;
 }
 
+function writeWaConfig(branchId, cfg) {
+  const cfgFile = path.join(DATA_DIR, branchId, 'whatsapp_config.json');
+  fs.mkdirSync(path.dirname(cfgFile), { recursive: true });
+  fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 2));
+}
+
+// ── QR-mode WhatsApp (whatsapp-web.js) ────────────────────────────────────────
+// Starts (or reattaches to) the per-branch QR client and wires its events into
+// the same pipeline the Cloud API webhook uses. Idempotent. Callers: the QR
+// connect endpoint (QR1) and boot-restore. Returns waweb.startClient's result.
+function startQrClientForBranch(branchId) {
+  if (!waweb || !waweb.available) return { success: false, error: 'QR linking is not available on this server' };
+  return waweb.startClient(branchId, {
+    onQr(dataUrl) {
+      emitToBranch(branchId, 'wa_qr', { branchId, dataUrl });
+    },
+    onReady({ number }) {
+      // Preserve any existing Cloud config so switching back is one click.
+      const prev = getWaConfig(branchId) || {};
+      const cloudBackup = prev.cloudBackup
+        || (prev.phoneNumberId ? { phoneNumberId: prev.phoneNumberId, accessToken: prev.accessToken } : undefined);
+      writeWaConfig(branchId, { mode: 'qr', number: number || null, linkedAt: new Date().toISOString(), ...(cloudBackup ? { cloudBackup } : {}) });
+      console.log(`[WA QR] ${branchId} linked (${number || 'unknown number'})`);
+      emitToBranch(branchId, 'wa_status', { branchId, ...waweb.getStatus(branchId) });
+    },
+    onDisconnected(reason) {
+      console.warn(`[WA QR] ${branchId} disconnected: ${reason}`);
+      const cfg = getWaConfig(branchId);
+      if (cfg && cfg.mode === 'qr') writeWaConfig(branchId, { ...cfg, state: 'disconnected' });
+      emitToBranch(branchId, 'wa_status', { branchId, state: 'disconnected', number: null });
+    },
+    async onMessage({ from, body }) {
+      // Mirror the Cloud webhook handler exactly (channel:'whatsapp' → same AI
+      // pipeline, chat_messages persistence, reservation/loyalty state machine).
+      const fromPhone = String(from).replace(/@c\.us$/, '');
+      const reply = await processCafeBotReply(branchId, fromPhone, body, { channel: 'whatsapp' });
+      emitToBranch(branchId, 'inbound_chat', {
+        branchId, phone: fromPhone, text: body, sender: 'customer',
+        timestamp: new Date().toLocaleTimeString(),
+      });
+      // reply is null when a Starter café is over its daily Haiku cap — stay silent.
+      if (reply) {
+        await sendWhatsAppToCustomer(branchId, fromPhone, reply);
+        emitToBranch(branchId, 'inbound_chat', {
+          branchId, phone: fromPhone, text: reply, sender: 'ai',
+          timestamp: new Date().toLocaleTimeString(),
+        });
+      }
+    },
+  });
+}
+
+// On boot, re-link every café already on QR mode (LocalAuth restores the session
+// silently — no rescanning). Staggered so we don't spawn all Chromiums at once.
+function restoreQrClients() {
+  if (!waweb || !waweb.available) return;
+  const qrBranches = businesses.filter(b => { const c = getWaConfig(b.id); return c && c.mode === 'qr'; });
+  if (!qrBranches.length) return;
+  console.log(`[WA QR] restoring ${qrBranches.length} linked café(s)…`);
+  qrBranches.forEach((b, i) => {
+    if (i >= waweb.MAX_CLIENTS) { console.warn(`[WA QR] skipping ${b.id} — over WA_QR_MAX_CLIENTS (${waweb.MAX_CLIENTS})`); return; }
+    setTimeout(() => startQrClientForBranch(b.id), i * 5000);
+  });
+}
+
 async function sendWhatsAppToCustomer(branchId, phone, text) {
   const cfg = getWaConfig(branchId);
   if (!cfg?.phoneNumberId || !cfg?.accessToken) {
@@ -2720,7 +2790,10 @@ process.on('unhandledRejection', (reason) => {
 
 server.listen(PORT, () => {
   console.log(`☕ Zordic California running on http://localhost:${PORT}`);
-  
+
+  // Re-link any café already connected via QR (sessions restore silently).
+  restoreQrClients();
+
   // Set up daily Auto-Pilot scheduler (check once a day at 10 AM, simulated as every 12 hours for demo/safety)
   setInterval(() => {
     console.log('[Auto-Pilot Scheduler] Running daily checks for all branches...');
@@ -2757,3 +2830,16 @@ server.listen(PORT, () => {
     }, wait);
   })();
 });
+
+// Graceful shutdown — destroy QR Chromium processes before exit (keeps sessions
+// so a pm2 restart re-links silently). Guarded so we only run once.
+let _shuttingDown = false;
+async function gracefulShutdown(signal) {
+  if (_shuttingDown) return;
+  _shuttingDown = true;
+  console.log(`[Shutdown] ${signal} — closing WhatsApp QR clients…`);
+  try { if (waweb && waweb.available) await waweb.stopAll(); } catch (e) { console.error('[Shutdown] waweb stopAll error:', e.message); }
+  process.exit(0);
+}
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
