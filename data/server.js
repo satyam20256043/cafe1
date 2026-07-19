@@ -536,8 +536,7 @@ function startKnowledgeInterview(branchId) {
   if (!business) return { success: false, error: 'Business not found' };
   const ownerPhone10 = String(business.ownerPhone || '').replace(/[^0-9]/g, '').slice(-10);
   if (!ownerPhone10) return { success: false, error: "No owner phone saved for this café — add it in Settings first" };
-  const cfg = getWaConfig(branchId);
-  if (!cfg?.phoneNumberId || !cfg?.accessToken) {
+  if (!isWhatsAppConnected(branchId)) {
     return { success: false, error: "Connect WhatsApp first (Settings → WhatsApp) — the interview happens on the owner's WhatsApp" };
   }
   const knowledge = getBranchData(branchId, 'knowledge.json');
@@ -2172,6 +2171,17 @@ function findBranchByPhoneNumberId(phoneNumberId) {
   return null;
 }
 
+// Mode-aware "can this café send/receive WhatsApp right now?" — used by the
+// owner-facing features (OTP, AI3 interview) that previously assumed Cloud creds
+// and so wrongly reported QR-linked cafés as disconnected.
+function isWhatsAppConnected(branchId) {
+  const cfg = getWaConfig(branchId) || {};
+  if (cfg.mode === 'qr') {
+    return !!(waweb && waweb.available && waweb.getStatus(branchId).state === 'connected');
+  }
+  return !!(cfg.phoneNumberId && cfg.accessToken);
+}
+
 function writeWaConfig(branchId, cfg) {
   const cfgFile = path.join(DATA_DIR, branchId, 'whatsapp_config.json');
   fs.mkdirSync(path.dirname(cfgFile), { recursive: true });
@@ -2237,9 +2247,34 @@ function restoreQrClients() {
   });
 }
 
+// Per-branch QR outbound queue: serialize sends with a min gap so an
+// unofficial-client café never fires a burst (ban hygiene). branchId -> Promise
+// chain tail; each link waits QR_SEND_GAP_MS after the previous.
+const QR_SEND_GAP_MS = parseInt(process.env.WA_QR_SEND_GAP_MS, 10) || 1500;
+const _qrSendQueues = {};
+function qrSendQueued(branchId, phone, text) {
+  const prev = _qrSendQueues[branchId] || Promise.resolve();
+  const next = prev.then(async () => {
+    const ok = await waweb.sendText(branchId, phone, text);
+    await new Promise(r => setTimeout(r, QR_SEND_GAP_MS));
+    return ok;
+  });
+  // Keep the chain alive even if a send rejects; don't leak the tail forever.
+  _qrSendQueues[branchId] = next.catch(() => {});
+  return next;
+}
+
+// Single outbound dispatcher for ALL owner/customer WhatsApp messages
+// (escalations, OTP, growth alerts, AI3 interview, AI replies). Routes by the
+// café's connection mode so every feature works on QR and Cloud alike.
 async function sendWhatsAppToCustomer(branchId, phone, text) {
-  const cfg = getWaConfig(branchId);
-  if (!cfg?.phoneNumberId || !cfg?.accessToken) {
+  const cfg = getWaConfig(branchId) || {};
+  if (cfg.mode === 'qr') {
+    if (!waweb || !waweb.available) { console.warn('[WA QR] module unavailable for', branchId); return false; }
+    return qrSendQueued(branchId, phone, text);
+  }
+  // Cloud API (default / mode:'cloud')
+  if (!cfg.phoneNumberId || !cfg.accessToken) {
     console.warn('[WA Cloud API] No credentials for branch:', branchId);
     return false;
   }
@@ -2277,8 +2312,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   if (!staff.phone) {
     return res.status(400).json({ error: 'No phone number on file for this account — ask your café admin to reset your password instead.' });
   }
-  const cfg = getWaConfig(businessId);
-  if (!cfg?.phoneNumberId || !cfg?.accessToken) {
+  if (!isWhatsAppConnected(businessId)) {
     return res.status(400).json({ error: 'This café has not connected WhatsApp yet, so OTP reset isn\'t available. Ask your café admin to reset your password instead.' });
   }
   if (otpRateLimited(staff.id)) {
