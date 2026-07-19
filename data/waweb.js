@@ -12,6 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const path = require('path');
+const fs = require('fs');
 
 let Client, LocalAuth;
 try {
@@ -71,6 +72,17 @@ function startClient(branchId, { onQr, onReady, onDisconnected, onMessage } = {}
   if (activeCount() >= MAX_CLIENTS) {
     return { success: false, error: `Server is at its QR-connection limit (${MAX_CLIENTS}). Disconnect another café or use the Business API.` };
   }
+
+  // A crashed/SIGKILLed Chromium leaves a stale profile lock behind, making every
+  // later initialize() fail with "The browser is already running". Clear the lock
+  // files before starting — safe because we only get here when OUR map has no
+  // live client for this branch.
+  try {
+    const profileDir = path.join(AUTH_DIR, 'session-' + branchId);
+    for (const f of ['SingletonLock', 'SingletonCookie', 'SingletonSocket']) {
+      fs.rmSync(path.join(profileDir, f), { force: true });
+    }
+  } catch (e) { /* lock cleanup is best-effort */ }
 
   const rec = { client: null, state: 'connecting', number: null, qrDataUrl: null, startedAt: Date.now() };
   clients[branchId] = rec;
@@ -135,17 +147,32 @@ function startClient(branchId, { onQr, onReady, onDisconnected, onMessage } = {}
 }
 
 // Sends a text via the branch's live client. Returns true on success.
-// `phone10or12` is digits only; we normalize to a WhatsApp chatId.
-async function sendText(branchId, phone10or12, text) {
+// `phoneOrId` is either a full WhatsApp id ("...@c.us" / "...@lid" — used as-is,
+// the case when replying to an inbound message) or bare digits, which we resolve
+// through getNumberId(): newer WhatsApp addresses many users by privacy LID, and
+// sending to a hand-built "<digits>@c.us" for those fails with "No LID for user".
+async function sendText(branchId, phoneOrId, text) {
   const c = clients[branchId];
   if (!c || c.state !== 'connected' || !c.client) {
     console.warn('[WA QR] send skipped — no connected client for', branchId);
     return false;
   }
-  const digits = String(phone10or12 || '').replace(/[^0-9]/g, '');
-  const withCc = digits.length === 10 ? '91' + digits : digits;   // matches app-wide 91 default
+  const raw = String(phoneOrId || '');
+  let chatId;
+  if (raw.includes('@')) {
+    chatId = raw; // exact id WhatsApp gave us — never rewrite it
+  } else {
+    const digits = raw.replace(/[^0-9]/g, '');
+    const withCc = digits.length === 10 ? '91' + digits : digits; // matches app-wide 91 default
+    try {
+      const wid = await c.client.getNumberId(withCc);
+      chatId = wid ? wid._serialized : `${withCc}@c.us`;
+    } catch (e) {
+      chatId = `${withCc}@c.us`;
+    }
+  }
   try {
-    await c.client.sendMessage(`${withCc}@c.us`, text);
+    await c.client.sendMessage(chatId, text);
     return true;
   } catch (e) {
     console.error('[WA QR] sendText failed for', branchId, e.message);

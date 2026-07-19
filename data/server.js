@@ -2219,7 +2219,10 @@ function startQrClientForBranch(branchId) {
     async onMessage({ from, body }) {
       // Mirror the Cloud webhook handler exactly (channel:'whatsapp' → same AI
       // pipeline, chat_messages persistence, reservation/loyalty state machine).
-      const fromPhone = String(from).replace(/@c\.us$/, '');
+      // `from` may be "<digits>@c.us" OR a privacy id "<digits>@lid" — strip the
+      // domain for CRM/UI keys, but ALWAYS reply to the full original id (a
+      // rebuilt "<digits>@c.us" fails with "No LID for user" for @lid senders).
+      const fromPhone = String(from).replace(/@.*$/, '');
       const reply = await processCafeBotReply(branchId, fromPhone, body, { channel: 'whatsapp' });
       emitToBranch(branchId, 'inbound_chat', {
         branchId, phone: fromPhone, text: body, sender: 'customer',
@@ -2227,7 +2230,7 @@ function startQrClientForBranch(branchId) {
       });
       // reply is null when a Starter café is over its daily Haiku cap — stay silent.
       if (reply) {
-        await sendWhatsAppToCustomer(branchId, fromPhone, reply);
+        await sendWhatsAppToCustomer(branchId, from, reply);
         emitToBranch(branchId, 'inbound_chat', {
           branchId, phone: fromPhone, text: reply, sender: 'ai',
           timestamp: new Date().toLocaleTimeString(),
