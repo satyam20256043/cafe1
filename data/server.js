@@ -2016,8 +2016,9 @@ const routeCtx = {
   initializeBusinessFiles,
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
-  sendWhatsAppToCustomer, getWaConfig, GEMINI_MODEL,
+  sendWhatsAppToCustomer, getWaConfig, writeWaConfig, GEMINI_MODEL,
   startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
+  waweb, startQrClientForBranch,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
   waApi, genAI, razorpay: (() => { try { return new (require('razorpay'))({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }); } catch(e){ return null; } })(),
@@ -2046,6 +2047,7 @@ require('./routes/billing')(routeCtx);
 require('./routes/activity')(routeCtx);
 require('./routes/feedback')(routeCtx);
 require('./routes/leads')(routeCtx);
+require('./routes/wa-qr')(routeCtx);
 
 // Socket.io Real-time Event Handling
 // -------------------------------------------------------------

@@ -1244,8 +1244,31 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
             </div>
           </div>
           <div class="panel" style="margin-bottom:16px">
-            <div class="panel-head"><div><div class="panel-title">WhatsApp Cloud API</div><div class="panel-sub">Connect this branch to Meta WhatsApp Business API</div></div></div>
+            <div class="panel-head"><div><div class="panel-title">WhatsApp Connection</div><div class="panel-sub">Link this branch's WhatsApp so your AI can chat with customers</div></div></div>
             <div class="panel-body">
+              <!-- ── Option 1: Quick connect (QR) ── -->
+              <div style="border:1.5px solid var(--border,#e5ddd0);border-radius:10px;padding:14px;margin-bottom:14px">
+                <div style="font-size:13.5px;font-weight:700;color:var(--espresso);margin-bottom:2px">⚡ Quick connect — scan a QR code</div>
+                <div style="font-size:11.5px;color:#888;margin-bottom:12px">Link your own number in seconds, like WhatsApp Web. No Meta setup.</div>
+                <div id="qr-disconnected">
+                  <button class="btn primary" onclick="startQrConnect()">📱 Connect by QR</button>
+                </div>
+                <div id="qr-pending" style="display:none;text-align:center">
+                  <div style="font-size:12.5px;color:#666;margin-bottom:8px">Open WhatsApp → <b>Linked devices</b> → <b>Link a device</b>, then scan:</div>
+                  <img id="qr-img" alt="WhatsApp QR" style="width:220px;height:220px;border:1px solid var(--border,#e5ddd0);border-radius:8px;background:#fff"/>
+                  <div style="font-size:11px;color:#aaa;margin-top:8px">Waiting for scan… <a href="#" onclick="cancelQrConnect();return false" style="color:#c0392b">cancel</a></div>
+                </div>
+                <div id="qr-connected" style="display:none">
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#f0f9f0;border-radius:8px;border:1px solid #c6e6c6;margin-bottom:10px">
+                    <span style="font-size:16px">✅</span>
+                    <div style="font-size:13px;font-weight:600;color:#2d7a2d">Linked to <span id="qr-number">—</span></div>
+                  </div>
+                  <button class="btn danger" onclick="disconnectQr()">Disconnect</button>
+                </div>
+                <div style="font-size:10.5px;color:#b08968;margin-top:10px;line-height:1.5">Quick connect uses an unofficial link — great for trials and small cafés. For high volume, the Business API below is more robust.</div>
+              </div>
+              <!-- ── Option 2: Business API (Cloud) ── -->
+              <div style="font-size:13.5px;font-weight:700;color:var(--espresso);margin:4px 0 8px">🏢 Business API (Meta) <span style="font-size:10.5px;font-weight:600;color:#2d7a2d;background:#eafaea;padding:1px 7px;border-radius:10px">recommended for scale</span></div>
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:12px;background:var(--cream);border-radius:9px">
                 <div id="wa-dot-2" style="width:10px;height:10px;border-radius:50%;background:#ccc;flex-shrink:0"></div>
                 <div>
@@ -2796,7 +2819,52 @@ function loadWhatsAppSettings() {
         if (vtEl && data.verifyToken) vtEl.textContent = data.verifyToken;
       }
     }).catch(() => {});
+  loadQrState();
 }
+
+// ── WhatsApp QR quick-connect ────────────────────────────────────────────────
+let _qrPoll = null;
+function renderQrState(s) {
+  const show = (id, on) => { const e = document.getElementById(id); if (e) e.style.display = on ? '' : 'none'; };
+  const state = s && s.state || 'disconnected';
+  show('qr-disconnected', state === 'disconnected');
+  show('qr-pending', state === 'qr_pending' || state === 'connecting');
+  show('qr-connected', state === 'connected');
+  if (state === 'qr_pending' && s.qrDataUrl) { const img = document.getElementById('qr-img'); if (img) img.src = s.qrDataUrl; }
+  if (state === 'connected') { const n = document.getElementById('qr-number'); if (n) n.textContent = s.number ? ('+' + s.number) : 'your number'; }
+  if (state !== 'qr_pending' && state !== 'connecting' && _qrPoll) { clearInterval(_qrPoll); _qrPoll = null; }
+}
+function loadQrState() {
+  fetch(`/api/businesses/${branchId}/whatsapp/qr/status`, { headers: getAuthHeaders() })
+    .then(r => r.ok ? r.json() : null).then(s => { if (s) renderQrState(s); }).catch(() => {});
+}
+async function startQrConnect() {
+  renderQrState({ state: 'connecting' });
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/whatsapp/qr/start`, { method: 'POST', headers: getAuthHeaders() });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Could not start QR connect', 'error'); renderQrState({ state: 'disconnected' }); return; }
+    renderQrState(d);
+    // Polling fallback in case the socket QR event is missed.
+    if (_qrPoll) clearInterval(_qrPoll);
+    _qrPoll = setInterval(loadQrState, 3000);
+  } catch (e) { console.error('[startQrConnect]', e); toast('QR connect failed — check console', 'error'); renderQrState({ state: 'disconnected' }); }
+}
+async function cancelQrConnect() {
+  if (_qrPoll) { clearInterval(_qrPoll); _qrPoll = null; }
+  try { await fetch(`/api/businesses/${branchId}/whatsapp/qr/disconnect`, { method: 'POST', headers: getAuthHeaders() }); } catch (e) {}
+  renderQrState({ state: 'disconnected' });
+}
+async function disconnectQr() {
+  if (!confirm('Disconnect WhatsApp from this café? Customers will stop getting AI replies until you reconnect.')) return;
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/whatsapp/qr/disconnect`, { method: 'POST', headers: getAuthHeaders() });
+    if (r.ok) { toast('WhatsApp disconnected', 'success'); renderQrState({ state: 'disconnected' }); }
+    else toast('Disconnect failed', 'error');
+  } catch (e) { console.error('[disconnectQr]', e); toast('Disconnect failed — check console', 'error'); }
+}
+socket.on('wa_qr', d => { if (d.branchId === branchId) renderQrState({ state: 'qr_pending', qrDataUrl: d.dataUrl }); });
+socket.on('wa_status', d => { if (d.branchId === branchId) { renderQrState(d); if (d.state === 'connected') toast('✅ WhatsApp linked!', 'success'); } });
 
 function updateWaStatusUI(data) {
   const dot1 = document.getElementById('wa-dot');
