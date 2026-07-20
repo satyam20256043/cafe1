@@ -48,13 +48,13 @@ if (genAI) {
   console.log('[AI Engine] Local Conversational NLP Mode Active (Fallback) 🤖');
 }
 
-// Premium AI tier (user decision 2026-07-11, extended 2026-07-12): cafés on
-// growth/pro plans get Claude Haiku as the receptionist brain with no cap.
-// Starter cafés ALSO get Claude Haiku, but only STARTER_CLAUDE_DAILY_LIMIT
-// replies per day — Haiku only, no Gemini fallback; once the day's cap is spent
-// the AI stays silent (deliberate nudge to upgrade). Trial cafés (no plan yet)
-// and everyone else use Gemini. Requires ANTHROPIC_API_KEY in .env — without it
-// everything silently stays on Gemini (ground rule: every AI feature has a fallback).
+// Premium AI tier (user decision 2026-07-11, extended 2026-07-12 and 2026-07-19):
+// cafés on growth/pro plans get Claude Haiku as the receptionist brain with no
+// cap. Starter cafés AND trial/no-plan cafés get Claude Haiku too, but only
+// STARTER_CLAUDE_DAILY_LIMIT replies per day — Haiku only, no Gemini fallback;
+// once the day's cap is spent the AI stays silent (deliberate nudge to upgrade).
+// Gemini is used only when no ANTHROPIC_API_KEY is set — without it everything
+// silently stays on Gemini (ground rule: every AI feature has a fallback).
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 const PREMIUM_AI_PLANS = ['growth', 'pro'];
 const STARTER_CLAUDE_DAILY_LIMIT = parseInt(process.env.STARTER_CLAUDE_DAILY_LIMIT, 10) || 30;
@@ -78,9 +78,9 @@ function aiUsageDateKey() {
 
 // Which LLM answers for this branch on THIS message:
 //   'claude'        → growth/pro: Claude Haiku, unlimited (Gemini safety-net on failure)
-//   'claude_capped' → starter:    Claude Haiku, up to STARTER_CLAUDE_DAILY_LIMIT/day
-//   'silent'        → starter over today's cap: send nothing (no Gemini, no local reply)
-//   'gemini'        → trial / no Claude key / anything else
+//   'claude_capped' → starter + trial/no-plan: Claude Haiku, up to STARTER_CLAUDE_DAILY_LIMIT/day
+//   'silent'        → starter/trial over today's cap: send nothing (no Gemini, no local reply)
+//   'gemini'        → no Anthropic key (or no usage meter / unrecognized plan)
 function aiDecisionForBranch(branchId) {
   const business = businesses.find(b => b.id === branchId);
   // Two plan fields exist historically: Razorpay checkout writes `plan`, the HQ
@@ -88,7 +88,10 @@ function aiDecisionForBranch(branchId) {
   // keep them in sync, but old records may have only one).
   const plan = business && (business.plan || business.subscriptionPlan);
   if (anthropic && PREMIUM_AI_PLANS.includes(plan)) return 'claude';
-  if (anthropic && plan === 'starter') {
+  // Starter AND trial/no-plan cafés: capped Claude. Trials must experience the
+  // real AI during evaluation (the old Gemini fallback had a dead key and gave
+  // trials keyword-tier replies for their entire decision window).
+  if (anthropic && (plan === 'starter' || !plan)) {
     if (!db) return 'gemini'; // no meter available → stay on Gemini rather than bill Claude uncapped
     const used = db.getClaudeUsageToday(branchId, aiUsageDateKey());
     return used < STARTER_CLAUDE_DAILY_LIMIT ? 'claude_capped' : 'silent';
@@ -733,12 +736,12 @@ async function callClaude(prompt) {
 }
 
 // Provider dispatch (see aiDecisionForBranch): growth/pro → unlimited Claude
-// Haiku with Gemini safety net; starter → Claude Haiku metered per day, no
-// Gemini fallback (null on failure drops to the local keyword tier); over-cap
-// starter → 'silent' (handled by the caller BEFORE the local fallback);
-// trial/others → Gemini. Gemini failures return null and the caller falls
-// through to the local keyword tier — the pipeline never hard-fails because a
-// model is down.
+// Haiku with Gemini safety net; starter + trial/no-plan → Claude Haiku metered
+// per day, no Gemini fallback (null on failure drops to the local keyword
+// tier); over-cap → 'silent' (handled by the caller BEFORE the local
+// fallback); Gemini only when no Anthropic key. Gemini failures return null
+// and the caller falls through to the local keyword tier — the pipeline never
+// hard-fails because a model is down.
 async function generateAIReply(branchId, text, fromPhone, decision) {
   decision = decision || aiDecisionForBranch(branchId);
   if (decision === 'silent') return null; // caller handles this before the local fallback
