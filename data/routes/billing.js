@@ -45,7 +45,7 @@ module.exports = function register(ctx) {
   app.post('/api/businesses/:id/billing/create-order', requireAuth, async (req, res) => {
     if (!razorpay) {
       return res.status(503).json({
-        error: 'Razorpay not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env and restart.'
+        error: 'Online payment is not enabled yet — please contact us to activate your plan.'
       });
     }
     const { planId } = req.body;
@@ -85,7 +85,7 @@ module.exports = function register(ctx) {
   // Verify Razorpay payment signature and activate subscription
   app.post('/api/businesses/:id/billing/verify-payment', requireAuth, (req, res) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId } = req.body;
-    if (!razorpay) return res.status(503).json({ error: 'Razorpay not configured' });
+    if (!razorpay) return res.status(503).json({ error: 'Online payment is not enabled yet — please contact us to activate your plan.' });
 
     const crypto = require('crypto');
     const expectedSig = crypto

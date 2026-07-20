@@ -2026,7 +2026,11 @@ const routeCtx = {
   waweb, startQrClientForBranch, qrBulkBlocked,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
-  waApi, genAI, razorpay: (() => { try { return new (require('razorpay'))({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET }); } catch(e){ return null; } })(),
+  waApi, genAI, razorpay: (() => { try {
+    const kid = process.env.RAZORPAY_KEY_ID || '';
+    if (!kid || kid.includes('ENTER_YOUR')) return null; // placeholder → payments disabled
+    return new (require('razorpay'))({ key_id: kid, key_secret: process.env.RAZORPAY_KEY_SECRET });
+  } catch(e){ return null; } })(),
   whatsappConnectionStatus: 'Disconnected',
   requireAuth, requireBranchAccess, requireRole,
   signToken, verifyToken, loadStaff, STAFF_FILE,
