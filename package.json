@@ -13,6 +13,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
     "@google/generative-ai": "^0.11.4",
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc.13",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.10.0",
     "cors": "^2.8.5",

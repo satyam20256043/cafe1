@@ -8,6 +8,7 @@ node_modules/
 # WhatsApp Web session data (contains live login session!)
 .wwebjs_auth/
 .wwebjs_cache/
+.baileys_auth/
 
 # Runtime data — tenant databases and backups
 # (glob, not path-anchored, so this also catches the now-fixed data/data/

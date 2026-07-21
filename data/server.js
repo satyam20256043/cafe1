@@ -21,8 +21,14 @@ try {
 let Client = null, LocalAuth = null, qrcode = null, whatsappClient = null;
 // QR-scan WhatsApp linking (per-branch whatsapp-web.js clients). Optional — if
 // the package isn't installed, waweb.available is false and QR mode is disabled.
+// WA_QR_BACKEND=baileys switches the QR-linking implementation from
+// whatsapp-web.js (Puppeteer/Chromium) to @whiskeysockets/baileys (direct
+// WebSocket, no browser — see data/baileys-wa.js). Defaults to today's
+// behavior; unset/anything-else keeps whatsapp-web.js exactly as before.
+// Session data is NOT shared between the two — switching a linked café needs
+// one fresh QR scan.
 let waweb;
-try { waweb = require('./waweb'); }
+try { waweb = process.env.WA_QR_BACKEND === 'baileys' ? require('./baileys-wa') : require('./waweb'); }
 catch (e) { console.warn('[WA QR] module load failed:', e.message); waweb = { available: false }; }
 // ── Phase 1 modules (SQLite + Auth + Backup) ─────────────────────────────────
 let db, auth, backup;
