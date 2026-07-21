@@ -6,7 +6,18 @@ This guide is written for a Haiku session: every package names the exact file, t
 anchor to edit, and the exact verify commands. **Follow it literally. Where the guide and the
 code disagree, STOP and report — do not improvise.**
 
-**Status: NOT YET EXECUTED** (written 2026-07-19).
+**Status: EXECUTED — IMP0-IMP5 all complete and committed 2026-07-21** (commits
+`da1bac5`, `69fe316`, `40dc430`, `1f6446a`, `2aa18d4`, `5515195`; not yet pushed/deployed —
+awaiting user go-ahead, same as the last deploy). Each package verified with a real running
+server against a disposable test café, not just read-through: IMP0/IMP1 via direct HTTP
+calls; IMP2 via a simulated WhatsApp webhook against dummy Cloud credentials, confirming a
+real `wa_send_failed` alert and 6h debounce; IMP3 via an isolated 10-case unit test plus a
+real request that hit the (still-dead) local Claude key and confirmed zero wasted retries;
+IMP4 via a temporarily-redirected integrity check proving the corrupt-backup path actually
+fires; IMP5 via a temporarily-immediate scheduler trigger against a real trial café, proving
+both the once-ever send guard and the manager-facing API payload the banner reads from.
+`opsAlerts` (IMP2) ended up wired into IMP4's backup-failure paths too, beyond what IMP2's
+own package originally scoped.
 
 ---
 
