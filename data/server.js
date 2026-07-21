@@ -1095,6 +1095,38 @@ async function runWeeklyGrowthSuggestions() {
   }
 }
 
+// Trial lifecycle (IMP5): once-ever WhatsApp nudges at 5 days and 1 day left,
+// so a trial doesn't just quietly expire unnoticed. `trialEndsAt` is the field
+// set at onboarding and already used for the HQ dashboard's trial countdown —
+// NOT `subscriptionEnd` (that's a separate field billing.js sets on payment
+// activation). Sends are tracked per branch in trial_notices.json so a daily
+// re-run (or a restart landing on the same day) never double-sends.
+function runTrialReminders() {
+  for (const b of businesses) {
+    try {
+      if (b.subscriptionStatus !== 'trial' || !b.trialEndsAt) continue;
+      const daysLeft = Math.ceil((new Date(b.trialEndsAt) - Date.now()) / 86400000);
+      if (daysLeft !== 5 && daysLeft !== 1) continue;
+      if (!b.ownerPhone) continue;
+
+      const noticesFile = path.join(DATA_DIR, b.id, 'trial_notices.json');
+      let notices = { sent: {} };
+      try { if (fs.existsSync(noticesFile)) notices = JSON.parse(fs.readFileSync(noticesFile, 'utf-8')); } catch (e) {}
+      if (notices.sent && notices.sent[String(daysLeft)]) continue; // already sent, ever
+
+      const msg = `⏳ Your Zordic free trial ends in ${daysLeft} day(s)! Keep your AI receptionist working — reply here or visit your dashboard to pick a plan. ☕`;
+      sendWhatsAppToCustomer(b.id, b.ownerPhone, msg).catch(() => {});
+
+      notices.sent = notices.sent || {};
+      notices.sent[String(daysLeft)] = new Date().toISOString();
+      fs.mkdirSync(path.dirname(noticesFile), { recursive: true });
+      fs.writeFileSync(noticesFile, JSON.stringify(notices, null, 2));
+    } catch (e) {
+      console.error(`[Trial Reminders] Failed for branch ${b.id}:`, e.message);
+    }
+  }
+}
+
 // Find the menu item a customer is referring to in free text (name, a significant
 // word of the name, or the category). Returns the item or null.
 function findMentionedMenuItem(menu, lowercaseText) {
@@ -2069,6 +2101,7 @@ const routeCtx = {
   initializeBusinessFiles,
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
+  runTrialReminders,
   sendWhatsAppToCustomer, getWaConfig, writeWaConfig, GEMINI_MODEL,
   startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   waweb, startQrClientForBranch, qrBulkBlocked,
@@ -2918,6 +2951,26 @@ server.listen(PORT, () => {
     setTimeout(() => {
       runWeeklyGrowthSuggestions();
       setInterval(runWeeklyGrowthSuggestions, 7 * 24 * 60 * 60 * 1000); // then every 7 days
+    }, wait);
+  })();
+
+  // Trial lifecycle reminders (IMP5) — daily at ~09:30 local, same
+  // ms-until-target-hour/setTimeout/setInterval shape as backup.js's
+  // scheduleDaily(). runTrialReminders() itself is idempotent (trial_notices.json
+  // guards against double-sends), so an exact hour match isn't critical.
+  (function scheduleTrialReminders() {
+    function msUntilNext930AM() {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(9, 30, 0, 0);
+      if (next <= now) next.setDate(next.getDate() + 1);
+      return next - now;
+    }
+    const wait = msUntilNext930AM();
+    console.log(`[Trial Reminders] Next run in ${Math.floor(wait / 3600000)}h (09:30)`);
+    setTimeout(() => {
+      runTrialReminders();
+      setInterval(runTrialReminders, 24 * 60 * 60 * 1000); // then every 24h
     }, wait);
   })();
 });

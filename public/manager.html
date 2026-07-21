@@ -331,6 +331,11 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 </head>
 <body>
 
+  <!-- Trial countdown banner (IMP5) -->
+  <div id="trial-banner" style="display:none;padding:10px 20px;text-align:center;font-size:13px;font-weight:600;background:var(--cream);color:var(--ink);border-bottom:1px solid var(--border)">
+    <span id="trial-banner-text"></span>
+  </div>
+
   <!-- Notification permission banner -->
   <div id="notif-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#3a1f0d;color:#fff;padding:10px 20px;align-items:center;justify-content:space-between;gap:12px;font-size:13px">
     <span>&#128276; Enable browser notifications to get alerted for new orders, reservations &amp; WhatsApp messages.</span>
@@ -1716,6 +1721,7 @@ async function loadBranch(){
       <div>🔗 <a href="${esc(business.map)}" target="_blank" style="color:var(--caramel)">Google Maps</a></div>
       <div>⭐ <a href="${esc(business.review)}" target="_blank" style="color:var(--caramel)">Review Page</a></div>
     `;
+    renderTrialBanner();
     await loadOverviewKPIs();
     loadTrafficChart();
     loadSetupChecklist();
@@ -1726,6 +1732,20 @@ async function loadBranch(){
     console.error('[loadBranch]', e);
     if(typeof toast==='function') toast('loadBranch failed — check console','error');
   }
+}
+
+// Trial countdown banner (IMP5) — slim top banner while on a trial, red-tinted
+// once 5 days or fewer remain.
+function renderTrialBanner(){
+  const banner = document.getElementById('trial-banner');
+  const text = document.getElementById('trial-banner-text');
+  if (!banner || !text) return;
+  if (business.subscriptionStatus !== 'trial' || !business.trialEndsAt) { banner.style.display = 'none'; return; }
+  const daysLeft = Math.max(0, Math.ceil((new Date(business.trialEndsAt) - Date.now()) / 86400000));
+  text.textContent = `⏳ Free trial — ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. Contact us to activate your plan.`;
+  banner.style.background = daysLeft <= 5 ? 'var(--rose-light)' : 'var(--cream)';
+  banner.style.color = daysLeft <= 5 ? 'var(--rose)' : 'var(--ink)';
+  banner.style.display = 'block';
 }
 
 // ── AI escalations (G3) — customer messages the AI couldn't handle alone ────
