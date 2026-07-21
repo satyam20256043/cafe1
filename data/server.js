@@ -34,6 +34,7 @@ try {
 } catch(e) {
   console.warn('[Phase1] ⚠ Modules not found, running in legacy JSON mode:', e.message);
 }
+const opsAlerts = require('./ops-alerts');
 
 
 // Initialize Gemini API client if API key is provided.
@@ -715,6 +716,9 @@ async function callGemini(prompt) {
     return response.text().trim();
   } catch (error) {
     console.error('[Gemini API Error]', error);
+    if (String((error && error.message) || error).includes('401')) {
+      opsAlerts.raiseAlert('gemini_auth', 'global', (error && error.message) || String(error));
+    }
     return null;
   }
 }
@@ -731,6 +735,9 @@ async function callClaude(prompt) {
     return textOut || null;
   } catch (error) {
     console.error('[Claude API Error]', error.message || error);
+    if (String(error.message || error).includes('401')) {
+      opsAlerts.raiseAlert('claude_auth', 'global', error.message || String(error));
+    }
     return null;
   }
 }
@@ -2012,6 +2019,8 @@ function requireBranchAccess(req, res, next) {
 
 
 // ── Route modules ────────────────────────────────────────────────────────────
+opsAlerts.init({ sendWhatsAppToCustomer });
+
 // Shared context passed to every route module
 const routeCtx = {
   app, io, fs, path,
@@ -2024,6 +2033,7 @@ const routeCtx = {
   sendWhatsAppToCustomer, getWaConfig, writeWaConfig, GEMINI_MODEL,
   startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   waweb, startQrClientForBranch, qrBulkBlocked,
+  opsAlerts,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
   waApi, genAI, razorpay: (() => { try {
@@ -2222,6 +2232,7 @@ function startQrClientForBranch(branchId) {
       const cfg = getWaConfig(branchId);
       if (cfg && cfg.mode === 'qr') writeWaConfig(branchId, { ...cfg, state: 'disconnected' });
       emitToBranch(branchId, 'wa_status', { branchId, state: 'disconnected', number: null });
+      opsAlerts.raiseAlert('wa_qr_disconnected', branchId, reason);
     },
     async onMessage({ from, body }) {
       // Mirror the Cloud webhook handler exactly (channel:'whatsapp' → same AI
@@ -2308,6 +2319,7 @@ async function sendWhatsAppToCustomer(branchId, phone, text, opts = {}) {
     return true;
   } catch (e) {
     console.error('[WA Cloud API] Send error for', branchId, ':', e.message);
+    opsAlerts.raiseAlert('wa_send_failed', branchId, e.message);
     return false;
   }
 }

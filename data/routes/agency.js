@@ -10,7 +10,7 @@ module.exports = function register(ctx) {
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
-    db,
+    db, opsAlerts,
   } = ctx;
 
 // ── Agency Website — Contact / Lead Capture ──────────────────────────────────
@@ -72,6 +72,16 @@ app.patch('/api/agency/leads/:id', requireAuth, requireRole('agency_admin', 'adm
     fs.writeFileSync(LEADS_FILE, JSON.stringify(leads, null, 2));
     res.json(leads[idx]);
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Ops Alerts (IMP2) — outage feed for the HQ badge ──────────────────────────
+app.get('/api/agency/ops-alerts', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
+  res.json({ alerts: opsAlerts.listAlerts() });
+});
+
+app.post('/api/agency/ops-alerts/clear', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
+  opsAlerts.clearAlerts();
+  res.json({ success: true });
 });
 
 // Socket.io and server.listen are managed in server.js

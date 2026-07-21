@@ -192,6 +192,7 @@
   <div class="hq-header-right">
     <div class="hq-stat-pill">Branches: <strong id="hdr-total">—</strong></div>
     <div class="hq-stat-pill">Active: <strong id="hdr-active">—</strong></div>
+    <span id="ops-alert-badge" onclick="showOpsAlerts()" style="display:none;background:var(--rose-lt);color:var(--rose);border-radius:12px;padding:2px 10px;cursor:pointer;font-size:12px;font-weight:600">🔔 <b id="ops-alert-count">0</b></span>
     <a href="/onboard" target="_blank" class="btn-primary">+ Add Branch</a>
   </div>
 </div>
@@ -563,6 +564,27 @@ async function importLeadsCSV(file){
 const socket=io();
 socket.on('connect',()=>socket.emit('join_business',{token:localStorage.getItem('cafehq_token')})); // joins the 'agency' room (receives all branches)
 socket.on('new_order',({businessId})=>{const b=allBranches.find(x=>x.id===businessId);if(b){b.orders=(b.orders||0)+1;renderCards();}});
+async function pollOpsAlerts(){
+  try{
+    const r=await fetch('/api/agency/ops-alerts',{headers:leadsAuthHdr()});
+    if(!r.ok) return;
+    const d=await r.json();
+    const alerts=d.alerts||[];
+    window.__opsAlerts=alerts;
+    document.getElementById('ops-alert-count').textContent=alerts.length;
+    document.getElementById('ops-alert-badge').style.display=alerts.length?'inline-block':'none';
+  }catch(e){}
+}
+function showOpsAlerts(){
+  const alerts=window.__opsAlerts||[];
+  const lines=alerts.slice(0,5).map(a=>'['+a.kind+'] '+a.branchId+': '+a.message+' ('+a.at+')').join('\n');
+  alert('Ops Alerts ('+alerts.length+' total)\n\n'+(lines||'None'));
+  if(alerts.length && confirm('Clear all ops alerts?')){
+    fetch('/api/agency/ops-alerts/clear',{method:'POST',headers:leadsAuthHdr()}).then(pollOpsAlerts);
+  }
+}
+pollOpsAlerts();
+setInterval(pollOpsAlerts,60000);
 init();
 </script>
 </body>
