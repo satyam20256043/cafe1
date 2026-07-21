@@ -9,7 +9,10 @@ made explicitly by the user on 2026-07-10 — do **not** re-ask them.
 interview + answer-only-from-facts prompt guardrail — built against the CURRENT keyword+LLM
 pipeline, not the AI2 router; when AI2 lands, route FAQ intents through the knowledge pairs.
 The AI3 eval step (flipping the FAQ golden cases) is still pending — run it with AI2/AI6.
-AI1, AI2, AI4, AI5, AI6 remain.
+**AI5 satisfied by IMP3** (commit `1f6446a`, 2026-07-21, `docs/ZORDIC_IMPROVEMENTS_ROADMAP.md`):
+`withLlmRetry` wraps both `callClaude`/`callGemini` — short backoff on transient 429/5xx/network
+errors, immediate no-retry on auth errors, per-provider circuit breaker (5 consecutive failures
+→ 60s open). AI1, AI2, AI4, AI6 remain.
 
 **Goal in one line:** the WhatsApp AI must feel like a professional, warm human receptionist —
 remembers the conversation, knows the café inside out, greets regulars by name, mirrors the
