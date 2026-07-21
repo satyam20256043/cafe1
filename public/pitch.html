@@ -26,7 +26,14 @@ body{font-family:var(--fb);background:var(--espresso);color:var(--ink)}
 
 /* ── Deck engine ── */
 #deck{position:relative;height:100%;width:100%;touch-action:pan-y}
-.slide{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+/* justify-content:center alone clips the TOP of any slide taller than the
+   viewport — centering an overflowing flex container pushes half the overflow
+   above scrollTop:0, which can't be scrolled to (negative scroll isn't a
+   thing). flex-start is the safe baseline (always reachable top-to-bottom);
+   `safe center` is a progressive upgrade that keeps true centering on slides
+   that DO fit, and browsers that don't understand it just keep flex-start. */
+.slide{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
+  justify-content:flex-start;justify-content:safe center;
   padding:56px 28px calc(92px + env(safe-area-inset-bottom));overflow-y:auto;background:var(--bg);color:var(--ink)}
 .slide.active{display:flex;animation:slideIn .45s cubic-bezier(.22,.8,.3,1)}
 .slide.dark{background:radial-gradient(1200px 700px at 70% -10%,#2a1c0d 0%,var(--espresso) 60%);color:#F5EFE2}
