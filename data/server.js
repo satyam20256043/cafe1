@@ -713,13 +713,44 @@ Your Response:`;
   }
 }
 
+// Retry transient LLM failures (429/5xx/network) with short backoff; never
+// retry auth errors. A per-provider circuit breaker stops hammering a
+// provider that is hard-down: 5 consecutive failures → open for 60s.
+const _llmBreaker = { claude: { fails: 0, openUntil: 0 }, gemini: { fails: 0, openUntil: 0 } };
+function _isTransientLlmError(e) {
+  const m = String(e && e.message || e);
+  if (m.includes('401') || m.includes('403') || m.toLowerCase().includes('invalid')) return false;
+  return m.includes('429') || m.includes('500') || m.includes('502') || m.includes('503')
+      || m.includes('529') || m.toLowerCase().includes('fetch') || m.toLowerCase().includes('network') || m.toLowerCase().includes('timeout');
+}
+async function withLlmRetry(provider, fn) {
+  const br = _llmBreaker[provider];
+  if (Date.now() < br.openUntil) return null; // circuit open — skip straight to fallback
+  const delays = [0, 400, 1200];
+  for (let i = 0; i < delays.length; i++) {
+    if (delays[i]) await new Promise(r => setTimeout(r, delays[i]));
+    try {
+      const out = await fn();
+      br.fails = 0;
+      return out;
+    } catch (e) {
+      if (!_isTransientLlmError(e)) { br.fails = 0; throw e; } // real error → caller's catch
+      if (++br.fails >= 5) { br.openUntil = Date.now() + 60000; console.warn(`[LLM] ${provider} circuit OPEN 60s`); }
+      if (i === delays.length - 1) throw e;
+    }
+  }
+  return null;
+}
+
 async function callGemini(prompt) {
   if (!genAI) return null;
   try {
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text().trim();
+    return await withLlmRetry('gemini', async () => {
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text().trim();
+    });
   } catch (error) {
     console.error('[Gemini API Error]', error);
     if (String((error && error.message) || error).includes('401')) {
@@ -732,13 +763,15 @@ async function callGemini(prompt) {
 async function callClaude(prompt) {
   if (!anthropic) return null;
   try {
-    const msg = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 500,
-      messages: [{ role: 'user', content: prompt }],
+    return await withLlmRetry('claude', async () => {
+      const msg = await anthropic.messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const textOut = (msg.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
+      return textOut || null;
     });
-    const textOut = (msg.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
-    return textOut || null;
   } catch (error) {
     console.error('[Claude API Error]', error.message || error);
     if (String(error.message || error).includes('401')) {
