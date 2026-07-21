@@ -110,7 +110,7 @@ Then pick the ONE lane matching their discovery answer:
 **"I'm doing fine without it."**
 > "That's honestly great to hear. Can I ask just one thing — [repeat their discovery
 > answer, e.g. 'you did say night messages go unanswered']. If fixing only that was
-> free for 10 days, worth a look?"
+> free for 30 days, worth a look?"
 
 **"AI will say something wrong to my customers."**
 > "Right instinct — here's the design: anything sensitive, it doesn't answer.
@@ -120,7 +120,7 @@ Then pick the ONE lane matching their discovery answer:
 **"Too costly."**
 > "What does an average table give you — ₹400? ₹500? So ₹3,000 is six tables a month.
 > The win-back messages alone usually bring more than six people back. And the first
-> 10 days are free with no card, so the risk is literally zero."
+> 30 days are free with no card, so the risk is literally zero."
 
 **"I'm not technical."**
 > "Perfect, it's built for you then. If you can use WhatsApp, you can use Zordic.
@@ -143,7 +143,7 @@ Their answer = the real objection. Handle THAT, then close again.
 ## 5. Closing (minutes 6–8) — momentum, not pressure
 
 **Best close — sign up together, on the call:**
-> "Tell you what — the signup takes literally 2 minutes and the first 10 days are
+> "Tell you what — the signup takes literally 2 minutes and the first 30 days are
 > free, no card. Open zordic.in/onboard on your phone, I'll stay on the line and
 > we'll do it together right now. Then you can play with it tonight."
 
@@ -174,7 +174,7 @@ right now."** → show them the dashboard opens.
 > "Good talking, [Name]! As promised:
 > ▸ 2-min demo: zordic.in/pitch
 > ▸ Full guide: zordic.in/Zordic-Owner-Guide.pdf
-> The trial is 10 days free, no card. Calling you [day] at [time] as agreed. — Satyam, Zordic"
+> The trial is 30 days free, no card. Calling you [day] at [time] as agreed. — Satyam, Zordic"
 
 **If no:**
 > "Thanks for your time today, [Name]. No follow-ups from me — but if slow Tuesdays
@@ -217,7 +217,7 @@ right now."** → show them the dashboard opens.
 **ASK:** night messages? · slow day? · disappearing regulars? → LISTEN
 **PITCH:** their pain → one lane (A bookings / B slow days / C win-back) → safety line → ₹ math
 **SAFETY:** complaints/big groups/refunds → AI alerts YOU · you cap all discounts
-**MATH:** ₹3,000/mo ≈ 6 tables · conservative +₹40–50k/mo · 10 days free, no card
+**MATH:** ₹3,000/mo ≈ 6 tables · conservative +₹40–50k/mo · 30 days free, no card
 **CLOSE:** onboard together NOW → or visit [day]? → or links + locked callback
 **AFTER:** WhatsApp within 5 min · log the call · call back exactly when promised
 **LINKS:** zordic.in/pitch · zordic.in/onboard · zordic.in/Zordic-Owner-Guide.pdf
