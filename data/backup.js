@@ -41,11 +41,22 @@ function runBackup() {
           status: 'success',
         });
 
+        // Integrity: a backup that can't be opened as SQLite is not a backup.
+        try {
+          const check = new (require('better-sqlite3'))(destPath, { readonly: true });
+          check.prepare('SELECT count(*) c FROM sqlite_master').get();
+          check.close();
+        } catch (e) {
+          console.error('[BACKUP] ✗ integrity check FAILED:', e.message);
+          try { require('./ops-alerts').raiseAlert('backup_corrupt', 'global', e.message); } catch (_) {}
+        }
+
         pruneOldBackups();
       })
       .catch(err => {
         console.error('[BACKUP] ✗ Backup failed:', err.message);
         db.logBackup({ filename, path: destPath, sizeMb: 0, status: 'failed' });
+        try { require('./ops-alerts').raiseAlert('backup_failed', 'global', err.message); } catch (_) {}
       });
   } catch (err) {
     // Fallback: simple file copy if backup() not available
@@ -58,6 +69,7 @@ function runBackup() {
     } catch (copyErr) {
       console.error('[BACKUP] ✗ Backup copy failed:', copyErr.message);
       db.logBackup({ filename, path: destPath, sizeMb: 0, status: 'failed' });
+      try { require('./ops-alerts').raiseAlert('backup_failed', 'global', copyErr.message); } catch (_) {}
     }
   }
 }
