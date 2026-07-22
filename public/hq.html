@@ -164,6 +164,11 @@
   .lead-del-btn:hover{color:var(--rose);background:var(--rose-lt)}
   .lead-convert-btn{background:none;border:1px solid var(--border);color:var(--gold-d);cursor:pointer;font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;transition:all 0.12s;margin-right:4px}
   .lead-convert-btn:hover{background:var(--gold-lt);border-color:var(--gold)}
+  .lead-save-btn{background:none;border:1px solid var(--border);color:var(--sage);cursor:pointer;font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;transition:all 0.12s;margin-right:4px}
+  .lead-save-btn:hover{background:var(--sage-lt);border-color:var(--sage)}
+  .lead-save-btn:disabled{opacity:.6;cursor:default}
+  .lead-save-btn.saved{background:var(--sage-lt);border-color:var(--sage)}
+  .lead-save-btn.failed{background:var(--rose-lt);border-color:var(--rose);color:var(--rose)}
   .add-status-row{display:none;align-items:center;gap:8px;flex-wrap:wrap;padding:12px;background:var(--gold-lt);border-radius:var(--r);margin-bottom:14px}
   .add-status-row.open{display:flex}
   </style>
@@ -428,7 +433,7 @@ function renderLeadsTable(){
       <td><select class="lead-status-select" style="background-color:${color}18;color:${color};border-color:${color}55" onchange="updateLeadField('${l.id}','status',this.value)">${leadStatusOptionsHtml(l.status)}</select></td>
       <td><input class="lead-cell-input" type="date" value="${esc(l.follow_up_date||'')}" onchange="updateLeadField('${l.id}','follow_up_date',this.value)"></td>
       <td><textarea class="lead-cell-input" rows="1" placeholder="Notes" onchange="updateLeadField('${l.id}','notes',this.value)">${esc(l.notes||'')}</textarea></td>
-      <td style="white-space:nowrap"><button class="lead-convert-btn" title="Convert to café — opens onboarding" onclick="convertLeadRow('${l.id}')">→ Convert</button><button class="lead-del-btn" title="Delete lead" onclick="deleteLeadRow('${l.id}')">✕</button></td>
+      <td style="white-space:nowrap"><button class="lead-save-btn" id="lead-save-${esc(l.id)}" title="Save this lead" onclick="saveLeadRow('${l.id}',this)">💾 Save</button><button class="lead-convert-btn" title="Convert to café — opens onboarding" onclick="convertLeadRow('${l.id}')">→ Convert</button><button class="lead-del-btn" title="Delete lead" onclick="deleteLeadRow('${l.id}')">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -446,6 +451,38 @@ async function updateLeadField(id,field,value){
     console.error('[updateLeadField]',e);
     alert('Could not save: '+friendly(e));
     loadLeads(); // resync with server on failure
+  }
+}
+async function saveLeadRow(id,btn){
+  const row=document.getElementById('lead-row-'+id);
+  if(!row) return;
+  const payload={
+    cafe_name:row.querySelector('td:nth-child(1) input').value,
+    phone:row.querySelector('td:nth-child(2) input').value,
+    owner_name:row.querySelector('td:nth-child(3) input').value,
+    location:row.querySelector('td:nth-child(4) input').value,
+    status:row.querySelector('td:nth-child(5) select').value,
+    follow_up_date:row.querySelector('td:nth-child(6) input').value,
+    notes:row.querySelector('td:nth-child(7) textarea').value,
+  };
+  const origText=btn.textContent;
+  btn.disabled=true;btn.classList.remove('saved','failed');btn.textContent='Saving…';
+  try{
+    const r=await fetch('/api/crm-leads/'+encodeURIComponent(id),{
+      method:'PUT',headers:{'Content-Type':'application/json',...leadsAuthHdr()},
+      body:JSON.stringify(payload),
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status+': '+await r.text());
+    const updated=await r.json();
+    const idx=_leads.findIndex(l=>l.id===id);
+    if(idx>-1) _leads[idx]=updated;
+    btn.classList.add('saved');btn.textContent='✓ Saved';
+  }catch(e){
+    console.error('[saveLeadRow]',e);
+    btn.classList.add('failed');btn.textContent='✗ Failed';
+  }finally{
+    btn.disabled=false;
+    setTimeout(()=>{btn.classList.remove('saved','failed');btn.textContent=origText;},1600);
   }
 }
 async function addLeadRow(){
