@@ -4,6 +4,10 @@
   <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#C9A84C"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Zordic Manager"/>
 <title>Branch Manager — Zordic California</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
@@ -1561,6 +1565,22 @@ const _urlBranch = window.location.pathname.split('/').pop();
 const branchId = (_urlBranch && _urlBranch !== 'manager.html' && _urlBranch !== 'manager')
   ? _urlBranch
   : (localStorage.getItem('cafehq_businessId') || _urlBranch);
+// Per-café PWA manifest — "Add to Home Screen" from here should reopen
+// straight to THIS branch's dashboard, not the shared site-wide manifest's
+// start_url:"/". Injected via JS since branchId isn't known until now.
+if (branchId) {
+  const manifestLink = document.createElement('link');
+  manifestLink.rel = 'manifest';
+  manifestLink.href = '/api/manifest/manager/' + encodeURIComponent(branchId);
+  document.head.appendChild(manifestLink);
+}
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('[SW] Registered, scope:', reg.scope))
+      .catch(err => console.warn('[SW] Registration failed:', err));
+  });
+}
 const socket = io();
 socket.on('connect', () => {
   // Join this branch's staff room so live events (orders, chat, CRM) arrive
@@ -1714,6 +1734,8 @@ async function loadBranch(){
     document.getElementById('overview-heading').textContent=business.name;
     document.getElementById('overview-sub').textContent=business.location;
     document.title=business.name+' — Branch Manager';
+    const pwaTitleMeta=document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if(pwaTitleMeta) pwaTitleMeta.content=business.name+' Manager';
     document.getElementById('cafe-info-panel').innerHTML=`
       <div>📍 <strong>${esc(business.location)}</strong></div>
       <div>⏰ ${esc(business.timings)}</div>

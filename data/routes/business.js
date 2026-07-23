@@ -165,6 +165,33 @@ app.post('/api/businesses/:id', requireAuth, requireBranchAccess, (req, res) => 
   res.json(businesses[index]);
 });
 
+// GET /api/manifest/manager/:id — per-café PWA manifest. The shared
+// /manifest.json has start_url:"/", so "Add to Home Screen" from a manager
+// dashboard would reopen to the public marketing site, not that café's own
+// dashboard — this per-branch manifest fixes start_url/scope so the installed
+// icon goes straight back to /manager/:id. Unauthenticated on purpose: browsers
+// fetch a manifest as a plain resource during install, with no auth header.
+app.get('/api/manifest/manager/:id', (req, res) => {
+  const biz = businesses.find(b => b.id === req.params.id);
+  const name = biz ? biz.name : 'Zordic';
+  res.json({
+    name: `${name} — Manager`,
+    short_name: 'Manager',
+    description: `Manage ${name} on Zordic`,
+    start_url: `/manager/${req.params.id}`,
+    scope: `/manager/${req.params.id}`,
+    display: 'standalone',
+    orientation: 'portrait-primary',
+    background_color: '#1a1a2e',
+    theme_color: '#C9A84C',
+    icons: [
+      { src: '/logo-mark.svg', type: 'image/svg+xml', sizes: 'any', purpose: 'any maskable' },
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%230D0705'/><text y='130' x='30' font-size='120' font-family='serif'>%E2%98%95</text></svg>", sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%230D0705'/><text y='360' x='60' font-size='340' font-family='serif'>%E2%98%95</text></svg>", sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
+    ],
+  });
+});
+
 
 // ════════════════════════════════════════════════════════════════════════════
 // Phase 6 — Client Onboarding & Agency Management
