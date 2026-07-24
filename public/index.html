@@ -66,6 +66,8 @@
   .hdr-btn.ghost:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-bg)}
   .hdr-btn.fill{background:var(--gold);color:#fff;border:1px solid var(--gold)}
   .hdr-btn.fill:hover{background:var(--gold-deep)}
+  .hdr-btn.whatsapp{background:#E7F8EF;border:1px solid #B7E3C8;color:#1F7A4D}
+  .hdr-btn.whatsapp:hover{background:#D5F1E1;border-color:#1F7A4D}
 
   /* ── Hero ── */
   .hero{
@@ -101,7 +103,17 @@
   .section-header{text-align:center;margin-bottom:36px;margin-top:56px}
   .section-eyebrow{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
   .section-heading{font-family:var(--font-d);font-size:clamp(24px,3vw,32px);color:var(--ink)}
-  .section-sub{font-size:14px;color:var(--ink-3);max-width:480px;margin:10px auto 0;line-height:1.6}
+  .section-sub{font-size:14px;color:var(--ink-3);max-width:520px;margin:10px auto 0;line-height:1.6}
+
+  /* ── Problem (pain points) ── */
+  .problem-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+  .problem-card{
+    background:var(--white);border:1px solid var(--border);border-radius:var(--r);
+    padding:24px 22px;box-shadow:var(--shadow)
+  }
+  .problem-icon{font-size:26px;margin-bottom:12px}
+  .problem-title{font-weight:600;font-size:15px;color:var(--ink);margin-bottom:6px}
+  .problem-desc{font-size:13px;color:var(--ink-3);line-height:1.6}
 
   /* ── How it works ── */
   .steps-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:22px}
@@ -117,6 +129,48 @@
   .step-title{font-weight:600;font-size:15px;color:var(--ink);margin-bottom:6px}
   .step-desc{font-size:13px;color:var(--ink-3);line-height:1.55}
 
+  /* ── Before / After comparison ── */
+  .compare-wrap{max-width:820px;margin:0 auto;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+  .compare-head{display:grid;grid-template-columns:1fr 1fr}
+  .compare-head div{padding:14px 16px;font-weight:700;font-size:12.5px;text-align:center;letter-spacing:0.5px;text-transform:uppercase}
+  .compare-head .before{background:var(--rose-lt);color:var(--rose)}
+  .compare-head .after{background:var(--gold-lt);color:var(--gold-deep)}
+  .compare-row{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border)}
+  .compare-cell{padding:16px 18px;font-size:13px;line-height:1.55;display:flex;gap:9px;align-items:flex-start}
+  .compare-cell.before{color:var(--ink-2);background:var(--white)}
+  .compare-cell.after{color:var(--ink);background:var(--gold-bg)}
+  .compare-cell .ic{flex-shrink:0;margin-top:1px}
+  @media(max-width:640px){
+    .compare-head div{font-size:10.5px;padding:10px 8px}
+    .compare-cell{padding:11px 10px;font-size:12px}
+  }
+
+  /* ── Live WhatsApp demo ── */
+  .demo-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:24px;flex-wrap:wrap}
+  .demo-tabs button{
+    font-family:var(--font-b);font-size:12.5px;font-weight:600;padding:8px 16px;border-radius:20px;
+    border:1px solid var(--border);background:var(--white);color:var(--ink-2);cursor:pointer;transition:all 0.15s
+  }
+  .demo-tabs button.on{background:var(--ink);color:var(--gold-lt);border-color:var(--ink)}
+  .phone{width:min(330px,88vw);margin:0 auto 28px;background:#111;border-radius:26px;padding:10px;box-shadow:0 18px 50px rgba(13,7,5,.28)}
+  .phone .screen{background:#E7DFD4;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;height:420px}
+  .wa-head{background:#075E54;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .wa-head .avatar{width:30px;height:30px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .wa-head .nm{font-size:13.5px;font-weight:700}
+  .wa-head .st{font-size:10.5px;opacity:.8}
+  .wa-body{flex:1;overflow-y:auto;padding:12px 10px;display:flex;flex-direction:column;gap:7px;background:#EFE7DB}
+  .wa-msg{max-width:82%;padding:7px 11px;border-radius:10px;font-size:12.8px;line-height:1.45;box-shadow:0 1px 1px rgba(0,0,0,.08);
+    opacity:0;transform:translateY(8px);transition:all .3s;white-space:pre-wrap;word-break:break-word}
+  .wa-msg.show{opacity:1;transform:none}
+  .wa-msg.cust{align-self:flex-end;background:#DCF8C6;border-bottom-right-radius:3px}
+  .wa-msg.ai{align-self:flex-start;background:#fff;border-bottom-left-radius:3px}
+  .wa-msg .t{display:block;font-size:9.5px;color:#8a8a8a;text-align:right;margin-top:3px}
+  .wa-typing{align-self:flex-start;background:#fff;border-radius:10px;padding:9px 13px;display:none;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+  .wa-typing.show{display:flex;gap:4px}
+  .wa-typing i{width:6px;height:6px;border-radius:50%;background:#b5a98f;animation:blink 1.2s infinite}
+  .wa-typing i:nth-child(2){animation-delay:.2s}.wa-typing i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
   /* ── Features ── */
   .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
   .feature-card{
@@ -127,6 +181,33 @@
   .feature-icon{font-size:26px;margin-bottom:12px}
   .feature-title{font-weight:600;font-size:15px;color:var(--ink);margin-bottom:6px}
   .feature-desc{font-size:13px;color:var(--ink-3);line-height:1.6}
+
+  /* ── Safety / escalation demo ── */
+  .esc-chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:20px}
+  .esc-chips button{
+    font-family:var(--font-b);font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:22px;
+    border:1.5px solid var(--border);background:var(--white);color:var(--ink);cursor:pointer;transition:all .15s
+  }
+  .esc-chips button.on{border-color:var(--gold);background:var(--gold-bg);color:var(--gold-deep)}
+  .esc-panel{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:20px;max-width:680px;margin:0 auto;box-shadow:var(--shadow)}
+  .esc-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:640px){.esc-row{grid-template-columns:1fr}}
+  .esc-box{border-radius:10px;padding:14px 15px;font-size:12.8px;line-height:1.6}
+  .esc-box .lbl{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:block}
+  .esc-box.cust{background:var(--bg)}.esc-box.cust .lbl{color:#075E54}
+  .esc-box.own{background:var(--gold-bg);border:1px solid rgba(196,127,58,.25)}.esc-box.own .lbl{color:var(--gold-deep)}
+  .esc-note{font-size:12px;color:var(--ink-3);margin-top:14px;text-align:center}
+
+  /* ── ROI calculator ── */
+  .roi{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:28px;max-width:600px;margin:0 auto;box-shadow:var(--shadow)}
+  .roi .row{margin-bottom:20px}
+  .roi label{display:flex;justify-content:space-between;font-size:13.5px;font-weight:600;margin-bottom:8px;color:var(--ink)}
+  .roi label output{color:var(--gold-deep);font-variant-numeric:tabular-nums}
+  .roi input[type=range]{width:100%;accent-color:var(--gold)}
+  .roi .result{border-top:1px dashed var(--border);padding-top:18px;margin-top:6px;text-align:center}
+  .roi .big{font-family:var(--font-d);font-size:clamp(30px,5vw,42px);color:var(--gold-deep)}
+  .roi .mult{font-size:13.5px;color:var(--ink-3);margin-top:4px}
+  .roi .assume{font-size:11.5px;color:var(--ink-3);line-height:1.5;margin-top:14px;text-align:center}
 
   /* ── Pricing ── */
   .pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start}
@@ -159,6 +240,23 @@
     border:1px solid var(--border);border-radius:var(--r);color:var(--ink-3)
   }
 
+  /* ── Trust & safety ── */
+  .trust-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+
+  /* ── FAQ ── */
+  .faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+  .faq-item{background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+  .faq-q{
+    width:100%;text-align:left;padding:18px 22px;background:none;border:none;cursor:pointer;
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    font-family:var(--font-b);font-size:14.5px;font-weight:600;color:var(--ink)
+  }
+  .faq-q .chev{flex-shrink:0;color:var(--gold);font-size:13px;transition:transform 0.2s}
+  .faq-item.open .faq-q .chev{transform:rotate(180deg)}
+  .faq-a{max-height:0;overflow:hidden;transition:max-height 0.25s ease}
+  .faq-item.open .faq-a{max-height:320px}
+  .faq-a-inner{padding:0 22px 20px;font-size:13.5px;color:var(--ink-3);line-height:1.65}
+
   /* ── Closing CTA ── */
   .closing{
     text-align:center;padding:56px 24px;background:linear-gradient(120deg,var(--gold-bg),var(--white));
@@ -166,6 +264,8 @@
   }
   .closing h2{font-family:var(--font-d);font-size:clamp(22px,3vw,30px);color:var(--ink);margin-bottom:14px}
   .closing p{font-size:14px;color:var(--ink-3);margin-bottom:26px}
+  .closing .also{font-size:12.5px;margin-top:18px}
+  .closing .also a{color:var(--gold-deep);text-decoration:underline;text-underline-offset:3px}
 
   /* ── Footer ── */
   footer{
@@ -175,12 +275,13 @@
   footer span{color:var(--gold)}
   footer a{color:var(--ink-3);text-decoration:none;font-size:12px}
   footer a:hover{color:var(--gold)}
+  .footer-links{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
 
   @media(max-width:640px){
     header{padding:12px 18px;flex-wrap:wrap;gap:10px}
     .logo-tag{display:none}
     .hdr-right{width:100%;justify-content:stretch}
-    .hdr-btn{flex:1;justify-content:center;padding:9px 12px;font-size:12.5px;white-space:nowrap}
+    .hdr-btn{flex:1;justify-content:center;padding:9px 10px;font-size:12px;white-space:nowrap}
     .hero{padding:52px 18px 44px}
     .hero-ctas{flex-direction:column;align-items:stretch}
     .hero-cta{justify-content:center}
@@ -195,6 +296,7 @@
     <span class="logo-tag">For Cafés &amp; Restaurants</span>
   </div>
   <div class="hdr-right">
+    <a href="https://wa.me/918004284193?text=Hi%2C%20I%27d%20like%20to%20know%20more%20about%20Zordic" target="_blank" rel="noopener" class="hdr-btn whatsapp">💬 WhatsApp Us</a>
     <a href="/login" class="hdr-btn ghost">Staff Sign In</a>
     <a href="/onboard" class="hdr-btn fill">Start Free Trial</a>
   </div>
@@ -213,7 +315,162 @@
 
 <div class="section">
 
-  <!-- How it works -->
+  <!-- 1. Problem -->
+  <div class="section-header">
+    <div class="section-eyebrow">Sound Familiar?</div>
+    <div class="section-heading">Do you know how many customers haven't visited in the last month?</div>
+    <div class="section-sub">Most cafés spend a lot getting new customers in the door — but losing existing ones is often the more expensive problem, and the easiest to miss.</div>
+  </div>
+  <div class="problem-grid">
+    <div class="problem-card"><div class="problem-icon">🌙</div><div class="problem-title">What happens to an 11pm WhatsApp message?</div>
+      <div class="problem-desc">A customer messages about tomorrow's booking. No reply until morning — and the booking goes to the café next door.</div></div>
+    <div class="problem-card"><div class="problem-icon">👋</div><div class="problem-title">How do you bring customers back after their first visit?</div>
+      <div class="problem-desc">Most guests visit once and forget you. Not because the food was bad — because nothing ever reminded them to come back.</div></div>
+    <div class="problem-card"><div class="problem-icon">🪑</div><div class="problem-title">Do you know your slowest day — and what to do about it?</div>
+      <div class="problem-desc">Weekends are packed, Tuesdays are dead. You can see it happening, but there's no easy way to move demand to slow days.</div></div>
+    <div class="problem-card"><div class="problem-icon">⏰</div><div class="problem-title">Who has time to run marketing between orders?</div>
+      <div class="problem-desc">You're running a kitchen, managing staff, buying stock. Nobody has two spare hours a day for follow-ups and campaigns.</div></div>
+  </div>
+
+  <!-- 2. Features -->
+  <div class="section-header">
+    <div class="section-eyebrow">What You Get</div>
+    <div class="section-heading">Built to grow your revenue, not just look nice</div>
+    <div class="section-sub">Not a feature list — this is what actually changes for your café.</div>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🤖</div>
+      <div class="feature-title">Instant Replies, Day or Night</div>
+      <div class="feature-desc">Customers receive an instant reply even when your staff is busy — questions, orders, and bookings handled the moment they come in, even outside business hours.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <div class="feature-title">Order Straight From the Table</div>
+      <div class="feature-desc">Customers order from their phone — faster table turnover, and staff can focus on serving instead of taking down orders.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⭐</div>
+      <div class="feature-title">A Reason to Come Back</div>
+      <div class="feature-desc">Points and stamp cards give customers a reason to choose you again — turning one-time visitors into regulars.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📢</div>
+      <div class="feature-title">Bring Back Customers Who've Drifted</div>
+      <div class="feature-desc">You can automatically send offers to customers who haven't visited recently — the right offer to the right customer, not the same message blasted to everyone.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">Know What's Actually Working</div>
+      <div class="feature-desc">You'll know which customers visit regularly and which ones haven't returned, and exactly what's increasing your revenue — no spreadsheets to maintain.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌟</div>
+      <div class="feature-title">Your Reputation, On Autopilot</div>
+      <div class="feature-desc">Happy customers get nudged at just the right moment to leave a review — building trust without you having to ask.</div>
+    </div>
+  </div>
+
+  <!-- Before / After -->
+  <div class="section-header">
+    <div class="section-eyebrow">The Transformation</div>
+    <div class="section-heading">Your café, before and after Zordic</div>
+  </div>
+  <div class="compare-wrap">
+    <div class="compare-head"><div class="before">Before Zordic</div><div class="after">After Zordic</div></div>
+    <div class="compare-row">
+      <div class="compare-cell before"><span class="ic">✗</span>Messages go unanswered after hours — bookings lost to the café next door.</div>
+      <div class="compare-cell after"><span class="ic">✓</span>Every message gets an instant reply, 24/7 — no booking ever slips away.</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-cell before"><span class="ic">✗</span>Customers visit once and you never see them again.</div>
+      <div class="compare-cell after"><span class="ic">✓</span>Automatic win-back offers bring lapsed customers back, tracked to the rupee.</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-cell before"><span class="ic">✗</span>No idea who your regulars are or who's stopped coming.</div>
+      <div class="compare-cell after"><span class="ic">✓</span>You know exactly who's loyal and who needs a nudge.</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-cell before"><span class="ic">✗</span>Slow Tuesdays just happen — no plan to fix them.</div>
+      <div class="compare-cell after"><span class="ic">✓</span>A data-backed suggestion every Monday to fill your slowest day.</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-cell before"><span class="ic">✗</span>Marketing means finding two hours you don't have.</div>
+      <div class="compare-cell after"><span class="ic">✓</span>Campaigns run themselves — you just tap approve.</div>
+    </div>
+    <div class="compare-row">
+      <div class="compare-cell before"><span class="ic">✗</span>End of day, you're guessing what's actually working.</div>
+      <div class="compare-cell after"><span class="ic">✓</span>One dashboard shows exactly what's growing your revenue.</div>
+    </div>
+  </div>
+
+  <!-- 3. Live WhatsApp demo -->
+  <div class="section-header">
+    <div class="section-eyebrow">See It In Action</div>
+    <div class="section-heading">Watch it take a booking — live</div>
+  </div>
+  <div class="demo-tabs">
+    <button class="on" data-scenario="booking">📅 Table booking</button>
+    <button data-scenario="menu">🍔 Menu question</button>
+    <button data-scenario="night">🌙 11:30pm enquiry</button>
+  </div>
+  <div class="phone">
+    <div class="screen">
+      <div class="wa-head">
+        <div class="avatar">☕</div>
+        <div><div class="nm">Your Café</div><div class="st">online · replies instantly</div></div>
+      </div>
+      <div class="wa-body" id="wa-body"></div>
+    </div>
+  </div>
+  <div class="features-grid" style="max-width:680px;margin:0 auto">
+    <div class="feature-card"><div class="feature-desc">✅ Answers <b>menu, prices, timings, location, WiFi</b> — instantly, any hour</div></div>
+    <div class="feature-card"><div class="feature-desc">✅ Books tables <b>end-to-end</b> — the reservation lands on your dashboard in real time</div></div>
+  </div>
+
+  <!-- 4. Safety / escalation -->
+  <div class="section-header">
+    <div class="section-eyebrow">Human Judgment, Protected</div>
+    <div class="section-heading">Routine is automatic. Important is escalated.</div>
+    <div class="section-sub">The AI never gambles with your reputation. On big moments it calms the customer, then immediately alerts <b>you</b> — with a suggested action. Tap each one:</div>
+  </div>
+  <div class="esc-chips">
+    <button class="on" data-esc="complaint">😠 Complaint / refund</button>
+    <button data-esc="group">👥 Big group (8+)</button>
+    <button data-esc="payment">💳 Payment dispute</button>
+    <button data-esc="unknown">❓ Unusual question</button>
+  </div>
+  <div class="esc-panel">
+    <div class="esc-row">
+      <div class="esc-box cust"><span class="lbl">What the customer sees</span><span id="esc-cust"></span></div>
+      <div class="esc-box own"><span class="lbl">What you get, instantly</span><span id="esc-own"></span></div>
+    </div>
+    <div class="esc-note">Alerts arrive on your WhatsApp <b>and</b> as a "Needs You" card on your dashboard — one tap to mark handled.</div>
+  </div>
+
+  <!-- 5. ROI calculator -->
+  <div class="section-header">
+    <div class="section-eyebrow">The Maths</div>
+    <div class="section-heading">What is this worth to <i>your</i> café?</div>
+  </div>
+  <div class="roi">
+    <div class="row">
+      <label>Customers per day <output id="roi-cust-out">60</output></label>
+      <input type="range" id="roi-cust" min="20" max="300" step="5" value="60">
+    </div>
+    <div class="row">
+      <label>Average bill <output id="roi-bill-out">₹250</output></label>
+      <input type="range" id="roi-bill" min="100" max="1000" step="25" value="250">
+    </div>
+    <div class="result">
+      <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px">Estimated extra revenue</div>
+      <div class="big" id="roi-big">₹51,000<span style="font-size:16px;color:var(--ink-3)"> / month</span></div>
+      <div class="mult" id="roi-mult"></div>
+    </div>
+    <p class="assume">Conservative assumptions: loyalty + win-back lift repeat visits by just <b>8%</b>, and 24/7 instant replies add <b>2 extra covers a day</b>. Your numbers may be higher — this is the floor, not the ceiling.</p>
+  </div>
+
+  <!-- 6. How it works -->
   <div class="section-header">
     <div class="section-eyebrow">How It Works</div>
     <div class="section-heading">Live in three steps</div>
@@ -236,45 +493,7 @@
     </div>
   </div>
 
-  <!-- Features -->
-  <div class="section-header">
-    <div class="section-eyebrow">What You Get</div>
-    <div class="section-heading">Built to grow your revenue, not just look nice</div>
-  </div>
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon">🤖</div>
-      <div class="feature-title">AI WhatsApp Receptionist</div>
-      <div class="feature-desc">Never miss a customer enquiry again — questions, orders, and bookings are answered instantly, day or night.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📱</div>
-      <div class="feature-title">QR Table Ordering</div>
-      <div class="feature-desc">Customers order straight from their phone at the table — faster turnover, fewer staff needed to take orders.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">⭐</div>
-      <div class="feature-title">Loyalty &amp; Rewards</div>
-      <div class="feature-desc">Points and stamp cards turn one-time visitors into regulars who keep coming back.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📢</div>
-      <div class="feature-title">AI Win-Back Campaigns</div>
-      <div class="feature-desc">Customers who haven't visited in a while are automatically re-engaged with personalised offers.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📊</div>
-      <div class="feature-title">Live Revenue Dashboard</div>
-      <div class="feature-desc">See today's orders, revenue, and best-selling items the moment they happen — no waiting for end-of-day reports.</div>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🌟</div>
-      <div class="feature-title">Google Review Growth</div>
-      <div class="feature-desc">Happy customers get nudged at just the right moment to leave a review — building your reputation on autopilot.</div>
-    </div>
-  </div>
-
-  <!-- Pricing -->
+  <!-- 7. Pricing -->
   <div class="section-header" id="pricing">
     <div class="section-eyebrow">Pricing</div>
     <div class="section-heading">Plans built around growing your revenue</div>
@@ -284,17 +503,83 @@
     <div class="pricing-fallback">Loading plans…</div>
   </div>
 
+  <!-- 8. Trust & safety -->
+  <div class="section-header">
+    <div class="section-eyebrow">Trust &amp; Safety</div>
+    <div class="section-heading">Your café. Your customers. Your data.</div>
+  </div>
+  <div class="trust-grid">
+    <div class="feature-card"><div class="feature-icon">🔒</div><div class="feature-title">Fully isolated account</div>
+      <div class="feature-desc">Your café's data lives in its own sealed account. No other café — and no one else — can ever see it.</div></div>
+    <div class="feature-card"><div class="feature-icon">💾</div><div class="feature-title">Daily automatic backups</div>
+      <div class="feature-desc">Every night, everything is backed up automatically and integrity-checked. A crashed phone never costs you your customer list.</div></div>
+    <div class="feature-card"><div class="feature-icon">🔑</div><div class="feature-title">Staff logins with roles</div>
+      <div class="feature-desc">Give staff their own logins for kitchen or counter — without handing over the owner keys.</div></div>
+    <div class="feature-card"><div class="feature-icon">📤</div><div class="feature-title">Leave with everything</div>
+      <div class="feature-desc">Every customer, order and expense exports to CSV whenever you want. No lock-in, ever.</div></div>
+  </div>
+
+  <!-- 9. Building this with you -->
+  <div class="section-header">
+    <div class="section-eyebrow">Not Just Software</div>
+    <div class="section-heading">We're building this with you</div>
+    <div class="section-sub">We're continuously improving the platform — and early partner cafés get to influence which features we build next. This isn't something you just rent; it's something we build together.</div>
+  </div>
+
+  <!-- 10. FAQ -->
+  <div class="section-header">
+    <div class="section-eyebrow">Questions</div>
+    <div class="section-heading">Before you ask</div>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <button class="faq-q">Will the AI say something wrong to my customers?<span class="chev">▾</span></button>
+      <div class="faq-a"><div class="faq-a-inner">Right instinct to ask. Anything sensitive — a complaint, a refund, a big group booking — the AI doesn't try to handle alone. It calms the customer, then immediately alerts you with a suggested action. You can watch every single conversation live on your dashboard, nothing is hidden.</div></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">Do I need a new WhatsApp number?<span class="chev">▾</span></button>
+      <div class="faq-a"><div class="faq-a-inner">No — you connect your café's existing WhatsApp number from your dashboard settings. Nothing changes for your customers; they message the same number they already have.</div></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">Is the 30-day trial really free, no card needed?<span class="chev">▾</span></button>
+      <div class="faq-a"><div class="faq-a-inner">Yes. Full access from day one, no card required to start. If it doesn't earn its keep, walk away — your data exports with you, no questions asked.</div></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">How long does setup actually take?<span class="chev">▾</span></button>
+      <div class="faq-a"><div class="faq-a-inner">About 2 minutes to register, plus connecting your WhatsApp from Settings — a guided step that takes a few minutes more. Most cafés are live the same day.</div></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">I'm not very technical — will I be able to use this?<span class="chev">▾</span></button>
+      <div class="faq-a"><div class="faq-a-inner">If you can use WhatsApp, you can use Zordic. It's built for café owners, not engineers — and the one technical step, connecting WhatsApp, is a guided process with clear instructions at every screen.</div></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">Does this replace Zomato or Swiggy?<span class="chev">▾</span></button>
+      <div class="faq-a"><div class="faq-a-inner">No — we don't replace them. Zordic makes sure your own customers come back to you directly, on WhatsApp, without paying commission on every order. The two work alongside each other.</div></div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q">Do you take a commission? Can I cancel anytime?<span class="chev">▾</span></button>
+      <div class="faq-a"><div class="faq-a-inner">No commission, ever — it's a flat monthly fee regardless of how much you sell. And no lock-in contract: cancel whenever you want, and your data exports with you.</div></div>
+    </div>
+  </div>
+
 </div>
 
 <div class="closing">
   <h2>Ready to grow your café?</h2>
-  <p>Join for free — no credit card, cancel anytime.</p>
-  <a href="/onboard" class="hero-cta primary">Start Your 30-Day Free Trial →</a>
+  <p>Would you be interested in trying it in your café? Join for free — no credit card, cancel anytime.</p>
+  <div class="hero-ctas">
+    <a href="/onboard" class="hero-cta primary">Start Your 30-Day Free Trial →</a>
+    <a href="https://wa.me/918004284193?text=Hi%2C%20I%27d%20like%20to%20know%20more%20about%20Zordic" target="_blank" rel="noopener" class="hero-cta secondary">💬 Chat on WhatsApp</a>
+  </div>
+  <div class="also">Want the full guided tour instead? <a href="/pitch">See the interactive pitch deck →</a></div>
 </div>
 
 <footer>
   <div><span>Zordic California</span> · AI Growth Platform for Cafés &amp; Restaurants</div>
-  <a href="/login">Staff Sign In</a>
+  <div class="footer-links">
+    <a href="/login">Staff Sign In</a>
+    <a href="https://wa.me/918004284193" target="_blank" rel="noopener">WhatsApp: +91 80042 84193</a>
+  </div>
 </footer>
 
 <script>
@@ -328,6 +613,135 @@ async function loadPlans(){
 }
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 loadPlans();
+
+// ── Live WhatsApp demo ────────────────────────────────────────────────────
+const SCENARIOS = {
+  booking: [
+    ['cust', 'Hi! Do you have a table for 4 tomorrow at 8pm?'],
+    ['ai',   'Hello! 😊 Yes we do. May I have a name for the reservation?'],
+    ['cust', 'Rahul'],
+    ['ai',   'Perfect — table for 4, tomorrow at 8:00 PM under Rahul ✅\nWe look forward to seeing you!'],
+  ],
+  menu: [
+    ['cust', 'do you have veg burgers? how much?'],
+    ['ai',   'Yes! 🍔 Our Veg Supreme Burger is ₹149 and the Paneer Tikka Burger is ₹179 — both fresh and very popular.'],
+    ['cust', 'and what time do you close?'],
+    ['ai',   'We\'re open till 10:00 PM tonight ⏰ Plenty of time — see you soon!'],
+  ],
+  night: [
+    ['cust', '🕦 11:32pm — anyone there? need a table for 6 on Sunday'],
+    ['ai',   'We\'re here! 😊 Happy to book that. What time on Sunday works for you?'],
+    ['cust', '1pm lunch'],
+    ['ai',   'Booked ✅ Table for 6, Sunday 1:00 PM. A confirmation is saved — sleep well! 🌙'],
+  ],
+};
+let waCurrent = 'booking', waTimer = [], waStarted = false;
+function playScenario(name, btn){
+  if (name === waCurrent && btn === undefined) { /* replay same */ }
+  else if (btn) {
+    document.querySelectorAll('.demo-tabs button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  }
+  waCurrent = name;
+  waTimer.forEach(clearTimeout); waTimer = [];
+  const body = document.getElementById('wa-body');
+  body.innerHTML = '';
+  const typing = document.createElement('div');
+  typing.className = 'wa-typing'; typing.innerHTML = '<i></i><i></i><i></i>';
+  let delay = 400;
+  SCENARIOS[name].forEach(([who, text]) => {
+    if (who === 'ai') {
+      waTimer.push(setTimeout(() => { body.appendChild(typing); typing.classList.add('show'); body.scrollTop = 1e6; }, delay));
+      delay += 900;
+    }
+    waTimer.push(setTimeout(() => {
+      typing.classList.remove('show'); if (typing.parentElement) typing.remove();
+      const m = document.createElement('div');
+      m.className = 'wa-msg ' + who;
+      m.textContent = text;
+      const t = document.createElement('span'); t.className = 't'; t.textContent = who === 'ai' ? '✓✓' : '';
+      m.appendChild(t);
+      body.appendChild(m);
+      requestAnimationFrame(() => m.classList.add('show'));
+      body.scrollTop = 1e6;
+    }, delay));
+    delay += who === 'ai' ? 1400 : 1100;
+  });
+}
+document.querySelectorAll('.demo-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => playScenario(btn.dataset.scenario, btn));
+});
+// Auto-play the default scenario once, the first time the demo scrolls into view.
+const waSection = document.querySelector('.phone');
+if (waSection && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !waStarted) { waStarted = true; playScenario('booking'); io.disconnect(); }
+    });
+  }, { threshold: 0.4 });
+  io.observe(waSection);
+} else {
+  playScenario('booking'); // no IntersectionObserver support — just play it
+}
+
+// ── Escalation demo ───────────────────────────────────────────────────────
+const ESC = {
+  complaint: {
+    cust: '"The food was cold and I want a refund."\n\nAI: "I\'m so sorry to hear that — this isn\'t the experience we want for you. I\'ve alerted the owner right now, and you\'ll hear from us within minutes. 🙏"',
+    own:  '🔔 Complaint / refund — Priya (98•••• 4321)\n"Food was cold, wants refund."\n\n💡 AI suggests: offer a fresh replacement or 15% off today\'s bill — resolving now protects your Google rating.',
+  },
+  group: {
+    cust: '"Table for 12 this Saturday 7pm — birthday!"\n\nAI: "Wonderful! 🎉 For a group this size I\'ve looped in the owner to make sure everything is perfect. You\'ll get a confirmation shortly."',
+    own:  '🔔 Large booking — Arjun wants a table for 12, Sat 7:00 PM (birthday)\n\n💡 AI suggests: confirm seating layout and consider a complimentary dessert — group bookings average 4× a normal table\'s bill.',
+  },
+  payment: {
+    cust: '"I paid twice for order #142, money got deducted two times!"\n\nAI: "That sounds stressful — I\'m sorry. I\'ve escalated this to the owner immediately with your order details. We\'ll sort it out fast."',
+    own:  '🔔 Payment dispute — order #142, customer reports double charge\n\n💡 AI suggests: check the payment record for #142 and confirm the refund before replying — a fast resolution here usually earns a loyal customer.',
+  },
+  unknown: {
+    cust: '"Do you do wedding catering for 200 people in Jaipur?"\n\nAI: "Great question — that\'s one for the owner personally. I\'ve passed it along and you\'ll hear back soon!"',
+    own:  '🔔 Question the AI couldn\'t answer — "Wedding catering for 200 in Jaipur?"\n\n💡 AI suggests: this could be a large catering lead — worth a personal call rather than a text reply.',
+  },
+};
+function showEsc(key, btn){
+  if (btn) {
+    document.querySelectorAll('.esc-chips button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  }
+  document.getElementById('esc-cust').textContent = ESC[key].cust;
+  document.getElementById('esc-own').textContent = ESC[key].own;
+}
+document.querySelectorAll('.esc-chips button').forEach(btn => {
+  btn.addEventListener('click', () => showEsc(btn.dataset.esc, btn));
+});
+showEsc('complaint', null);
+
+// ── ROI calculator ────────────────────────────────────────────────────────
+function calcROI(){
+  const cust = +document.getElementById('roi-cust').value;
+  const bill = +document.getElementById('roi-bill').value;
+  document.getElementById('roi-cust-out').textContent = cust;
+  document.getElementById('roi-bill-out').textContent = '₹' + bill;
+  // Conservative model: +8% repeat visits + 2 extra covers/day from 24/7 replies
+  const extra = Math.round((cust * bill * 30 * 0.08 + 2 * bill * 30) / 500) * 500;
+  document.getElementById('roi-big').innerHTML = '₹' + extra.toLocaleString('en-IN') +
+    '<span style="font-size:16px;color:var(--ink-3)"> / month</span>';
+  const mult = (extra / 3000).toFixed(1);
+  document.getElementById('roi-mult').textContent = 'That\'s ' + mult + '× the Growth plan (₹3,000/month)';
+}
+document.getElementById('roi-cust').addEventListener('input', calcROI);
+document.getElementById('roi-bill').addEventListener('input', calcROI);
+calcROI();
+
+// ── FAQ accordion ─────────────────────────────────────────────────────────
+document.querySelectorAll('.faq-q').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const item = btn.closest('.faq-item');
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+  });
+});
 </script>
 </body>
 </html>
