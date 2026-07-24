@@ -4,6 +4,10 @@ For calling café/restaurant owners. Read once fully, then keep the **Cheat Card
 open during calls. Lines in quotes are meant to be said almost verbatim — but say them like
 yourself, not like reading. Mix Hinglish naturally if the owner does.
 
+For the strategic *why* behind this script — especially the feature→benefit reframing habit —
+see `docs/ZORDIC_PITCH_PLAYBOOK.md`. Same rule applies everywhere below: never say "AI chatbot"
+or "CRM," always say what it does for their business.
+
 **Call goal, in order of preference:**
 1. Sign them up live on the call (walk them through zordic.in/onboard together)
 2. Book an in-person visit / demo at their café
