@@ -6,7 +6,7 @@ module.exports = function register(ctx) {
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
     updateCustomerProfile, processCafeBotReply,
-    waApi, genAI, razorpay, whatsappConnectionStatus,
+    waApi, genAI, getRazorpayConfig, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
@@ -210,16 +210,40 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
   res.json(order);
 });
 
+// ── Confirm payment (staff) ───────────────────────────────────────────────────
+// POST /api/businesses/:id/orders/:orderId/confirm-payment
+// One unified action for staff regardless of payment_method: for cash it's the
+// only signal there is, so tapping it marks the order paid; for razorpay it's
+// an acknowledgment on top of the automatic signature-verified payment_status
+// (never overrides it — see db.confirmOrderPayment).
+app.post('/api/businesses/:id/orders/:orderId/confirm-payment', requireAuth, requireBranchAccess, (req, res) => {
+  const { orderId } = req.params;
+  if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  const order = db.confirmOrderPayment(orderId);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+
+  db.logEvent(req.params.id, 'payment.confirmed', {
+    customerPhone: order.customer_phone,
+    actor: req.staff ? `staff:${req.staff.id}` : 'staff',
+    metadata: { orderId, total: order.total, method: order.payment_method },
+  });
+
+  emitToBranch(req.params.id, 'payment_confirmed', { businessId: req.params.id, orderId }, { public: true });
+  res.json(order);
+});
+
 // ── Create Razorpay order ─────────────────────────────────────────────────────
 // POST /api/businesses/:id/orders/:orderId/razorpay
 app.post('/api/businesses/:id/orders/:orderId/razorpay', async (req, res) => {
-  if (!razorpay) {
+  const { keyId, keySecret } = getRazorpayConfig(req.params.id);
+  if (!keyId || !keySecret) {
     return res.status(503).json({ error: 'Razorpay not configured', cashOnly: true });
   }
   const order = db ? db.getOrderById(req.params.orderId) : null;
   if (!order) return res.status(404).json({ error: 'Order not found' });
 
   try {
+    const razorpay = new (require('razorpay'))({ key_id: keyId, key_secret: keySecret });
     const rzpOrder = await razorpay.orders.create({
       amount:   Math.round(order.total * 100),   // paise
       currency: 'INR',
@@ -230,7 +254,7 @@ app.post('/api/businesses/:id/orders/:orderId/razorpay', async (req, res) => {
       paymentStatus: 'pending', paymentMethod: 'razorpay', razorpayOrderId: rzpOrder.id
     });
     res.json({ razorpayOrderId: rzpOrder.id, amount: rzpOrder.amount, currency: rzpOrder.currency,
-      keyId: process.env.RAZORPAY_KEY_ID });
+      keyId });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -240,10 +264,11 @@ app.post('/api/businesses/:id/orders/:orderId/razorpay', async (req, res) => {
 // POST /api/businesses/:id/orders/:orderId/verify-payment
 app.post('/api/businesses/:id/orders/:orderId/verify-payment', (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-  if (!razorpay) return res.status(503).json({ error: 'Razorpay not configured' });
+  const { keyId, keySecret } = getRazorpayConfig(req.params.id);
+  if (!keyId || !keySecret) return res.status(503).json({ error: 'Razorpay not configured' });
 
   const crypto = require('crypto');
-  const expectedSig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+  const expectedSig = crypto.createHmac('sha256', keySecret)
     .update(razorpay_order_id + '|' + razorpay_payment_id)
     .digest('hex');
 
@@ -279,11 +304,13 @@ app.get('/api/businesses/:id/revenue', requireAuth, (req, res) => {
 });
 
 // ── Razorpay config (for frontend) ───────────────────────────────────────────
-// GET /api/razorpay-config
-app.get('/api/razorpay-config', (req, res) => {
+// GET /api/razorpay-config/:id — per-café: which key (if any) that café's
+// customers should pay to. No secret ever returned here.
+app.get('/api/razorpay-config/:id', (req, res) => {
+  const { keyId, keySecret } = getRazorpayConfig(req.params.id);
   res.json({
-    enabled: !!razorpay,
-    keyId: process.env.RAZORPAY_KEY_ID || null,
+    enabled: !!(keyId && keySecret),
+    keyId: keyId || null,
   });
 });
 

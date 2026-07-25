@@ -2102,17 +2102,13 @@ const routeCtx = {
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
   runTrialReminders,
-  sendWhatsAppToCustomer, getWaConfig, writeWaConfig, GEMINI_MODEL,
+  sendWhatsAppToCustomer, getWaConfig, writeWaConfig, getRazorpayConfig, GEMINI_MODEL,
   startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   waweb, startQrClientForBranch, qrBulkBlocked,
   opsAlerts,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
-  waApi, genAI, razorpay: (() => { try {
-    const kid = process.env.RAZORPAY_KEY_ID || '';
-    if (!kid || kid.includes('ENTER_YOUR')) return null; // placeholder → payments disabled
-    return new (require('razorpay'))({ key_id: kid, key_secret: process.env.RAZORPAY_KEY_SECRET });
-  } catch(e){ return null; } })(),
+  waApi, genAI,
   whatsappConnectionStatus: 'Disconnected',
   requireAuth, requireBranchAccess, requireRole,
   signToken, verifyToken, loadStaff, STAFF_FILE,
@@ -2280,6 +2276,20 @@ function writeWaConfig(branchId, cfg) {
   fs.writeFileSync(cfgFile, JSON.stringify(cfg, null, 2));
 }
 
+// ── Razorpay — per-café direct payments ──────────────────────────────────────
+// Each branch's own Razorpay keys live in data/<branchId>/branch-settings.json
+// (saved via Manager Dashboard → Settings → Razorpay Payments, see extras.js).
+// Money must land directly in that café's own account, never the platform's —
+// so every payment call builds a client from that café's stored keys fresh,
+// the same per-request pattern getWaConfig/sendWhatsAppToCustomer use above.
+function getRazorpayConfig(branchId) {
+  try {
+    const s = getBranchData(branchId, 'branch-settings.json');
+    if (!s || Array.isArray(s) || !s.razorpay) return { keyId: '', keySecret: '' };
+    return { keyId: s.razorpay.keyId || '', keySecret: s.razorpay.keySecret || '' };
+  } catch (e) { return { keyId: '', keySecret: '' }; }
+}
+
 // ── QR-mode WhatsApp (whatsapp-web.js) ────────────────────────────────────────
 // Starts (or reattaches to) the per-branch QR client and wires its events into
 // the same pipeline the Cloud API webhook uses. Idempotent. Callers: the QR
@@ -2379,7 +2389,10 @@ async function sendWhatsAppToCustomer(branchId, phone, text, opts = {}) {
   }
   if (cfg.mode === 'qr') {
     if (!waweb || !waweb.available) { console.warn('[WA QR] module unavailable for', branchId); return false; }
-    return qrSendQueued(branchId, phone, text);
+    return qrSendQueued(branchId, phone, text).then(ok => {
+      if (!ok) opsAlerts.raiseAlert('wa_send_failed', branchId, 'QR send failed');
+      return ok;
+    });
   }
   // Cloud API (default / mode:'cloud')
   if (!cfg.phoneNumberId || !cfg.accessToken) {

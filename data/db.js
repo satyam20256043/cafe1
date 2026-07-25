@@ -305,6 +305,7 @@ db.exec(`
     ['orders', 'payment_method',      "TEXT DEFAULT 'cash'"],
     ['orders', 'razorpay_order_id',   'TEXT'],
     ['orders', 'razorpay_payment_id', 'TEXT'],
+    ['orders', 'staff_confirmed',     'INTEGER DEFAULT 0'],
     ['orders', 'notes',               'TEXT'],
     ['orders', 'updated_at',          'DATETIME DEFAULT CURRENT_TIMESTAMP'],
     // Loyalty Phase 3 columns (for DBs created before Phase 3)
@@ -670,6 +671,23 @@ function updateOrderPayment(id, { paymentStatus, paymentMethod, razorpayOrderId,
   return getOrderById(id);
 }
 
+// Unified staff "Confirm Payment" tap — same one button regardless of method.
+// Cash has no other signal, so the tap itself is what makes it paid. Razorpay
+// orders are already auto-marked paid by verify-payment's signature check on
+// success; this only records the staff's acknowledgment on top and never
+// overrides payment_status for a non-cash order (must never let a tap alone
+// mark an unverified razorpay order as paid).
+function confirmOrderPayment(id) {
+  const order = getOrderById(id);
+  if (!order) return null;
+  if (order.payment_method === 'cash') {
+    db.prepare(`UPDATE orders SET payment_status='paid', staff_confirmed=1, updated_at=datetime('now') WHERE id=?`).run(id);
+  } else {
+    db.prepare(`UPDATE orders SET staff_confirmed=1, updated_at=datetime('now') WHERE id=?`).run(id);
+  }
+  return getOrderById(id);
+}
+
 function getRevenueStats(businessId) {
   const row = db.prepare(`
     SELECT
@@ -752,7 +770,7 @@ function getTopItems(businessId, limit=5) {
 
 Object.assign(module.exports, {
   createOrder, getOrderById, listOrders,
-  updateOrderStatus, updateOrderPayment,
+  updateOrderStatus, updateOrderPayment, confirmOrderPayment,
   getRevenueStats, getDailyRevenue, getWeekdayRevenue, getTopItems,
 });
 

@@ -90,6 +90,7 @@ body{font-family:var(--font-body);background:#1a1612;color:#fff;min-height:100vh
 .btn-ready{background:var(--sage);color:#fff}
 .btn-serve{background:#22c55e;color:#fff}
 .btn-cancel{background:rgba(196,97,106,0.2);color:var(--rose);border:1px solid rgba(196,97,106,0.3)}
+.btn-payment{background:var(--caramel);color:#fff}
 .act-btn:disabled{opacity:0.5;cursor:not-allowed}
 
 .empty-state{grid-column:1/-1;text-align:center;padding:80px 20px;color:rgba(255,255,255,0.2)}
@@ -318,13 +319,26 @@ function statusPill(status) {
   const label = { pending:'New', confirmed:'Confirmed', preparing:'Preparing', ready:'Ready ✓', served:'Served', cancelled:'Cancelled' };
   return `<span class="status-pill ${map[status]||'sp-pending'}">${label[status]||status}</span>`;
 }
-function actionBtns(orderId, status) {
+function actionBtns(order, orderId, status) {
   const id = String(orderId);
   const btns = [];
   if (status === 'pending')   btns.push(`<button class="act-btn btn-confirm"  onclick="updateStatus('${id}','confirmed')">✅ Confirm</button>`);
   if (status === 'confirmed') btns.push(`<button class="act-btn btn-prepare"  onclick="updateStatus('${id}','preparing')">👨‍🍳 Start</button>`);
   if (status === 'preparing') btns.push(`<button class="act-btn btn-ready"    onclick="updateStatus('${id}','ready')">🔔 Ready</button>`);
   if (status === 'ready')     btns.push(`<button class="act-btn btn-serve"    onclick="updateStatus('${id}','served')">🎉 Served</button>`);
+  // Unified payment confirmation — one action regardless of method. Cash has
+  // no other signal so it's offered as soon as the order exists; an online
+  // payment is only offered once its own signature-verified payment_status
+  // already says paid (never let a tap alone mark an unverified one as paid).
+  if (!(order.staff_confirmed || order.staffConfirmed)) {
+    const method = order.payment_method || order.paymentMethod || 'cash';
+    const paid   = (order.payment_status || order.paymentStatus) === 'paid';
+    if (method === 'cash') {
+      btns.push(`<button class="act-btn btn-payment" onclick="confirmPayment('${id}')">💰 Confirm Payment</button>`);
+    } else if (paid) {
+      btns.push(`<button class="act-btn btn-payment" onclick="confirmPayment('${id}')">💰 Paid Online — Confirm</button>`);
+    }
+  }
   if (!['served','cancelled'].includes(status))
     btns.push(`<button class="act-btn btn-cancel" onclick="updateStatus('${id}','cancelled')">✕ Cancel</button>`);
   return btns.join('');
@@ -391,7 +405,7 @@ function renderBoard() {
       </div>
       ${notes ? `<div class="ticket-notes">📝 ${esc(notes)}</div>` : ''}
       ${tc ? `<div class="timer ${tc}">⏱ ${timeSince(created)}</div>` : ''}
-      <div class="ticket-actions">${actionBtns(id, status)}</div>
+      <div class="ticket-actions">${actionBtns(order, id, status)}</div>
     </div>`;
   }).join('');
 }
@@ -419,6 +433,31 @@ async function updateStatus(orderId, status) {
   } catch(e) {
     showToast('Update failed: ' + e.message, 'warn');
     // Revert optimistic update on failure
+    await loadOrders();
+  }
+}
+
+// ── Confirm Payment (staff, unified for cash + online) ──────────────────────
+async function confirmPayment(orderId) {
+  const idx = orders.findIndex(o => String(o.id || o.order_id || '') === String(orderId));
+  if (idx >= 0) {
+    orders[idx].staff_confirmed = 1;
+    if ((orders[idx].payment_method || orders[idx].paymentMethod || 'cash') === 'cash') orders[idx].payment_status = 'paid';
+  }
+  renderBoard();
+
+  try {
+    const resp = await fetch('/api/businesses/' + bizId + '/orders/' + encodeURIComponent(orderId) + '/confirm-payment', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || 'HTTP ' + resp.status);
+    }
+    showToast('💰 Payment confirmed', 'ok');
+  } catch(e) {
+    showToast('Confirm failed: ' + e.message, 'warn');
     await loadOrders();
   }
 }

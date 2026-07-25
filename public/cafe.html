@@ -1206,6 +1206,7 @@
 
   // ═══════════════ CART ENGINE — Phase 2 ══════════════════════════════════
   let cart = {};  // { itemId: { id, name, price, discountedPrice, discount, qty } }
+  let currentOrder = null;
 
   function addToCart(item) {
     // Accept either object or URI-encoded JSON string
@@ -1297,6 +1298,7 @@
     renderDrawerItems();
     document.getElementById('checkout-overlay').classList.add('open');
     document.getElementById('order-success').classList.remove('show');
+    document.getElementById('order-payment').classList.remove('show');
     document.getElementById('order-form').style.display = 'flex';
     document.getElementById('order-form').style.flexDirection = 'column';
   }
@@ -1345,18 +1347,97 @@
       const order = await res.json();
       if (!res.ok) throw new Error(order.error || 'Order failed');
 
-      // Show success
-      document.getElementById('order-num').textContent = '#' + (order.id||'').slice(-6).toUpperCase();
+      currentOrder = order;
       document.getElementById('order-form').style.display = 'none';
-      document.getElementById('order-success').classList.add('show');
       resetCart();
 
       // ── Phase 5C: Subscribe to push notifications for this order ──────────
       subscribePushForOrder(phone).catch(() => {/* non-fatal */});
+
+      offerPayment(order);
     } catch(e) {
       showToast('Could not place order: ' + e.message, true);
       btn.disabled = false;
       btn.textContent = 'Place Order';
+    }
+  }
+
+  // ── Payment choice — Pay Online (Razorpay, direct to the café's own
+  // account) or Pay at Counter (cash, unchanged default). Only offered when
+  // this café has its own Razorpay keys saved; otherwise straight to success.
+  async function offerPayment(order) {
+    let enabled = false, keyId = null;
+    try {
+      const r = await fetch('/api/razorpay-config/' + branchId);
+      if (r.ok) { const cfg = await r.json(); enabled = cfg.enabled; keyId = cfg.keyId; }
+    } catch(e) {/* config check failed — fall back to cash-only */}
+    if (!enabled) { showOrderSuccess(order); return; }
+    document.getElementById('payment-amount').textContent = '₹' + Number(order.total||0).toFixed(0);
+    document.getElementById('order-payment').classList.add('show');
+  }
+
+  function showOrderSuccess(order) {
+    document.getElementById('order-num').textContent = '#' + (order.id||'').slice(-6).toUpperCase();
+    document.getElementById('order-payment').classList.remove('show');
+    document.getElementById('order-success').classList.add('show');
+  }
+
+  function payAtCounter() {
+    showOrderSuccess(currentOrder);
+  }
+
+  function loadRazorpayScript() {
+    return new Promise((resolve, reject) => {
+      if (window.Razorpay) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Payment gateway unavailable — please pay at counter'));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function payOnline() {
+    const btn = document.getElementById('pay-online-btn');
+    btn.disabled = true; btn.textContent = 'Loading…';
+    try {
+      await loadRazorpayScript();
+      const rResp = await fetch('/api/businesses/' + branchId + '/orders/' + currentOrder.id + '/razorpay', { method:'POST', headers:{'Content-Type':'application/json'} });
+      const rData = await rResp.json();
+      if (!rResp.ok) throw new Error(rData.error || 'Could not start payment');
+      const rzp = new Razorpay({
+        key: rData.keyId,
+        amount: rData.amount,
+        currency: rData.currency,
+        order_id: rData.razorpayOrderId,
+        name: document.title || 'Café',
+        description: 'Order #' + String(currentOrder.id).slice(-6).toUpperCase(),
+        handler: async function(response) {
+          try {
+            const vResp = await fetch('/api/businesses/' + branchId + '/orders/' + currentOrder.id + '/verify-payment', {
+              method: 'POST', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            if (!vResp.ok) throw new Error('verify failed');
+            currentOrder.payment_status = 'paid'; currentOrder.payment_method = 'razorpay';
+            showToast('✅ Payment successful!');
+          } catch(e) {
+            showToast('Payment received but could not be confirmed — please show this screen at the counter', true);
+          }
+          showOrderSuccess(currentOrder);
+        },
+        modal: { ondismiss: function() { btn.disabled = false; btn.textContent = 'Pay Online Now'; } },
+        theme: { color: '#C9A84C' }
+      });
+      rzp.on('payment.failed', function() { showToast('Payment failed — try again or pay at counter', true); btn.disabled = false; btn.textContent = 'Pay Online Now'; });
+      rzp.open();
+    } catch(e) {
+      showToast('Error: ' + e.message, true);
+      btn.disabled = false; btn.textContent = 'Pay Online Now';
     }
   }
 
@@ -1561,6 +1642,15 @@
       <p>Your order <span class="order-num" id="order-num"></span><br>is being prepared.</p>
       <p style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:8px">We'll notify you when it's ready.</p>
       <button class="add-to-cart-btn" style="width:200px;margin-top:16px" onclick="closeCheckout();resetCart()">Back to Menu</button>
+    </div>
+
+    <div id="order-payment" class="order-success">
+      <div class="success-icon">🛎️</div>
+      <h3>Order Received!</h3>
+      <p>How would you like to pay?</p>
+      <p class="order-num" id="payment-amount" style="margin-top:6px"></p>
+      <button class="drawer-pay-btn" id="pay-online-btn" style="width:200px;margin:16px 0 0" onclick="payOnline()">Pay Online Now</button>
+      <button class="add-to-cart-btn" style="width:200px;margin-top:10px" onclick="payAtCounter()">Pay at Counter</button>
     </div>
 
     <div id="order-form" style="display:flex;flex-direction:column;flex:1;overflow:hidden">

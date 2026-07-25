@@ -70,6 +70,14 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 .cform-input:focus{border-color:var(--caramel)}
 .tracking-screen{display:none;position:fixed;inset:0;background:var(--cream);z-index:300;overflow-y:auto}
 .tracking-screen.active{display:block}
+.payment-screen{display:none;position:fixed;inset:0;background:var(--cream);z-index:300;overflow-y:auto}
+.payment-screen.active{display:block}
+.payment-inner{max-width:480px;margin:0 auto;padding:40px 20px 60px;text-align:center}
+.payment-amount{font-family:var(--font-display);font-size:32px;color:var(--espresso);margin:10px 0 28px}
+.pay-btn{width:100%;padding:15px;border-radius:12px;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;border:none}
+.pay-btn-online{background:var(--caramel);color:#fff}
+.pay-btn-cash{background:#fff;color:var(--espresso);border:1.5px solid var(--border-strong)}
+.pay-btn:disabled{opacity:0.5;cursor:not-allowed}
 .tracking-inner{max-width:480px;margin:0 auto;padding:32px 20px 60px}
 .tracking-badge{background:var(--espresso);color:#fff;border-radius:50%;width:64px;height:64px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:30px}
 .tracking-title{font-family:var(--font-display);font-size:22px;color:var(--espresso);text-align:center}
@@ -134,6 +142,16 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
     <div class="stepper" id="stepper"></div>
     <div class="tracking-order-box" id="tracking-order-box"></div>
     <button class="new-order-btn" onclick="resetToMenu()">Order More Items</button>
+  </div>
+</div>
+<div class="payment-screen" id="payment-screen">
+  <div class="payment-inner">
+    <div class="tracking-badge">🛎️</div>
+    <div class="tracking-title">Order Received!</div>
+    <div class="tracking-sub">How would you like to pay?</div>
+    <div class="payment-amount" id="payment-amount"></div>
+    <button class="pay-btn pay-btn-online" id="pay-online-btn" onclick="payOnline()">💳 Pay Online Now</button>
+    <button class="pay-btn pay-btn-cash" onclick="payAtCounter()">💵 Pay at Counter</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -225,9 +243,86 @@ async function placeOrder(){
   try{
     const resp=await fetch('/api/businesses/'+bizId+'/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerName:name,customerPhone:phone,tableNo:tableNo,orderType:'dine_in',items:items.map(i=>({id:i.id,qty:i.qty,name:i.name,price:i.price})),notes,paymentMethod:'cash'})});
     const order=await resp.json();if(!resp.ok)throw new Error(order.error||'Failed');
-    currentOrder=order;closeCart();cart={};updateCartCount();showTrackingScreen(order);
+    currentOrder=order;closeCart();cart={};updateCartCount();
     if(phone) subscribePushForOrder(phone).catch(()=>{/* non-fatal */});
+    offerPayment(order);
   }catch(e){showToast('Error: '+e.message);btn.disabled=false;btn.textContent='Place Order ✓';}
+}
+
+// ── Payment choice — Pay Online (Razorpay, direct to the café's own account)
+// or Pay at Counter (cash, unchanged default). Only offered when this café
+// has its own Razorpay keys saved; otherwise skips straight to tracking.
+async function offerPayment(order){
+  let enabled=false,keyId=null;
+  try{
+    const r=await fetch('/api/razorpay-config/'+bizId);
+    if(r.ok){const cfg=await r.json();enabled=cfg.enabled;keyId=cfg.keyId;}
+  }catch(e){/* config check failed — fall back to cash-only */}
+  if(!enabled){showTrackingScreen(order);return;}
+  document.getElementById('payment-amount').textContent='₹'+Number(order.total||0).toFixed(0);
+  document.getElementById('payment-screen').classList.add('active');
+  document.getElementById('payment-screen').dataset.keyId=keyId||'';
+}
+
+function payAtCounter(){
+  document.getElementById('payment-screen').classList.remove('active');
+  showTrackingScreen(currentOrder);
+}
+
+function loadRazorpayScript(){
+  return new Promise((resolve,reject)=>{
+    if(window.Razorpay){resolve();return;}
+    const s=document.createElement('script');
+    s.src='https://checkout.razorpay.com/v1/checkout.js';
+    s.onload=()=>resolve();
+    s.onerror=()=>reject(new Error('Payment gateway unavailable — please pay at counter'));
+    document.head.appendChild(s);
+  });
+}
+
+async function payOnline(){
+  const btn=document.getElementById('pay-online-btn');
+  btn.disabled=true;btn.textContent='Loading…';
+  try{
+    await loadRazorpayScript();
+    const rResp=await fetch('/api/businesses/'+bizId+'/orders/'+currentOrder.id+'/razorpay',{method:'POST',headers:{'Content-Type':'application/json'}});
+    const rData=await rResp.json();
+    if(!rResp.ok)throw new Error(rData.error||'Could not start payment');
+    const rzp=new Razorpay({
+      key:rData.keyId,
+      amount:rData.amount,
+      currency:rData.currency,
+      order_id:rData.razorpayOrderId,
+      name:document.getElementById('cafe-name').textContent||'Café',
+      description:'Order #'+String(currentOrder.id).slice(-6).toUpperCase(),
+      handler:async function(response){
+        try{
+          const vResp=await fetch('/api/businesses/'+bizId+'/orders/'+currentOrder.id+'/verify-payment',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              razorpay_order_id:response.razorpay_order_id,
+              razorpay_payment_id:response.razorpay_payment_id,
+              razorpay_signature:response.razorpay_signature
+            })
+          });
+          if(!vResp.ok)throw new Error('verify failed');
+          currentOrder.payment_status='paid';currentOrder.payment_method='razorpay';
+          showToast('✅ Payment successful!');
+        }catch(e){
+          showToast('Payment received but could not be confirmed — please show this screen at the counter');
+        }
+        document.getElementById('payment-screen').classList.remove('active');
+        showTrackingScreen(currentOrder);
+      },
+      modal:{ondismiss:function(){btn.disabled=false;btn.textContent='💳 Pay Online Now';}},
+      theme:{color:'#c47f3a'}
+    });
+    rzp.on('payment.failed',function(){showToast('Payment failed — try again or pay at counter');btn.disabled=false;btn.textContent='💳 Pay Online Now';});
+    rzp.open();
+  }catch(e){
+    showToast('Error: '+e.message);
+    btn.disabled=false;btn.textContent='💳 Pay Online Now';
+  }
 }
 
 // ── Push notifications: order status updates even if this tab isn't open ────
