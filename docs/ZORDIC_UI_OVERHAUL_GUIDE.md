@@ -1,4 +1,4 @@
-# ZORDIC UI/UX OVERHAUL GUIDE — v1.1 (for a Sonnet execution session)
+# ZORDICAL UI/UX OVERHAUL GUIDE — v1.1 (for a Sonnet execution session)
 
 Execute work packages **UI0 → UI7 in order, committing after each one**. This guide is
 self-contained: read §0–§2 fully before touching any file. When a step says ASK THE USER,
@@ -12,13 +12,13 @@ outstanding (VAPID keys + real Razorpay keys on the server, if push/online-payme
 
 ## 0. Context — read first
 
-**Zordic California** is a multi-tenant SaaS for cafés/restaurants (AI WhatsApp receptionist,
+**Zordical** is a multi-tenant SaaS for cafés/restaurants (AI WhatsApp receptionist,
 QR table ordering, loyalty, CRM, marketing), rented monthly to independent cafés. It is **not
 a franchise system**: each café is an isolated tenant that sees only its own data; the user
 (platform operator) is the only person with cross-tenant visibility.
 
 - **Live in production**: `https://zordic.in` — AWS Lightsail (Ubuntu, 414MB RAM + 2GB swap),
-  Node via pm2 (app name `zordic`, dir `~/zordic`), Caddy reverse proxy with auto-HTTPS.
+  Node via pm2 (app name `zordical`, dir `~/zordical`), Caddy reverse proxy with auto-HTTPS.
 - **Repo**: `https://github.com/satyam20256043/cafe1`. ⚠️ GitHub's default branch `main` is an
   old unrelated scaffold. **All real code is on `master`.** Never merge or compare against `main`.
 - **Local codebase**: `C:\Users\SSJ\Desktop\cafe-ai-bot`. The root `server.js` is a frozen
@@ -41,7 +41,7 @@ a franchise system**: each café is an isolated tenant that sees only its own da
 | `login.html`, `admin-login.html`, `onboard.html` | staff/public | "Luxury espresso": dark `#0D0705`, gold `#C9A84C`, Cinzel + Cormorant + Nunito Sans |
 | `manager.html`, `kitchen.html` | café staff | Light cream, gold accents, own ad-hoc palette |
 | `portal.html`, `hq.html`, `index.html` | owner / admin | Modern light: DM Sans + DM Serif Display, different variable names |
-| `cafe.html`, `table-order.html` | customers | Themeable (8 themes exist), café-ish but Zordic-branded |
+| `cafe.html`, `table-order.html` | customers | Themeable (8 themes exist), café-ish but Zordical-branded |
 
 ### What already works and MUST NOT regress (verified in the 2026-07-09 QA sweep)
 
@@ -89,7 +89,7 @@ HQ dashboard (all 7 tabs) · agency-admin access to any café's manager/kitchen/
    `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
 9. **Deploying**: the user runs commands in the Lightsail *browser* SSH terminal, which
    **corrupts multi-line pastes**. Give them ONE single line only:
-   `cd ~/zordic && git pull origin master && pm2 restart zordic --update-env && pm2 logs zordic --lines 15 --nostream`
+   `cd ~/zordical && git pull origin master && pm2 restart zordical --update-env && pm2 logs zordical --lines 15 --nostream`
    Notes: pm2's error log will show a stale historical `db.prepare is not a function` entry
    from before an old fix — ignore it; only worry about NEW timestamps. `--update-env` is
    required whenever `.env` changed.
@@ -98,7 +98,7 @@ HQ dashboard (all 7 tabs) · agency-admin access to any café's manager/kitchen/
     correct behavior; never ask for those credentials and never try to bypass. Test admin flows
     locally instead.
 11. **Local dev server**: `node data/server.js` (PORT from `.env`, default 3010), or the
-    preview config `.claude/launch.json` (name `zordic-dev`). Local `.env` already has working
+    preview config `.claude/launch.json` (name `zordical-dev`). Local `.env` already has working
     `GEMINI_API_KEY`, `JWT_SECRET`, `WHATSAPP_VERIFY_TOKEN`.
 12. **Windows/PowerShell**: local curl needs `--ssl-no-revoke` for https to production.
 
@@ -119,7 +119,7 @@ DM Sans for dense data (font unification is optional — palette unification is 
 
 1. Checkpoint: `git log --oneline -1` and confirm clean `git status`. Boot locally, confirm
    `[Phase1] ✓ SQLite + Auth + Backup modules loaded` and no startup errors.
-2. Create **`public/zordic-ui.css`** defining CSS custom properties + a few shared components:
+2. Create **`public/zordical-ui.css`** defining CSS custom properties + a few shared components:
 
    ```css
    :root{
@@ -145,13 +145,13 @@ DM Sans for dense data (font unification is optional — palette unification is 
    @keyframes z-shimmer{to{transform:translateX(100%)}}
    .z-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.04em}
    ```
-3. Link it (`<link rel="stylesheet" href="/zordic-ui.css">`) from every page you touch in later
+3. Link it (`<link rel="stylesheet" href="/zordical-ui.css">`) from every page you touch in later
    packages — do NOT bulk-edit all pages now.
 4. **Adoption rule**: any NEW style you write from UI1 onward uses `var(--z-…)` tokens.
    Existing styles are migrated only in UI5.
 
-**Verify**: server boots; `/zordic-ui.css` returns 200; no page visually changed yet.
-**Commit**: `UI0: add shared design tokens (zordic-ui.css) — espresso/gold system`
+**Verify**: server boots; `/zordical-ui.css` returns 200; no page visually changed yet.
+**Commit**: `UI0: add shared design tokens (zordical-ui.css) — espresso/gold system`
 
 ---
 
@@ -290,8 +290,8 @@ usable, and desktop (1280px) completely unchanged. Console: zero errors on every
 ## 6. UI4 — Café-first branding + remove admin traces from café-facing pages
 
 **Problem A — whose brand is it**: customer-facing pages (`table-order.html`, `cafe.html`)
-lead with Zordic branding. The customer is *the café's* customer; the café's name/colors
-should lead, with a discreet "Powered by Zordic California" in the footer only.
+lead with Zordical branding. The customer is *the café's* customer; the café's name/colors
+should lead, with a discreet "Powered by Zordical" in the footer only.
 
 **Problem B — admin traces**: several staff/customer pages carry a top strip (`__snav…` ids)
 with an "🏢 Admin HQ" link, and manager.html has agency links. A café owner clicking them just
@@ -311,7 +311,7 @@ agency layer should be **invisible** to cafés.
      everything after this pass).
 2. `table-order.html`: header already shows café name — make it the visual anchor (café name
    large, use the café's `brandColor` from `/api/businesses/:id` as the accent CSS variable);
-   add footer line `Powered by Zordic California ☕` small/muted. Remove any Zordic-first
+   add footer line `Powered by Zordical ☕` small/muted. Remove any Zordical-first
    header branding.
 3. `cafe.html`: same principle. Additionally add two optional per-café image settings —
    `heroImageUrl`, `galleryUrls` (comma-separated) — editable in manager Settings → Branch
@@ -335,7 +335,7 @@ visible again. Settings image URLs round-trip and render.
 Optional: font unification (skip if it churns too much).
 
 **Order of migration** (each its own commit, verify after each):
-1. **hq.html** (admin-only, lowest risk): link `zordic-ui.css`; remap its local CSS variables
+1. **hq.html** (admin-only, lowest risk): link `zordical-ui.css`; remap its local CSS variables
    to the `--z-…` palette (keep its layout/structure — it's good); status badges/buttons use
    the semantic tokens.
 2. **portal.html**: same remap; its card/quick-access layout stays.

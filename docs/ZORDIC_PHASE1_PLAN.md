@@ -1,4 +1,4 @@
-# Zordic — Phase 1 Implementation Plan
+# Zordical — Phase 1 Implementation Plan
 
 > **Status: APPROVED 2026-07-07, ready to execute.** Intended for a **Claude Sonnet 5** session
 > (cost-efficient for well-specified implementation). Execute work packages in order WP0 → WP7,
@@ -6,7 +6,7 @@
 > Companion docs: `docs\ZORDIC_MASTER_PLAN.md` (strategy) and the auto-loaded memory files.
 
 ## Context
-Phase 0 (security + tenant isolation) is complete in the `data\` codebase. Phase 1 turns Zordic
+Phase 0 (security + tenant isolation) is complete in the `data\` codebase. Phase 1 turns Zordical
 from "nice dashboard" into a provable ROI machine. Four pillars:
 1. **Unified customer record** (merge 4 overlapping stores → 1 trustworthy source of truth).
 2. **Attribution loop** (every offer/campaign issues a tracked coupon → redeemed at order → ROI).
@@ -14,7 +14,7 @@ from "nice dashboard" into a provable ROI machine. Four pillars:
 4. **Weekly Impact Report** (attributable revenue + retention + ROI multiple — the renewal engine).
 
 Outcome: the owner sees, every morning, what happened and the 3 highest-value actions to take
-today; and can attribute rupees to Zordic every week.
+today; and can attribute rupees to Zordical every week.
 
 ## Ground rules (do NOT violate — Phase 0 guarantees + product discipline)
 - **Work ONLY in `data\`** (`data\server.js`, `data\db.js`, `data\routes\*.js`, `public\*`).
@@ -154,7 +154,7 @@ campaign fires + coupons issued + socket only reaches that branch's room.
 - Table `weekly_reports(id, business_id, week_start, payload_json, created_at)`.
 - `computeWeeklyImpact(bizId)`: attributable revenue (from `coupons`), retention movement
   (`getRepeatVisitRate` WoW), win-back rate, campaign ROI, and **ROI multiple vs subscription price**
-  ("Zordic earned you ₹23,400 — 4.7× your plan").
+  ("Zordical earned you ₹23,400 — 4.7× your plan").
 - `GET /businesses/:id/growth/weekly` (staff); schedule Monday ~8 AM; deliver via WhatsApp + socket.
 **Verify:** report renders with attributable revenue and an ROI multiple; agency HQ can also pull it.
 

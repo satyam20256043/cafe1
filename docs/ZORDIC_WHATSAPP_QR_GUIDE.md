@@ -1,4 +1,4 @@
-# ZORDIC WHATSAPP QR-LOGIN GUIDE — v1.0 (for an Opus execution session)
+# ZORDICAL WHATSAPP QR-LOGIN GUIDE — v1.0 (for an Opus execution session)
 
 Add a **"Quick connect — scan a QR code"** WhatsApp option so a café owner links their
 WhatsApp number by scanning a code from their phone (exactly like WhatsApp Web) — zero Meta
@@ -22,7 +22,7 @@ higher risk than value. They're a safe low-risk follow-up sweep, not a blocker.
 
 ## 0. Context — read first
 
-- **Zordic California** is a multi-tenant café SaaS live at `https://zordic.in`
+- **Zordical** is a multi-tenant café SaaS live at `https://zordic.in`
   (repo `github.com/satyam20256043/cafe1`, branch **`master`** ONLY — GitHub's default `main`
   is an unrelated scaffold). Local repo: **`C:\Users\SSJ\OneDrive\Desktop\cafe-ai-bot`**.
   Work only in `data\` + `public\`. Root `server.js` is a frozen legacy monolith.
@@ -31,7 +31,7 @@ higher risk than value. They're a safe low-risk follow-up sweep, not a blocker.
   `docs/`/memory: the WABA-subscribed-apps trap), and non-permanent tokens expire (a live
   café's outbound died this way). QR login removes ALL of that for a trial/small café.
 - **Deploy line** (Lightsail browser SSH corrupts multi-line pastes — always single line):
-  `cd ~/zordic && git pull origin master && pm2 restart zordic --update-env && pm2 logs zordic --lines 15 --nostream`
+  `cd ~/zordical && git pull origin master && pm2 restart zordical --update-env && pm2 logs zordical --lines 15 --nostream`
 
 **Verified codebase facts (2026-07-18) — build on these, do not rediscover:**
 
@@ -218,7 +218,7 @@ manually → dashboard alert fires; third `qr/start` when cap=2 returns the frie
    server downloads nothing extra (Chromium ships in the npm install — expect a slow
    `npm install` on the 414 MB box; if it OOMs, `npm install --no-optional` won't help —
    swap covers it, just let it run).
-4. Update this guide's Status line + session memory (`project-zordic-california.md`).
+4. Update this guide's Status line + session memory (`project-zordical-california.md`).
 **Commit:** `QR4: retire single-tenant WA remnants, regression, deploy notes`
 
 ## 4. Testing protocol

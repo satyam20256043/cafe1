@@ -1,4 +1,4 @@
-# ZORDIC AI RECEPTIONIST GUIDE — v1.0 (for a Sonnet execution session)
+# ZORDICAL AI RECEPTIONIST GUIDE — v1.0 (for a Sonnet execution session)
 
 Execute work packages **AI0 → AI6 in order, committing after each one**. This guide is
 self-contained: read §0–§3 fully before touching any file. Every product decision in §1 was
@@ -23,9 +23,9 @@ deterministic.
 
 ## 0. Context — read first
 
-**Zordic California** is a multi-tenant SaaS for cafés/restaurants, live at `https://zordic.in`
-(AWS Lightsail, pm2 app `zordic` in `~/zordic`, Caddy HTTPS; deploy =
-`cd ~/zordic && git pull origin master && pm2 restart zordic --update-env && pm2 logs zordic --lines 15 --nostream`
+**Zordical** is a multi-tenant SaaS for cafés/restaurants, live at `https://zordic.in`
+(AWS Lightsail, pm2 app `zordical` in `~/zordical`, Caddy HTTPS; deploy =
+`cd ~/zordical && git pull origin master && pm2 restart zordical --update-env && pm2 logs zordical --lines 15 --nostream`
 given to the user as a single line — their SSH terminal corrupts multi-line pastes).
 
 - **Repo**: `github.com/satyam20256043/cafe1` — all real code on **`master`** (GitHub's default
@@ -234,7 +234,7 @@ Storage: `data/<branchId>/knowledge.json` → `[{ id, q, a, updatedAt }]`.
    200 · `/hq` 401 · webhook GET 200-echo · user sends a real WhatsApp message and confirms
    memory ("how much is the pasta?" → "make it two") + persona greeting live.
 4. Update this guide's Status line, `docs\ZORDIC_MASTER_PLAN.md` if touched, and session memory
-   (`project-zordic-california.md`: AI receptionist v2 shipped; eval score before/after).
+   (`project-zordical-california.md`: AI receptionist v2 shipped; eval score before/after).
 
 ---
 

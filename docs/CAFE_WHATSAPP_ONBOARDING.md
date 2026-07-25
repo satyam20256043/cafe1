@@ -1,12 +1,12 @@
 # Café WhatsApp Onboarding Playbook
 
-The standard process for connecting a real café's WhatsApp to Zordic with a
+The standard process for connecting a real café's WhatsApp to Zordical with a
 **permanent (never-expiring) token** and a **real business number**. Follow it
 top to bottom for every new café. Written 2026-07-10, after the first full
 integration was debugged end-to-end — the Troubleshooting section at the bottom
 exists because every one of those failures actually happened.
 
-**Zordic side, for reference:** each café's credentials live in
+**Zordical side, for reference:** each café's credentials live in
 `data/<branchId>/whatsapp_config.json` (`phoneNumberId` + `accessToken`), saved
 from Manager Dashboard → Settings → WhatsApp. Inbound messages are routed to a
 café by matching the `phone_number_id` Meta sends against each café's saved
@@ -17,13 +17,13 @@ ONCE for the whole platform — never per café.
 
 ## Part 0 — Decide whose Meta Business Portfolio hosts the number
 
-Two workable models while Zordic is small:
+Two workable models while Zordical is small:
 
 - **Café-owned (preferred):** the café owner creates their own free Meta
   Business Portfolio at business.facebook.com. They own their number, their
   WABA, their data. You guide them through the steps below inside *their*
   portfolio (usually on a screen-share or in person).
-- **Zordic-hosted (pragmatic):** the number is added under *your* portfolio /
+- **Zordical-hosted (pragmatic):** the number is added under *your* portfolio /
   WABA as an additional phone number. Faster, but all cafés legally message
   "on behalf of" your business, and an unverified WABA holds only ~2 numbers.
   Use only for pilots.
@@ -40,7 +40,7 @@ cafés get a **System User** token that never expires.
 
 1. Go to **business.facebook.com** → ⚙️ **Business Settings** (in the portfolio
    that owns the app and WABA).
-2. Sidebar → **Users → System Users** → **Add**. Name: `zordic-bot`,
+2. Sidebar → **Users → System Users** → **Add**. Name: `zordical-bot`,
    role: **Admin**.
 3. Select the system user → **Add Assets**:
    - **Apps** → the Meta app → **Full control (Manage app)**.
@@ -81,7 +81,7 @@ chat, never in a screenshot. If ever exposed: Business Settings → System Users
    of sacrificing a number customers already chat with.
 3. Verify ownership via SMS/voice OTP on that number.
 4. The display name goes through a short Meta review (usually < 1 day).
-5. Copy the **new number's Phone Number ID** into the café's Zordic Settings
+5. Copy the **new number's Phone Number ID** into the café's Zordical Settings
    (the ID changes — it is per-number, not per-account) and re-run the
    Part 1 step 6 `subscribed_apps` check.
 6. Once a real number is registered there is **no allow-list** — any customer
@@ -102,7 +102,7 @@ when a café is nearing the 250/day ceiling.
 2. Check the conversation appears in Manager → **Customer Chats** (live).
 3. Send "the food was cold, I want a refund" → owner must get the escalation
    on their WhatsApp + the "Needs You" card on the Overview tab.
-4. `pm2 logs zordic --lines 20 --nostream` on the server — no `[WA Webhook]` /
+4. `pm2 logs zordical --lines 20 --nostream` on the server — no `[WA Webhook]` /
    `[WA Cloud API]` errors.
 
 ---
@@ -133,7 +133,7 @@ them produce an error in Meta's UI. Check in this order:
 **How to read the server logs when debugging:**
 
 - `pm2 logs --lines N` tails old history too — a fresh test needs
-  `pm2 logs zordic` left streaming while you send the message.
+  `pm2 logs zordical` left streaming while you send the message.
 - No new `[WA Webhook]` line at all when you message → Meta isn't delivering
   (causes #2 or #3 above, or the sender isn't allow-listed on a test number,
   or the wrong number was messaged).

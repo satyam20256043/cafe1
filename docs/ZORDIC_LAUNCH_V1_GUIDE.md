@@ -1,6 +1,6 @@
-# Zordic — v1.0 Launch Guide (for a Claude Sonnet 5 session)
+# Zordical — v1.0 Launch Guide (for a Claude Sonnet 5 session)
 
-> **Purpose:** take Zordic from "boots on a laptop" to **live in production with WhatsApp**, on a
+> **Purpose:** take Zordical from "boots on a laptop" to **live in production with WhatsApp**, on a
 > data-collection-first strategy. Ship the working operations core + AI receptionist + a Business
 > Intelligence event log + coupon tracking + WhatsApp (inbound auto-reply) + deployment.
 > **Defer** all predictive AI (Daily Brief, Weekly Report, churn/forecasting) — those come later,
@@ -154,12 +154,12 @@ sudo npm i -g pm2
 ```
 **App:**
 ```
-git clone <your repo>  zordic   # or scp the folder up (WITHOUT node_modules / .env)
-cd zordic
+git clone <your repo>  zordical   # or scp the folder up (WITHOUT node_modules / .env)
+cd zordical
 npm ci                          # installs deps; better-sqlite3 compiles here
 # create .env on the server (do NOT commit it): copy your local .env values + set:
 #   PORT=3010   BASE_URL=https://<domain>   WHATSAPP_VERIFY_TOKEN=<random string>
-pm2 start npm --name zordic -- start
+pm2 start npm --name zordical -- start
 pm2 save && pm2 startup     # run the printed command so it restarts on reboot
 ```
 **HTTPS + domain (Caddy = automatic Let's Encrypt):**
@@ -175,7 +175,7 @@ sudo systemctl restart caddy
 - Move the pre-launch DB backup + set up an offsite copy of `data\cafe_hq.db` (the daily 2 AM backup
   already runs; also copy the file off the box periodically).
 **Verify:** `https://<domain>` serves the portal; `https://<domain>/cafe/indiranagar` loads; API works
-over HTTPS; `pm2 logs zordic` clean.
+over HTTPS; `pm2 logs zordical` clean.
 
 ## LP6 — End-to-end verification on the LIVE server
 Run the real flows once, as a customer + as staff:
@@ -197,9 +197,9 @@ Run the real flows once, as a customer + as staff:
 - Start the café's **Meta WhatsApp business verification NOW** (it can take days) if using their real
   number; use the test number to demo in the meantime.
 - **Update workflow** (for "keep updating the live site"): on the server →
-  `git pull && npm ci && pm2 restart zordic` (add `npm ci` only when dependencies changed).
+  `git pull && npm ci && pm2 restart zordical` (add `npm ci` only when dependencies changed).
   Always take a DB copy before a risky deploy. Commit + push small, frequent changes.
-- Watch `pm2 logs zordic` and the `events` table for the first days.
+- Watch `pm2 logs zordical` and the `events` table for the first days.
 
 ---
 
@@ -215,5 +215,5 @@ Run the real flows once, as a customer + as staff:
 
 ## Positioning for launch (set expectations honestly)
 "Manage your customers, orders, reservations, loyalty, and WhatsApp from one place. As your business
-data grows, Zordic's AI learns YOUR café and gives increasingly personal recommendations." — the AI
+data grows, Zordical's AI learns YOUR café and gives increasingly personal recommendations." — the AI
 improves over weeks because it learns from their real history, not generic assumptions.

@@ -1,4 +1,4 @@
-# Zordic — Pitch Playbook
+# Zordical — Pitch Playbook
 
 The strategic approach behind every pitch — phone, in-person, or video. For the
 **exact words to say on a phone call**, see `docs/ZORDIC_SALES_CALL_SCRIPT.md`;
@@ -6,14 +6,14 @@ this doc is the philosophy and reusable reference that script is built on.
 
 **The core mistake to avoid:** explaining the product. Café owners care about
 their business, not your features. Every step below exists to keep the
-conversation about *them*, not about Zordic.
+conversation about *them*, not about Zordical.
 
 ---
 
 ## The flow
 
 ### 1. Introduction
-> "Hello sir/ma'am, I'm Satyam, founder of Zordic. We've built an AI platform
+> "Hello sir/ma'am, I'm Satyam, founder of Zordical. We've built an AI platform
 > specifically for cafés that helps increase repeat customers, automate
 > customer communication, and grow revenue. I just wanted 5 minutes to show
 > you something that might genuinely help your business."
@@ -34,8 +34,8 @@ words back to them.
 > system to bring those customers back. Losing existing customers is often
 > more expensive than acquiring new ones."
 
-### 4. Introduce Zordic
-> "That's exactly why we built Zordic. It's an AI Growth Platform that helps
+### 4. Introduce Zordical
+> "That's exactly why we built Zordical. It's an AI Growth Platform that helps
 > cafés get more repeat customers, automate WhatsApp conversations, manage
 > customer relationships, run marketing campaigns, and understand their
 > business through one dashboard."
@@ -89,5 +89,5 @@ Never say the left column out loud. Always say the right column.
 
 If they ask "So what exactly do you do?":
 
-> "Zordic helps cafés get more repeat customers, automate customer
+> "Zordical helps cafés get more repeat customers, automate customer
 > communication, and grow revenue through AI — all from one platform."

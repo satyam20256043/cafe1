@@ -1,4 +1,4 @@
-# ZORDIC LANDING + AI ESCALATION GUIDE — v1.0 (for a Sonnet execution session)
+# ZORDICAL LANDING + AI ESCALATION GUIDE — v1.0 (for a Sonnet execution session)
 
 Execute work packages **G0 → G5 in order, committing after each one**. This guide is
 self-contained: read §0–§3 fully before touching any file. Every product decision in §1 was
@@ -15,13 +15,13 @@ predates this guide's work and was deliberately left alone (see G4 commit messag
 
 ## 0. Context — read first
 
-**Zordic California** is a multi-tenant SaaS for cafés/restaurants (AI WhatsApp receptionist,
+**Zordical** is a multi-tenant SaaS for cafés/restaurants (AI WhatsApp receptionist,
 QR table ordering, loyalty, CRM, marketing), rented monthly to independent cafés. It is **not
 a franchise**: each café is an isolated tenant that sees only its own data; the user
 (platform operator) is the only person with cross-tenant visibility.
 
 - **Live in production**: `https://zordic.in` — AWS Lightsail (Ubuntu, 414MB RAM + 2GB swap),
-  Node via pm2 (app name `zordic`, dir `~/zordic`), Caddy reverse proxy with auto-HTTPS.
+  Node via pm2 (app name `zordical`, dir `~/zordical`), Caddy reverse proxy with auto-HTTPS.
   `/hq*` and `/admin-login*` are additionally behind Caddy HTTP Basic Auth — they returning
   **401 in smoke tests is correct**, not a bug.
 - **Repo**: `https://github.com/satyam20256043/cafe1`. ⚠️ GitHub's default branch `main` is an
@@ -30,7 +30,7 @@ a franchise**: each café is an isolated tenant that sees only its own data; the
   legacy monolith — **all work happens in `data\`** (`data\server.js`, `data\db.js`,
   `data\routes\*.js`) and `public\*`.
 - The UI0–UI7 overhaul (see `docs\ZORDIC_UI_OVERHAUL_GUIDE.md`) is complete and deployed.
-  Shared design tokens live in `public/zordic-ui.css` (`--z-*` espresso/gold palette).
+  Shared design tokens live in `public/zordical-ui.css` (`--z-*` espresso/gold palette).
   `data/plans.json` exists (Starter ₹1500 / Growth ₹3000 / Pro ₹5000) and is served by
   `GET /api/plans`. Push notifications (VAPID) are configured and live in production.
 - **Product charter** (`docs\ZORDIC_MASTER_PLAN.md`): every feature and every line of copy is
@@ -120,10 +120,10 @@ If the tree shows anything else modified at start, stop and reconcile before pro
 **Problem**: `public/index.html` is an internal control panel served publicly (see §1-#1).
 
 **Rebuild `index.html` from scratch** (full rewrite, keep only: favicon links, the
-DM Serif Display/DM Sans font links, the `zordic-ui.css` link, and the existing `:root`
+DM Serif Display/DM Sans font links, the `zordical-ui.css` link, and the existing `:root`
 token-alias block from UI5d). Structure:
 
-1. **Header**: Zordic logo/wordmark · right side: "Staff Sign In" (ghost button → `/login`)
+1. **Header**: Zordical logo/wordmark · right side: "Staff Sign In" (ghost button → `/login`)
    + "Start Free Trial" (primary → `/onboard`).
 2. **Hero**: outcome-first headline (e.g. "More customers. More repeat visits. More revenue."),
    subline explaining the AI answers every WhatsApp message, takes orders & bookings 24/7,
@@ -136,7 +136,7 @@ token-alias block from UI5d). Structure:
 5. **Pricing** (`id="pricing"`): fetch `GET /api/plans` client-side and render the 3 plan cards
    (name, ₹price/month, badge, features, "Start 10-day free trial" CTA → `/onboard`). If the
    fetch fails, show a graceful "Contact us to get started" card — never a broken section.
-6. **Closing CTA band** + **footer**: © Zordic California · small "Staff sign in" link.
+6. **Closing CTA band** + **footer**: © Zordical · small "Staff sign in" link.
 
 **Must NOT appear anywhere in the rendered page**: "HQ", "Admin", "Agency", "Onboard New
 Café/Client", any URL table, any role cards. Grep the served HTML/innerText for those strings
@@ -298,7 +298,7 @@ no suggestion. Clean up.
    tenant isolation spot-check · admin: `link-agency-hq` and Back-to-HQ visible for
    agency_admin only.
 3. Push to `origin master`; give the user the single-line deploy:
-   `cd ~/zordic && git pull origin master && pm2 restart zordic --update-env && pm2 logs zordic --lines 15 --nostream`
+   `cd ~/zordical && git pull origin master && pm2 restart zordical --update-env && pm2 logs zordical --lines 15 --nostream`
 4. Post-deploy smoke from local machine (`curl --ssl-no-revoke`): `/` 200 and contains the new
    hero copy but NOT "HQ"/"Agency" strings · `/onboard` 200 with "10-Day" copy · `/api/plans`
    200 · `/hq` **401** (Basic Auth — correct) · `/api/businesses` 200 `[]`.

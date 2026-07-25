@@ -173,11 +173,11 @@ app.post('/api/businesses/:id', requireAuth, requireBranchAccess, (req, res) => 
 // fetch a manifest as a plain resource during install, with no auth header.
 app.get('/api/manifest/manager/:id', (req, res) => {
   const biz = businesses.find(b => b.id === req.params.id);
-  const name = biz ? biz.name : 'Zordic';
+  const name = biz ? biz.name : 'Zordical';
   res.json({
     name: `${name} — Manager`,
     short_name: 'Manager',
-    description: `Manage ${name} on Zordic`,
+    description: `Manage ${name} on Zordical`,
     start_url: `/manager/${req.params.id}`,
     scope: `/manager/${req.params.id}`,
     display: 'standalone',
@@ -295,7 +295,7 @@ app.post('/api/onboard', async (req, res) => {
       const phone = ownerPhone.replace(/\D/g,'').slice(-10);
       const chatId = '91' + phone + '@c.us';
       const welcomeMsg =
-        `☕ *Welcome to Zordic California!*\n\n` +
+        `☕ *Welcome to Zordical!*\n\n` +
         `Hi ${ownerName}! Your café *${businessName}* is now live.\n\n` +
         `🔗 Customer page: ${BASE_URL}/cafe/${id}\n` +
         `🛠 Manager dashboard: ${BASE_URL}/manager/${id}\n` +

@@ -71,7 +71,7 @@ app.post('/api/businesses/:id/google-review/:claimId/approve', requireAuth, requ
   // Notify customer via WhatsApp
   if (whatsappClient) {
     try {
-      const business = businesses.find(b => b.id === id) || { name: 'Zordic California' };
+      const business = businesses.find(b => b.id === id) || { name: 'Zordical' };
       const chatId = '91' + claim.phone + '@c.us';
       const newBal = card ? card.points : '?';
       await whatsappClient.sendMessage(chatId,
@@ -109,7 +109,7 @@ app.post('/api/businesses/:id/google-review/:claimId/reject', requireAuth, requi
   if (whatsappClient) {
     try {
       const chatId = '91' + claims[idx].phone + '@c.us';
-      const business = businesses.find(b => b.id === id) || { name: 'Zordic California', review: '' };
+      const business = businesses.find(b => b.id === id) || { name: 'Zordical', review: '' };
       await whatsappClient.sendMessage(chatId,
         `😔 We couldn't verify a Google review under the name *${claims[idx].reviewerName}*.
 

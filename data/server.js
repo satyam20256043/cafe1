@@ -1114,7 +1114,7 @@ function runTrialReminders() {
       try { if (fs.existsSync(noticesFile)) notices = JSON.parse(fs.readFileSync(noticesFile, 'utf-8')); } catch (e) {}
       if (notices.sent && notices.sent[String(daysLeft)]) continue; // already sent, ever
 
-      const msg = `⏳ Your Zordic free trial ends in ${daysLeft} day(s)! Keep your AI receptionist working — reply here or visit your dashboard to pick a plan. ☕`;
+      const msg = `⏳ Your Zordical free trial ends in ${daysLeft} day(s)! Keep your AI receptionist working — reply here or visit your dashboard to pick a plan. ☕`;
       sendWhatsAppToCustomer(b.id, b.ownerPhone, msg).catch(() => {});
 
       notices.sent = notices.sent || {};
@@ -2446,7 +2446,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   db.createPasswordResetOtp(staff.id, code, expiresAt);
 
   const sent = await sendWhatsAppToCustomer(businessId, staff.phone,
-    `🔐 Your Zordic California password reset code is: *${code}*\n\nThis code expires in 10 minutes. If you didn't request this, you can ignore this message.`);
+    `🔐 Your Zordical password reset code is: *${code}*\n\nThis code expires in 10 minutes. If you didn't request this, you can ignore this message.`);
   if (!sent) return res.status(500).json({ error: 'Failed to send the WhatsApp message. Try again shortly.' });
 
   res.json({ success: true, message: 'Code sent via WhatsApp' });
@@ -2926,7 +2926,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`☕ Zordic California running on http://localhost:${PORT}`);
+  console.log(`☕ Zordical running on http://localhost:${PORT}`);
 
   // Re-link any café already connected via QR (sessions restore silently).
   restoreQrClients();

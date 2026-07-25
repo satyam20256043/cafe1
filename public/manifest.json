@@ -1,7 +1,7 @@
 {
-  "name": "Zordic California",
-  "short_name": "Zordic",
-  "description": "Zordic California \u2014 Multi-tenant Caf\u00e9 SaaS Platform",
+  "name": "Zordical",
+  "short_name": "Zordical",
+  "description": "Zordical \u2014 Multi-tenant Caf\u00e9 SaaS Platform",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#C9A84C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Zordic California">
+<meta name="apple-mobile-web-app-title" content="Zordical">
 <meta name="description" content="Premium café experience — menu, ordering & loyalty rewards">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Cinzel:wght@400;500;600&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
@@ -704,7 +704,7 @@
       <div class="loyalty-card">
         <div class="loyalty-card-header">
           <div>
-            <div class="loyalty-card-brand" id="lc-branch">ZORDIC CA</div>
+            <div class="loyalty-card-brand" id="lc-branch">ZORDICAL</div>
             <div class="loyalty-card-name" id="lc-name">Guest</div>
             <div style="font-size:12px;color:rgba(255,255,255,0.35);margin-top:4px" id="lc-phone"></div>
           </div>
@@ -909,7 +909,7 @@
   </div>
   <div class="footer-bottom">
     <span>© 2026 <span id="footer-year-name">this café</span>. All rights reserved.</span>
-    <a href="/website.html" target="_blank" style="color:var(--gold);text-decoration:none;font-family:'Cinzel',serif;font-size:10px;letter-spacing:2px;">☕ Powered by Zordic California</a>
+    <a href="/website.html" target="_blank" style="color:var(--gold);text-decoration:none;font-family:'Cinzel',serif;font-size:10px;letter-spacing:2px;">☕ Powered by Zordical</a>
     <a id="footer-admin-link" href="#" class="admin-link">🔐 Staff Login</a>
   </div>
 </footer>
@@ -1513,7 +1513,7 @@
   function renderLoyaltyCard(card, history) {
     if (!card) return;
     document.getElementById('lc-name').textContent = card.name || card.customer_name || 'Guest';
-    const branchEl = document.getElementById('lc-branch'); if(branchEl) branchEl.textContent = (window._branchName||'ZORDIC CA').toUpperCase();
+    const branchEl = document.getElementById('lc-branch'); if(branchEl) branchEl.textContent = (window._branchName||'ZORDICAL').toUpperCase();
     const phoneEl  = document.getElementById('lc-phone');  if(phoneEl)  phoneEl.textContent  = loyaltyPhone ? '+91 ' + loyaltyPhone.slice(-10) : '';
     const tierEl = document.getElementById('lc-tier');
     tierEl.textContent = card.tier || 'New';

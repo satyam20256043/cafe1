@@ -1,4 +1,4 @@
-# ZORDIC IMPROVEMENTS ROADMAP — v1.0 (for a Haiku execution session)
+# ZORDICAL IMPROVEMENTS ROADMAP — v1.0 (for a Haiku execution session)
 
 Six small, sharply-scoped packages that close the revenue leaks and reliability gaps found in
 the 2026-07-19 product analysis. Execute **IMP0 → IMP5 in order, committing after each**.
@@ -26,7 +26,7 @@ own package originally scoped.
 - Repo: **`C:\Users\SSJ\OneDrive\Desktop\cafe-ai-bot`** (NOT `C:\Users\SSJ\Desktop\...` — Desktop
   moved under OneDrive). Branch **`master`** only. Work only in `data\` + `public\` + `docs\`.
   Root `server.js` is a frozen legacy monolith — never edit it.
-- Production: live at zordic.in (Lightsail, pm2 app name `zordic`). ONE real café is live
+- Production: live at zordic.in (Lightsail, pm2 app name `zordical`). ONE real café is live
   (`the_roasted_bean_mren3zjb`, WhatsApp linked via QR mode). Be careful: every commit here
   ships to a live business on the next deploy.
 - Local test server: launch via **Bash**: `node data/server.js` (port 3010). NEVER use the
@@ -248,7 +248,7 @@ the corrupt path raise an alert (revert the temp change); `data/ops_alerts.json`
    for each business where `subscriptionStatus === 'trial'` and `trialEndsAt` exists, compute
    `daysLeft = Math.ceil((new Date(trialEndsAt) - Date.now())/86400000)`; if `daysLeft === 5`
    or `daysLeft === 1`, and the café has an `ownerPhone`, send via `sendWhatsAppToCustomer`:
-   `⏳ Your Zordic free trial ends in ${daysLeft} day(s)! Keep your AI receptionist working — reply here or visit your dashboard to pick a plan. ☕`
+   `⏳ Your Zordical free trial ends in ${daysLeft} day(s)! Keep your AI receptionist working — reply here or visit your dashboard to pick a plan. ☕`
    Track sends in `data/<branchId>/trial_notices.json` (`{ sent: { "5": iso, "1": iso } }`)
    so each notice goes at most once ever per café.
 2. **Manager banner** in `public/manager.html`: the page already loads `business` — after load

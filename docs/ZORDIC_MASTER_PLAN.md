@@ -1,4 +1,4 @@
-# ZORDIC CALIFORNIA — Master Plan
+# ZORDICAL CALIFORNIA — Master Plan
 **Audit · Market Analysis · Product Strategy · Roadmap**
 
 Version 1.0 — 6 July 2026
@@ -8,13 +8,13 @@ Scope: Steps 1–3 of the product charter (understand → research → philosoph
 
 ## 0. Executive Summary
 
-Zordic California is a feature-rich prototype with the **right product DNA** — it is already retention-first (loyalty, win-back, birthday campaigns, review gamification, AI chat) rather than POS-first, which is exactly where the market is heading. But it is currently **demo-grade**: 55 documented defects including 8 critical security holes, two parallel codebases, four overlapping customer data stores, three conflicting loyalty-tier schemes, and real-time events that broadcast every tenant's data to every connected browser. It cannot be rented to a single paying café in its current state.
+Zordical is a feature-rich prototype with the **right product DNA** — it is already retention-first (loyalty, win-back, birthday campaigns, review gamification, AI chat) rather than POS-first, which is exactly where the market is heading. But it is currently **demo-grade**: 55 documented defects including 8 critical security holes, two parallel codebases, four overlapping customer data stores, three conflicting loyalty-tier schemes, and real-time events that broadcast every tenant's data to every connected browser. It cannot be rented to a single paying café in its current state.
 
-**The market opening (one sentence):** In India, the POS layer is commoditized (Petpooja won distribution), the engagement layer is campaign *tooling* that still makes the owner do the thinking (Reelo), and nobody has shipped an **autonomous AI growth manager** that owns the customer conversation (WhatsApp), owns the transaction surface (QR ordering + reservations), runs lifecycle marketing itself, and reports *attributable rupees* back to the owner every week. Zordic already has all the raw ingredients for this. No competitor has all four.
+**The market opening (one sentence):** In India, the POS layer is commoditized (Petpooja won distribution), the engagement layer is campaign *tooling* that still makes the owner do the thinking (Reelo), and nobody has shipped an **autonomous AI growth manager** that owns the customer conversation (WhatsApp), owns the transaction surface (QR ordering + reservations), runs lifecycle marketing itself, and reports *attributable rupees* back to the owner every week. Zordical already has all the raw ingredients for this. No competitor has all four.
 
 **Top 5 moves, in order:**
 1. **Phase 0 — Trust & Isolation (2 weeks):** fix the 8 critical security holes + cross-tenant socket leak, rotate exposed keys, freeze the legacy codebase. Non-negotiable before the first paying tenant.
-2. **Build the attribution loop:** every campaign carries a coupon code that is tracked through to a paid order. This single feature converts Zordic from "nice dashboard" to "provable ROI machine" — and is the sales engine for the SaaS itself.
+2. **Build the attribution loop:** every campaign carries a coupon code that is tracked through to a paid order. This single feature converts Zordical from "nice dashboard" to "provable ROI machine" — and is the sales engine for the SaaS itself.
 3. **Ship the Daily Growth Brief:** a 7 AM WhatsApp message + dashboard card telling the owner what happened yesterday and the 3 highest-value actions today, each approvable with one tap. This is the "AI employee" experience.
 4. **Consolidate the data model** (one customer record, one loyalty scheme) so the AI's recommendations are trustworthy.
 5. **Demote accounting, kill legacy surfaces:** P&L/GST/expenses become data feeds for profit advice, not a product; legacy pages and the Puppeteer WhatsApp mode get removed.
@@ -41,10 +41,10 @@ Grounded in: direct reads of `db.js`, `auth.js`, `backup.js`, `whatsapp-api.js`,
 
 ## A2. Strengths (protect these — do not rewrite)
 
-1. **Retention-first feature set.** Loyalty points *and* stamps, tier ladders, birthday campaigns, at-risk detection, review gamification (THANKYOU15/REVIEW15 coupons), win-back offers. Competitors sell these as add-ons; Zordic has them native.
+1. **Retention-first feature set.** Loyalty points *and* stamps, tier ladders, birthday campaigns, at-risk detection, review gamification (THANKYOU15/REVIEW15 coupons), win-back offers. Competitors sell these as add-ons; Zordical has them native.
 2. **The `INTENT:` protocol is the correct AI architecture.** LLM does language understanding; auditable local code performs every state change. This is production-grade thinking most AI prototypes lack. Extend it — never bypass it.
 3. **India-fit is real, not cosmetic.** Hinglish detection, ₹ pricing, GST reports, Razorpay, WhatsApp-first. US platforms cannot cheaply replicate this.
-4. **Zordic owns the transaction surface.** QR ordering + reservations + loyalty in one system means campaign→visit→spend attribution needs **no POS integration**. This is Reelo's structural weakness and Zordic's structural advantage.
+4. **Zordical owns the transaction surface.** QR ordering + reservations + loyalty in one system means campaign→visit→spend attribution needs **no POS integration**. This is Reelo's structural weakness and Zordical's structural advantage.
 5. **Modular `routeCtx` design** in the current codebase (10 route modules, dependency-injected context) — a sane extension point.
 6. **Real-time backbone** (Socket.io) already wired into kitchen, ordering, dashboards.
 7. **The manual itself** — a 6,800-line living document with a defect catalogue. Few startups have this asset. Keep it updated as part of definition-of-done.
@@ -101,7 +101,7 @@ From the defect catalogue (all verified against code) plus two found in this aud
 
 - **Six distinct visual palettes/style systems** across pages; no shared design system. `manager.html` is a 196 KB single file (the repo even contains `clean_manager.js` — a script written just to remove its duplicated CSS blocks).
 - Dashboards are **data-dense tables, not decisions** — the owner must interpret raw numbers, which violates the product philosophy directly.
-- `alert()` used for errors; inconsistent brand naming in UI (Café Command HQ / Zordic California / CaféGrow); `window._branchName` bug shows "ZORDIC CA" on every loyalty card (BUG-4); broken notification icon in KDS (BUG-3).
+- `alert()` used for errors; inconsistent brand naming in UI (Café Command HQ / Zordical / CaféGrow); `window._branchName` bug shows "ZORDICAL CA" on every loyalty card (BUG-4); broken notification icon in KDS (BUG-3).
 - Mobile: customer pages are PWA-ready (good), staff dashboards are desktop-first — but Indian café owners live on their phones. The **owner experience must be phone-first** (and the Daily Brief lands on WhatsApp precisely for this reason).
 
 ## A7. Missing Functionality (vs. the growth-platform goal)
@@ -122,7 +122,7 @@ From the defect catalogue (all verified against code) plus two found in this aud
 
 ## B1. Competitor Landscape
 
-| Platform | Focus / market | Strengths | Weaknesses & the gap Zordic exploits |
+| Platform | Focus / market | Strengths | Weaknesses & the gap Zordical exploits |
 |---|---|---|---|
 | **Toast** (US) | Full POS ecosystem | ToastIQ AI assistant (Oct 2025) grounded in own data, can act (86 items, stock); loyalty across all surfaces | US-only; hardware lock-in; loyalty locked in **$185/mo Marketing Essentials bundle** on top of base POS; AI is *operations*-first, not customer-conversation-first |
 | **Square for Restaurants** (US) | SMB POS | Cheap entry, clean UX, easy setup | Generic retention, weak restaurant CRM depth, no WhatsApp, minimal India presence |
@@ -138,12 +138,12 @@ From the defect catalogue (all verified against code) plus two found in this aud
 ## B2. What Everyone Gets Wrong — the Opening
 
 1. **Every platform gives dashboards; owners need decisions.** Even ToastIQ (the best AI in the space) is ops-focused, US-only, and priced for US margins.
-2. **The engagement layer and the transaction layer are separate products everywhere.** Reelo needs Petpooja's data; Petpooja sells Reelo's features as dumb add-ons. Zordic natively has both → attribution without integration.
-3. **WhatsApp is the retention channel in India in 2026** (even Reelo's own positioning says loyalty conversations are moving to WhatsApp) — but no one has put an *AI that talks back* on that channel. Zordic's chatbot already takes reservations, answers menu questions in Hinglish, and manages loyalty over chat.
+2. **The engagement layer and the transaction layer are separate products everywhere.** Reelo needs Petpooja's data; Petpooja sells Reelo's features as dumb add-ons. Zordical natively has both → attribution without integration.
+3. **WhatsApp is the retention channel in India in 2026** (even Reelo's own positioning says loyalty conversations are moving to WhatsApp) — but no one has put an *AI that talks back* on that channel. Zordical's chatbot already takes reservations, answers menu questions in Hinglish, and manages loyalty over chat.
 4. **Add-on pricing fatigue.** Petpooja and Toast both monetize retention as expensive add-ons. A flat, honest price with provable ROI is a wedge.
 
 **Positioning statement:**
-> *Zordic is the AI growth manager your café hires for less than one day of a waiter's salary per month. It answers your customers on WhatsApp, fills your slow days, brings back the ones about to leave you — and shows you exactly how many rupees it earned you every week.*
+> *Zordical is the AI growth manager your café hires for less than one day of a waiter's salary per month. It answers your customers on WhatsApp, fills your slow days, brings back the ones about to leave you — and shows you exactly how many rupees it earned you every week.*
 
 **Deliberately NOT building (never copy):** full POS billing, inventory management, payroll, aggregator/delivery management, accounting suite. Integrate with Petpooja et al. later (Phase 4) — their POS becomes a data source, not a competitor.
 
@@ -155,7 +155,7 @@ From the defect catalogue (all verified against code) plus two found in this aud
 | **Growth** | ₹4,999/mo | + WhatsApp channel, Auto-Pilot lifecycle campaigns, churn radar, Daily Growth Brief, attribution reports |
 | **Franchise** | ₹9,999/branch/mo | + multi-branch benchmarking, franchise HQ views, API access, priority support |
 
-Anchors: Petpooja base + loyalty + WhatsApp add-ons lands in the same range with zero intelligence; Toast's loyalty bundle alone is ~₹15,500/mo. Renewal engine = the Weekly Impact Report ("Zordic earned you ₹23,400 this month — 4.7× your subscription"). 14-day trial (the `trialEndsAt` field already exists).
+Anchors: Petpooja base + loyalty + WhatsApp add-ons lands in the same range with zero intelligence; Toast's loyalty bundle alone is ~₹15,500/mo. Renewal engine = the Weekly Impact Report ("Zordical earned you ₹23,400 this month — 4.7× your subscription"). 14-day trial (the `trialEndsAt` field already exists).
 
 ---
 
@@ -204,7 +204,7 @@ Close SEC-1…8, NEW-1, NEW-2; Socket.io rooms per `businessId` (BUG-1, BUG-10);
 1. **Unified customer record**: merge the four stores into one SQLite-backed record; one loyalty tier function; normalized phones; migration script with dry-run.
 2. **Attribution**: every campaign/offer generates a unique coupon code → redeemed at order time → campaign ROI table (sent / redeemed / revenue / cost).
 3. **Daily Growth Brief** (7 AM, WhatsApp + dashboard card): yesterday's revenue vs 4-week same-weekday baseline, anomaly callouts, top 3 actions each with predicted value and a one-tap **Approve** (e.g., "Send win-back to 14 customers who used to visit weekly — expected ₹2,100"). Gemini writes the narrative; deterministic code computes the numbers (INTENT-protocol discipline).
-4. **Weekly Zordic Impact Report**: attributable revenue, retention movement, ROI multiple — doubles as your renewal/sales engine.
+4. **Weekly Zordical Impact Report**: attributable revenue, retention movement, ROI multiple — doubles as your renewal/sales engine.
 
 **Impact:** win-back alone (200 at-risk × 10% return × ₹250 × ~2 visits) ≈ ₹10k/mo/café; birthday campaigns typically redeem 15–25%; owner saves ~5 h/week; your SaaS churn drops because value is visible. **Highest ROI phase in the plan.**
 
@@ -245,7 +245,7 @@ AWS Stage-1 deployment (Part E) · Razorpay **subscription** automation + webhoo
 
 | Metric | Target | Why |
 |---|---|---|
-| 30-day repeat-visit rate | +20% vs café's pre-Zordic baseline | Retention is the product's core promise |
+| 30-day repeat-visit rate | +20% vs café's pre-Zordical baseline | Retention is the product's core promise |
 | 2nd-visit conversion (new → returning) | >35% | Highest-leverage number in café economics |
 | At-risk win-back rate | >10% of contacted | Direct revenue, fully attributable |
 | Campaign ROI (revenue ÷ discount cost) | >4× | Keeps offers profitable, not margin-burning |

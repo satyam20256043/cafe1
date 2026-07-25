@@ -1,4 +1,4 @@
-# ZORDIC LEADS PIPELINE GUIDE — v1.0 (for a Sonnet execution session)
+# ZORDICAL LEADS PIPELINE GUIDE — v1.0 (for a Sonnet execution session)
 
 Build a sales **Leads pipeline** into the private HQ admin panel: an editable, Excel-like
 tracker of prospective cafés with a colour-coded status dropdown (plus custom statuses the
@@ -14,7 +14,7 @@ line in §0 when ready.
 
 ## 0. Context — read first
 
-- **Zordic California** is a multi-tenant café SaaS, live at `https://zordic.in`. The `/hq*`
+- **Zordical** is a multi-tenant café SaaS, live at `https://zordic.in`. The `/hq*`
   admin panel is double-gated (Caddy HTTP Basic Auth + app admin login) and is the ONLY place
   with cross-tenant / operator visibility.
 - **⚠️ REPO PATH CHANGED**: the local repo is now at **`C:\Users\SSJ\OneDrive\Desktop\cafe-ai-bot`**
@@ -23,7 +23,7 @@ line in §0 when ready.
 - Repo `github.com/satyam20256043/cafe1`, branch **`master`** only (GitHub default `main` is an
   unrelated scaffold — never use it). Deploy is a single line (the Lightsail browser SSH
   corrupts multi-line pastes):
-  `cd ~/zordic && git pull origin master && pm2 restart zordic --update-env && pm2 logs zordic --lines 15 --nostream`
+  `cd ~/zordical && git pull origin master && pm2 restart zordical --update-env && pm2 logs zordical --lines 15 --nostream`
 - **Work only in `data\` + `public\hq.html`.** Root `server.js` is a frozen legacy monolith.
 - **What this feature is (and is NOT):** it tracks **prospects** — cafés you are pitching that
   have NOT signed up yet. That is different data from the tenant cafés in `businesses.json` /
@@ -35,7 +35,7 @@ line in §0 when ready.
   `branches`, `datasheet`, `revenue`, `settings`, `staff`, `billing`, `activity`. You will add
   `leads`. Read hq.html first to copy the exact tab-button markup, the tab-content container
   pattern, the auth-header helper it uses for fetches, and its CSS tokens (espresso/gold, from
-  `public/zordic-ui.css`: `--z-gold #C9A84C`, `--z-espresso #0D0705`, `--z-bg`, `--z-border`,
+  `public/zordical-ui.css`: `--z-gold #C9A84C`, `--z-espresso #0D0705`, `--z-bg`, `--z-border`,
   `--z-success`, `--z-danger`).
 - `data/routes/extras.js` destructures `requireAuth, requireRole` from ctx and has working
   `loadAgencySettings()`/`saveAgencySettings()`. Its admin endpoints use
@@ -170,7 +170,7 @@ import round-trips it back. Zero console errors. (Do NOT screenshot other cafés
    both directions; a café owner (manager role) hitting `/api/leads` gets 403 (prove the guard).
 3. Test-data purge (§4). `git status` clean except the known `data/data/backups/*` artifact.
 4. Push; give the user the single-line deploy; note nothing in the customer/owner apps changed.
-5. Update this guide's Status line + session memory (`project-zordic-california.md`).
+5. Update this guide's Status line + session memory (`project-zordical-california.md`).
 **Commit:** `LEAD3: convert-lead-to-cafe, admin-guard regression, deploy`
 
 ## 4. Testing protocol

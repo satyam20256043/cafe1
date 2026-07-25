@@ -51,7 +51,7 @@ function raiseAlert(kind, branchId, message) {
   const phone = process.env.OPERATOR_ALERT_PHONE;
   if (phone && _sendWhatsAppToCustomer) {
     try {
-      Promise.resolve(_sendWhatsAppToCustomer(branchId, phone, `🔔 Zordic ops alert\n${kind} — ${branchId}\n${message}`))
+      Promise.resolve(_sendWhatsAppToCustomer(branchId, phone, `🔔 Zordical ops alert\n${kind} — ${branchId}\n${message}`))
         .catch(() => {});
     } catch (e) { /* best-effort — never let alerting itself break the caller */ }
   }

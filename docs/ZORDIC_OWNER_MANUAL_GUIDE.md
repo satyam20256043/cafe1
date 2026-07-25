@@ -1,4 +1,4 @@
-# ZORDIC OWNER MANUAL GUIDE — v1.0 (for a Sonnet execution session)
+# ZORDICAL OWNER MANUAL GUIDE — v1.0 (for a Sonnet execution session)
 
 **Status: M0–M4 all complete** (2026-07-11) — `public/Zordic-Owner-Guide.pdf` shipped, 32 pages,
 3.2MB, 21 annotated screenshots across 20 screens + 5 written-only chapters (Getting Started,
@@ -30,7 +30,7 @@ re-derive; reuse.
   10-day trial, plans incl. "Premium AI receptionist powered by Claude" on Growth/Pro.
 - **Style**: numbered gold callout badges (not hand-drawn arrows) + a matching numbered
   legend under each screenshot — cleaner, fully scriptable, professional-manual standard.
-  Brand: espresso `#2A2018`, gold `#C9A84C`, cream `#FAF7F0` (tokens in `public/zordic-ui.css`);
+  Brand: espresso `#2A2018`, gold `#C9A84C`, cream `#FAF7F0` (tokens in `public/zordical-ui.css`);
   logos: `public/logo.svg` (light bg), `public/logo-dark.svg` (dark bg).
 
 ## 1. Ground rules
@@ -178,7 +178,7 @@ For every screen: navigate, wait for data, annotate the key controls, snap. Chap
 16. **Data Sheets** — dataset pills, export CSV button ("your data is yours").
 17. **Settings** — café details, change password, **WhatsApp connect** (Phone Number ID /
     Access Token / Test button — pair with a simplified 3-step summary and a pointer that
-    Zordic support helps with this step), Razorpay keys, billing/plan info if shown.
+    Zordical support helps with this step), Razorpay keys, billing/plan info if shown.
 18. **Owner Portal** `/portal/<id>` — login as same user; revenue overview, menu editor,
     chat history panel (this is the away-from-café view).
 19. **Customer order page** `/order/<id>?table=5` — what guests see: menu, cart, place
@@ -191,7 +191,7 @@ wait was too short — retry that screen; `waitForSelector` on a tab-specific el
 
 ### M2 — Write the manual content (guide.html in scratchpad)
 A4 print CSS (`@page { size: A4; margin: 14mm }`), brand fonts/colors, cover page
-(logo.svg, title "Zordic — Owner & Manager Guide", zordic.in, version/date), table of
+(logo.svg, title "Zordical — Owner & Manager Guide", zordic.in, version/date), table of
 contents, then one chapter per screen: intro paragraph (what this screen is FOR, in
 owner-benefit language) → `<img>` (max-width 100%, border, subtle shadow) → numbered legend
 (`<ol>`) where **every badge number gets 1–3 sentences**: what the control does + when/why
@@ -202,7 +202,7 @@ to use it. Also non-screenshot chapters:
   then Chats; evening: Orders & Revenue glance)
 - "How the AI receptionist works for you" (auto-answers, when it escalates to you — the four
   triggers — and the discount ceilings YOU control)
-- "Connecting WhatsApp" (simplified; heavy lifting referenced to Zordic support — do NOT
+- "Connecting WhatsApp" (simplified; heavy lifting referenced to Zordical support — do NOT
   reproduce docs/CAFE_WHATSAPP_ONBOARDING.md's admin-level detail)
 - FAQ/Troubleshooting (forgot password → WhatsApp OTP; AI not replying → check WhatsApp
   connection in Settings + contact support; wrong menu price → Menu tab, Save)
@@ -225,7 +225,7 @@ The PDF is auto-served at `https://zordic.in/Zordic-Owner-Guide.pdf` after deplo
    (+ this guide's status line update):
    `docs: owner & manager guide PDF with annotated screenshots`
 3. Push; give the user the single-line deploy
-   (`cd ~/zordic && git pull origin master && pm2 restart zordic --update-env && pm2 logs zordic --lines 15 --nostream`);
+   (`cd ~/zordical && git pull origin master && pm2 restart zordical --update-env && pm2 logs zordical --lines 15 --nostream`);
    after deploy the link to share with café owners is `zordic.in/Zordic-Owner-Guide.pdf`.
 4. Update session memory (project file): manual shipped, where it lives, how to regenerate
    (this guide).

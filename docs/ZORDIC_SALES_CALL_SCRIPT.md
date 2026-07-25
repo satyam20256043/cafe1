@@ -1,4 +1,4 @@
-# Zordic — Phone Call Script & Conversation Guide
+# Zordical — Phone Call Script & Conversation Guide
 
 For calling café/restaurant owners. Read once fully, then keep the **Cheat Card** (bottom)
 open during calls. Lines in quotes are meant to be said almost verbatim — but say them like
@@ -31,7 +31,7 @@ Never end a call without one of these three.
 
 **Cold call:**
 > "Hi, am I speaking with the owner of [Café Name]? ... Great — my name is Satyam,
-> I run a small tech company called Zordic. We help cafés get more repeat customers
+> I run a small tech company called Zordical. We help cafés get more repeat customers
 > using WhatsApp. I'm not selling a POS machine, I promise. Do you have 3 minutes,
 > or should I call at a better time?"
 
@@ -41,7 +41,7 @@ respects their time. If they say "busy" → **"No problem — is 4 PM okay, or t
 (offer two options, never "when are you free?").
 
 **If a lead came from the website/referral:**
-> "Hi [Name], you'd checked out Zordic online / [X] gave me your number — calling to
+> "Hi [Name], you'd checked out Zordical online / [X] gave me your number — calling to
 > personally answer any questions. What made you curious about it?"
 Then go straight to Discovery — they'll tell you their pain themselves.
 
@@ -65,7 +65,7 @@ this is the single most persuasive thing you can do on a phone call.
 ## 3. The pitch (minutes 3–6) — lead with THEIR pain
 
 **Bridge line (always):**
-> "So what Zordic is — think of it as an AI receptionist that lives inside your
+> "So what Zordical is — think of it as an AI receptionist that lives inside your
 > WhatsApp number. Your customers message the same number they already have.
 > The difference is: now every message gets answered in seconds, 24 hours a day."
 
@@ -77,13 +77,13 @@ Then pick the ONE lane matching their discovery answer:
 > and it's on your dashboard before you wake up. You lose zero bookings to slow replies."
 
 **Lane B — slow weekdays:**
-> "You said Tuesdays are dead. Every Monday morning Zordic looks at your actual sales
+> "You said Tuesdays are dead. Every Monday morning Zordical looks at your actual sales
 > and sends you one suggestion — like 'Tuesday 3–6 PM, 15% off, send to your regulars.'
 > You tap approve once, it goes to your customers on WhatsApp. That's your marketing
 > department, for the price of a few coffees."
 
 **Lane C — customers disappear:**
-> "Zordic quietly notices every regular who hasn't come in 2 weeks, writes them a
+> "Zordical quietly notices every regular who hasn't come in 2 weeks, writes them a
 > personal WhatsApp message with a small offer and a coupon code, and — this is the
 > part owners love — you SEE who actually came back and spent money. Not likes,
 > not views. Rupees."
@@ -127,7 +127,7 @@ Then pick the ONE lane matching their discovery answer:
 > 30 days are free with no card, so the risk is literally zero."
 
 **"I'm not technical."**
-> "Perfect, it's built for you then. If you can use WhatsApp, you can use Zordic.
+> "Perfect, it's built for you then. If you can use WhatsApp, you can use Zordical.
 > There's a full picture-guide for every button, and I personally help you set up —
 > including the WhatsApp connection, which is the only technical step, and I do
 > that WITH you."
@@ -178,7 +178,7 @@ right now."** → show them the dashboard opens.
 > "Good talking, [Name]! As promised:
 > ▸ 2-min demo: zordic.in/pitch
 > ▸ Full guide: zordic.in/Zordic-Owner-Guide.pdf
-> The trial is 30 days free, no card. Calling you [day] at [time] as agreed. — Satyam, Zordic"
+> The trial is 30 days free, no card. Calling you [day] at [time] as agreed. — Satyam, Zordical"
 
 **If no:**
 > "Thanks for your time today, [Name]. No follow-ups from me — but if slow Tuesdays
@@ -186,7 +186,7 @@ right now."** → show them the dashboard opens.
 (A graceful no today is a warm lead in 3 months. Owners talk to each other.)
 
 **Didn't pick up — voicemail/missed-call text:**
-> "Hi [Name], Satyam from Zordic here — we help cafés like [Café] turn WhatsApp
+> "Hi [Name], Satyam from Zordical here — we help cafés like [Café] turn WhatsApp
 > messages into bookings automatically. Sending a 2-min demo link here. Will try
 > you once tomorrow — or just reply with a good time. ☕"
 
@@ -217,7 +217,7 @@ right now."** → show them the dashboard opens.
 
 ## ☎️ CHEAT CARD (keep visible during calls)
 
-**OPEN:** Owner? → Satyam, Zordic → more repeat customers via WhatsApp → "3 minutes?"
+**OPEN:** Owner? → Satyam, Zordical → more repeat customers via WhatsApp → "3 minutes?"
 **ASK:** night messages? · slow day? · disappearing regulars? → LISTEN
 **PITCH:** their pain → one lane (A bookings / B slow days / C win-back) → safety line → ₹ math
 **SAFETY:** complaints/big groups/refunds → AI alerts YOU · you cap all discounts

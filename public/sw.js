@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// Zordic California — Service Worker (Phase 5 PWA)
+// Zordical — Service Worker (Phase 5 PWA)
 // ══════════════════════════════════════════════════════════════════════════════
 const CACHE_NAME    = 'cafe-hq-v3';
 const OFFLINE_PAGE  = '/offline.html';
@@ -72,7 +72,7 @@ self.addEventListener('fetch', event => {
 
 // ── Push Notifications ────────────────────────────────────────────────────────
 self.addEventListener('push', event => {
-  let data = { title: 'Zordic California', body: 'You have an update!', icon: '/favicon.ico', tag: 'cafe-update' };
+  let data = { title: 'Zordical', body: 'You have an update!', icon: '/favicon.ico', tag: 'cafe-update' };
   try { data = { ...data, ...event.data.json() }; } catch(e) {}
 
   event.waitUntil(

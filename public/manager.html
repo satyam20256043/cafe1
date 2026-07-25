@@ -7,8 +7,8 @@
 <meta name="theme-color" content="#C9A84C"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="apple-mobile-web-app-title" content="Zordic Manager"/>
-<title>Branch Manager — Zordic California</title>
+<meta name="apple-mobile-web-app-title" content="Zordical Manager"/>
+<title>Branch Manager — Zordical</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/zordic-ui.css"/>
@@ -351,7 +351,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 
 <aside class="sidebar">
   <div class="sidebar-logo" style="padding:14px 16px 10px">
-    <img src="/logo.svg" alt="Zordic California" style="height:28px;width:auto;margin-bottom:6px;display:block">
+    <img src="/logo.svg" alt="Zordical" style="height:28px;width:auto;margin-bottom:6px;display:block">
     <div class="branch-name" id="sidebar-branch-name" style="font-size:.75rem;opacity:.6;margin-top:2px">Loading…</div>
   </div>
   <nav class="sidebar-nav">
@@ -444,7 +444,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
     </a>
     <a id="link-marketing-site" href="/" class="back-btn" style="display:none">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-      Zordic Website
+      Zordical Website
     </a>
   </div>
 </aside>
@@ -3713,7 +3713,7 @@ async function setClientStatus(clientId, status) {
 }
 
 function sendWhatsAppToClient(phone, cafeName) {
-  const msg = encodeURIComponent('Hi! Following up on your Zordic California subscription for ' + cafeName + '.');
+  const msg = encodeURIComponent('Hi! Following up on your Zordical subscription for ' + cafeName + '.');
   window.open('https://wa.me/91' + phone.replace(/\D/g,'').slice(-10) + '?text=' + msg, '_blank');
 }
 
@@ -4056,7 +4056,7 @@ async function requestNotifPermission() {
     if (perm === 'granted') {
       toast('&#128276; Notifications enabled!','success');
       // Send a test notification
-      new Notification('Zordic Notifications ON', {
+      new Notification('Zordical Notifications ON', {
         body: 'You will now receive alerts for new orders, reservations and messages.',
         icon: '/icon-192.png'
       });
