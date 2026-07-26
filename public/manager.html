@@ -1417,7 +1417,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
   </div>
 </div>
 
-<div class="modal-overlay" id="new-order-modal" style="display:none" onclick="if(event.target===this)closeNewOrderModal()">
+<div class="modal-overlay" id="new-order-modal" onclick="if(event.target===this)closeNewOrderModal()">
   <div class="modal" style="max-width:520px">
     <div class="modal-title">🧾 New Manual Order</div>
     <div class="form-group"><label class="form-label">Customer Name <span style="color:var(--rose)">*</span></label><input class="form-input" id="no-name" placeholder="e.g. Walk-in customer"/></div>
@@ -1450,7 +1450,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
   </div>
 </div>
 
-<div class="modal-overlay" id="feedback-modal" style="display:none" onclick="if(event.target===this)closeFeedbackModal()">
+<div class="modal-overlay" id="feedback-modal" onclick="if(event.target===this)closeFeedbackModal()">
   <div class="modal" style="max-width:420px">
     <div class="modal-title">⭐ Rate This Order</div>
     <p style="font-size:13px;color:#aaa;margin:-4px 0 18px">Order marked as served. Quickly record customer feedback (optional).</p>
@@ -4106,7 +4106,7 @@ setTimeout(initNotifications, 2000);
 </script>
 
 <!-- Walk-in Customer Modal -->
-<div class="modal-overlay" id="walkin-modal" style="display:none" onclick="if(event.target===this)closeWalkinModal()">
+<div class="modal-overlay" id="walkin-modal" onclick="if(event.target===this)closeWalkinModal()">
   <div class="modal" style="max-width:420px">
     <div class="modal-title" style="display:flex;align-items:center;gap:10px">
       <span style="font-size:22px">🚶</span> Register Walk-in Customer

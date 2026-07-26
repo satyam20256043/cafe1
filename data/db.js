@@ -619,6 +619,7 @@ db.exec(`
     payment_method TEXT DEFAULT 'cash',   -- cash|razorpay|upi
     razorpay_order_id  TEXT,
     razorpay_payment_id TEXT,
+    staff_confirmed INTEGER DEFAULT 0,
     notes         TEXT,
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
