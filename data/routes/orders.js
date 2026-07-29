@@ -266,6 +266,20 @@ app.post('/api/businesses/:id/orders/:orderId/verify-payment', (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
   const { keyId, keySecret } = getRazorpayConfig(req.params.id);
   if (!keyId || !keySecret) return res.status(503).json({ error: 'Razorpay not configured' });
+  if (!db) return res.status(503).json({ error: 'DB not loaded' });
+
+  const order = db.getOrderById(req.params.orderId);
+  if (!order || order.business_id !== req.params.id) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+  // A valid signature only proves *some* payment happened with this café's
+  // key — it must also match the razorpay_order_id this specific order was
+  // issued at creation time (POST .../razorpay above), otherwise a signature
+  // captured from one (cheap) order could be replayed to mark any other
+  // order on this café "paid" for free.
+  if (!order.razorpay_order_id || order.razorpay_order_id !== razorpay_order_id) {
+    return res.status(400).json({ error: 'Payment does not match this order' });
+  }
 
   const crypto = require('crypto');
   const expectedSig = crypto.createHmac('sha256', keySecret)

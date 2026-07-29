@@ -11,6 +11,13 @@ module.exports = function register(ctx) {
 
   const PLANS_FILE = path.join(DATA_DIR, 'plans.json');
 
+  // razorpay_order_id -> { businessId, planId } recorded when create-order mints
+  // the order, and consumed (deleted) the moment verify-payment succeeds. This
+  // is the server's own record of what was actually paid for — verify-payment
+  // must never trust the client-supplied planId/businessId, since a request
+  // body is fully attacker-controlled.
+  const pendingSubscriptionOrders = new Map();
+
   function loadPlans() {
     try { return JSON.parse(fs.readFileSync(PLANS_FILE, 'utf-8')).plans; }
     catch(e) { return []; }
@@ -68,6 +75,7 @@ module.exports = function register(ctx) {
           planName: plan.name
         }
       });
+      pendingSubscriptionOrders.set(order.id, { businessId: biz.id, planId: plan.id });
       res.json({
         orderId: order.id,
         amount: order.amount,
@@ -84,8 +92,18 @@ module.exports = function register(ctx) {
   // ── POST /api/businesses/:id/billing/verify-payment ──────────────────────────
   // Verify Razorpay payment signature and activate subscription
   app.post('/api/businesses/:id/billing/verify-payment', requireAuth, (req, res) => {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
     if (!razorpay) return res.status(503).json({ error: 'Online payment is not enabled yet — please contact us to activate your plan.' });
+
+    // The planId/businessId to activate come ONLY from the server's own record of
+    // what create-order minted for this exact razorpay_order_id — never from the
+    // request body — otherwise a signature proving payment for the cheapest plan
+    // could be replayed with a different planId/business :id to activate a
+    // premium plan for free, for any business.
+    const pending = pendingSubscriptionOrders.get(razorpay_order_id);
+    if (!pending || pending.businessId !== req.params.id) {
+      return res.status(400).json({ error: 'No matching pending payment for this order' });
+    }
 
     const crypto = require('crypto');
     const expectedSig = crypto
@@ -97,8 +115,12 @@ module.exports = function register(ctx) {
       return res.status(400).json({ error: 'Payment verification failed — signature mismatch' });
     }
 
+    // One-time use — once consumed, the same valid signature can't be replayed
+    // again (against this business or any other) to re-activate anything.
+    pendingSubscriptionOrders.delete(razorpay_order_id);
+
     const plans = loadPlans();
-    const plan = plans.find(p => p.id === planId);
+    const plan = plans.find(p => p.id === pending.planId);
     if (!plan) return res.status(400).json({ error: 'Invalid plan' });
 
     const biz = businesses.find(b => b.id === req.params.id);

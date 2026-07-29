@@ -74,7 +74,10 @@ app.get('/api/businesses/:id/qr-tables', (req, res) => {
 });
 
 // ── Franchise group: get all branches sharing same owner ──────────────────────
-app.get('/api/businesses/:id/franchise-group', (req, res) => {
+// Full records (owner PII, subscription state, payment history) — only for
+// staff who already have legitimate access to :id itself (or a platform
+// admin), same trust tier as the full-roster GET /api/businesses above.
+app.get('/api/businesses/:id/franchise-group', requireAuth, requireBranchAccess, (req, res) => {
   const b = businesses.find(x => x.id === req.params.id);
   if (!b) return res.status(404).json({ error: 'Not found' });
   const groupId = b.franchiseGroupId || b.ownerPhone;
