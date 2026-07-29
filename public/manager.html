@@ -721,6 +721,12 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           <input id="chat-search" class="form-input" placeholder="Search name, phone or message…" oninput="filterChatConvos()" style="max-width:230px">
         </div>
         <div id="chats-body" style="max-height:65vh;min-height:200px;overflow-y:auto"></div>
+        <div id="chat-reply-bar" style="display:none;padding:12px 16px;border-top:1px solid var(--border);gap:8px;align-items:flex-end">
+          <textarea id="chat-reply-input" class="form-input" placeholder="Type a reply — sends straight to their WhatsApp…" rows="1"
+            style="flex:1;resize:none;max-height:100px;font-family:inherit"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendManualReply();}"></textarea>
+          <button class="btn sm primary" id="chat-reply-send-btn" onclick="sendManualReply()" style="white-space:nowrap">Send</button>
+        </div>
       </div>
     </div>
 
@@ -1923,6 +1929,7 @@ async function openChatThread(phone, name){
   _chatOpenName  = name;
   document.getElementById('chat-back-btn').style.display = '';
   document.getElementById('chat-search').style.display = 'none';
+  document.getElementById('chat-reply-bar').style.display = 'flex';
   document.getElementById('chats-title').textContent = name || 'Customer';
   document.getElementById('chats-sub').textContent = phone + ' · updates live';
   const body = document.getElementById('chats-body');
@@ -1960,9 +1967,36 @@ function backToChatConvos(){
   _chatOpenPhone = null; _chatOpenName = null;
   document.getElementById('chat-back-btn').style.display = 'none';
   document.getElementById('chat-search').style.display = '';
+  document.getElementById('chat-reply-bar').style.display = 'none';
   document.getElementById('chats-title').textContent = 'Conversations';
   document.getElementById('chats-sub').textContent = 'Newest first · updates live';
   loadChatConvos();
+}
+async function sendManualReply(){
+  const input = document.getElementById('chat-reply-input');
+  const text = input.value.trim();
+  if (!text || !_chatOpenPhone) return;
+  const btn = document.getElementById('chat-reply-send-btn');
+  btn.disabled = true;
+  input.value = '';
+  appendChatBubble('out', text, null); // optimistic — feels instant
+  try {
+    const res = await fetch(`/api/businesses/${branchId}/chat-history/reply`, {
+      method: 'POST', headers: getAuthHeaders(),
+      body: JSON.stringify({ phone: _chatOpenPhone, text })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Send failed');
+    }
+  } catch(e) {
+    console.error('[sendManualReply]', e);
+    showToast('❌ ' + e.message, true);
+    input.value = text; // give it back so nothing typed is lost
+  } finally {
+    btn.disabled = false;
+    input.focus();
+  }
 }
 function fmtChatTime(dt){
   if (!dt) return 'just now';
@@ -3027,7 +3061,9 @@ socket.on('whatsapp_state', data => {
 socket.on('inbound_chat', data=>{
   if(data.branchId!==branchId) return;
   if(data.sender==='ai') addSimBubble(data.text,'bot');
-  else {
+  else if(data.sender!=='staff') {
+    // Only a real inbound customer message warrants a "new message" notification —
+    // 'ai' and 'staff' are both outbound, already visible to whoever sent them.
     const sender = (data.message && data.message.from) ? data.message.from.replace('@c.us','').replace(/^91/,'') : 'Customer';
     const txt = (data.message && (data.message.body||data.message.text||'New message')) || 'New message';
     showBrowserNotif('💬 WhatsApp Message', sender + ': ' + txt.slice(0,80), 'wa_' + sender);
@@ -3039,7 +3075,7 @@ socket.on('inbound_chat', data=>{
     const evPhone = String(data.phone || '').replace(/\D/g, '').slice(-10);
     const openPhone = String(_chatOpenPhone || '').replace(/\D/g, '').slice(-10);
     if (_chatOpenPhone && evPhone === openPhone) {
-      appendChatBubble(data.sender === 'ai' ? 'out' : 'in', data.text || '', null);
+      appendChatBubble(data.sender === 'customer' ? 'in' : 'out', data.text || '', null);
     } else if (!_chatOpenPhone) {
       loadChatConvos();
     }

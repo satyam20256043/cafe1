@@ -898,4 +898,22 @@ app.get('/api/businesses/:id/chat-history', requireAuth, requireBranchAccess, (r
   res.json(convos);
 });
 
+// ── Manual staff reply from the Customer Chats tab ───────────────────────────
+// Lets a manager/owner reply to a customer directly from the dashboard —
+// same sendWhatsAppToCustomer dispatcher every automated send already uses
+// (Cloud API or QR, whichever this branch is on), so it works identically
+// to every other outbound message in the app. Logged as direction 'out' so
+// it appears in the thread exactly like an AI reply would.
+app.post('/api/businesses/:id/chat-history/reply', requireAuth, requireBranchAccess, async (req, res) => {
+  const { id } = req.params;
+  const { phone, text } = req.body;
+  if (!phone || !text || !text.trim()) return res.status(400).json({ error: 'Phone and message are required' });
+  const trimmed = text.trim();
+  const sent = await sendWhatsAppToCustomer(id, phone, trimmed);
+  if (!sent) return res.status(503).json({ error: "Could not send — check this café's WhatsApp connection in Settings" });
+  if (db) db.saveChatMessage(id, phone, null, 'out', trimmed, 'whatsapp');
+  emitToBranch(id, 'inbound_chat', { branchId: id, phone, text: trimmed, sender: 'staff' });
+  res.json({ success: true });
+});
+
 };
