@@ -652,6 +652,18 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         </div>
       </div>
 
+      <!-- New Customers Panel -->
+      <div class="panel" style="margin-bottom:14px;border-left:3px solid var(--sage)">
+        <div class="panel-head" style="cursor:pointer" onclick="toggleNewCustomers()">
+          <div><div class="panel-title">🆕 New Customers <span id="new-cust-count" style="font-size:12px;background:rgba(122,158,126,0.15);color:var(--sage);padding:2px 8px;border-radius:20px;margin-left:6px">—</span></div>
+          <div class="panel-sub">Registered in the last 7 days — via WhatsApp, table orders or walk-in</div></div>
+          <span id="new-cust-toggle-icon" style="font-size:18px;color:#aaa">▾</span>
+        </div>
+        <div id="new-cust-body" class="panel-body" style="padding-top:0">
+          <div id="new-cust-list" style="margin-bottom:10px"><div class="z-skel" style="height:14px;width:85%;margin-bottom:8px"></div><div class="z-skel" style="height:14px;width:70%"></div></div>
+        </div>
+      </div>
+
       <!-- Customer Insights Modal trigger row -->
       <div style="margin-bottom:14px;display:flex;gap:8px;align-items:center">
         <input id="insight-phone" type="text" class="input" placeholder="Enter customer phone to view insights..." style="flex:1">
@@ -2267,10 +2279,44 @@ async function loadCRM(){
       <td data-label="Last Active" style="font-size:12px;color:#aaa">${esc(c.lastActive||'—')}</td>
     </tr>`).join(''):'<tr><td colspan="7" style="color:#bbb;text-align:center;padding:24px">No customers yet</td></tr>';
 
+    renderNewCustomers(crm);
   } catch(e) {
     console.error('[loadCRM]', e);
     if(typeof toast==='function') toast('loadCRM failed — check console','error');
   }
+}
+
+// New Customers panel — derived from the same CRM fetch above, no extra
+// network call. firstSeen only exists on profiles created after this
+// feature shipped; older ones correctly never show up here (we don't know
+// when they actually joined, so it would be a guess to include them).
+let newCustExpanded = false;
+function toggleNewCustomers() {
+  newCustExpanded = !newCustExpanded;
+  const body = document.getElementById('new-cust-body');
+  const icon = document.getElementById('new-cust-toggle-icon');
+  if (body) body.style.display = newCustExpanded ? '' : 'none';
+  if (icon) icon.textContent = newCustExpanded ? '▾' : '▸';
+}
+function renderNewCustomers(crm) {
+  const list = document.getElementById('new-cust-list');
+  const countEl = document.getElementById('new-cust-count');
+  if (!list) return;
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recent = crm
+    .filter(c => c.firstSeen && new Date(c.firstSeen).getTime() >= cutoff)
+    .sort((a, b) => new Date(b.firstSeen) - new Date(a.firstSeen));
+  if (countEl) countEl.textContent = recent.length || '0';
+  if (!recent.length) { list.innerHTML = '<div style="color:#bbb;font-size:13px;padding:8px 0">No new customers in the last 7 days</div>'; return; }
+  list.innerHTML = recent.map(c => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="width:36px;height:36px;border-radius:50%;background:rgba(122,158,126,0.15);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🆕</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px">${esc(c.name || 'Customer')}</div>
+        <div style="font-size:11.5px;color:#aaa;font-family:monospace">${esc(c.phone)}</div>
+      </div>
+      <div style="font-size:11px;color:#aaa;white-space:nowrap">${fmtChatTime(c.firstSeen)}</div>
+    </div>`).join('');
 }
 
 async function broadcastCampaign(){

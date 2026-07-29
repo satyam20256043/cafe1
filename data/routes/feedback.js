@@ -30,13 +30,4 @@ module.exports = function register(ctx) {
     ).get(req.params.id, req.params.orderId);
     res.json(row || null);
   });
-
-  // GET /api/businesses/:id/feedback — list recent feedback for a branch
-  app.get('/api/businesses/:id/feedback', requireAuth, requireBranchAccess, (req, res) => {
-    if (!db) return res.json([]);
-    const rows = db.raw().prepare(
-      'SELECT * FROM feedback WHERE business_id=? ORDER BY created_at DESC LIMIT 50'
-    ).all(req.params.id);
-    res.json(rows);
-  });
 };

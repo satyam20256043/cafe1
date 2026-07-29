@@ -485,6 +485,7 @@ function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFiel
       visits: 0,
       tags: [],
       lastActive: new Date().toLocaleString(),
+      firstSeen: new Date().toISOString(),
       averageRating: 0,
       feedbackCount: 0,
       offersReceived: []
@@ -512,6 +513,7 @@ function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFiel
   }
   writeBranchData(branchId, 'customer_profiles.json', profiles);
   emitToBranch(branchId, 'crm_update', { branchId, profiles });
+  return profile;
 }
 
 // AI Helper: receptionist prompt builder (Phase 4 — Loyalty Aware) — shared by
@@ -660,11 +662,19 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
       : '';
     const knowledgeTopic = knowledgePairs.length ? ' the café facts listed above,' : '';
 
-    const prompt = `You are a warm, helpful, and natural human customer support assistant for "${business.name}" café.
-Your role is to:
-- Reply instantly, naturally, and warmly in a human-like host tone.
+    const prompt = `You are a warm, kind, and humble human host at "${business.name}" café — think of the
+best staff member the café has: genuinely glad to hear from every customer, never scripted or
+stiff, never showing off. Your role is to:
+- Reply instantly, naturally, and warmly, like a caring person, not a script.
 - Adapt to the customer's language automatically (English, Hindi, or Hinglish). Reply in the exact style and language of the customer query.
 - Maintain a cozy, welcoming café vibe.
+- Acknowledge how the customer feels before jumping to an answer — a quick "that sounds lovely!"
+  or "no worries at all" before the actual reply goes a long way. Never sound like a form letter.
+- Be humble, not a know-it-all: if you're genuinely unsure or it's outside what you know about
+  this café, say so plainly and warmly rather than guessing or overselling — that's what rule 1
+  below is for. Admitting "let me check on that for you" is kind, not a failure.
+- Match warmth to context: light and cheerful for everyday questions, calm and extra gentle for
+  anyone who sounds upset, frustrated, or in a hurry.
 
 Customer Context:
 - Name: ${customerName}
@@ -701,7 +711,8 @@ CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
 4. Feedback/review/rating → output exactly: INTENT:FEEDBACK
 5. Customer asks "what are my points", "how many stamps", "mera balance", "my rewards", "loyalty card" → output exactly: INTENT:LOYALTY_QUERY
 6. Customer wants to redeem stamps/points ("redeem", "free item", "use points") → output exactly: INTENT:LOYALTY_REDEEM
-7. Otherwise, keep replies concise (max 3 sentences) and conversational.
+7. Otherwise, keep replies concise (max 3 sentences), conversational, and warm — write it the way
+   a kind, humble host would actually say it out loud, not like a company reading a policy.
 
 Customer query: "${text}"
 Your Response:`;
@@ -1007,13 +1018,11 @@ const GROWTH_SLOW_DAY_RATIO = 0.7; // slowest weekday must be under 70% of the d
 // route/response coupling.
 function getAtRiskCount(branchId) {
   try {
-    const crmFile = path.join(DATA_DIR, branchId, 'crm.json');
-    if (!fs.existsSync(crmFile)) return 0;
-    const crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8'));
+    const profiles = getBranchData(branchId, 'customer_profiles.json');
     const now = Date.now();
-    return crm.filter(c => {
-      if (!c.lastVisit) return false;
-      const daysSince = (now - new Date(c.lastVisit).getTime()) / 86400000;
+    return profiles.filter(c => {
+      if (!c.lastActive) return false;
+      const daysSince = (now - new Date(c.lastActive).getTime()) / 86400000;
       return daysSince >= 21 && c.visits >= 2;
     }).length;
   } catch (e) { return 0; }
@@ -2002,11 +2011,9 @@ function runAutoPilotCampaign(branchId, forceDay = null) {
       timestamp: new Date().toISOString()
     });
 
-    // Send via WhatsApp if connected
-    if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-      const wid = cust.phone.includes('@') ? cust.phone : `${cust.phone}@c.us`;
-      whatsappClient.sendMessage(wid, msgText).catch(e => console.error('[WhatsApp Autopilot Error]', e));
-    }
+    // Send via WhatsApp (Cloud API or QR, whichever this branch is on)
+    sendWhatsAppToCustomer(branchId, cust.phone, msgText, { bulk: true })
+      .catch(e => console.error('[WhatsApp Autopilot Error]', e));
 
     // Emit live chat simulator log (branch staff + agency only)
     emitToBranch(branchId, 'inbound_chat', {
@@ -2888,21 +2895,21 @@ io.on('connection', (socket) => {
       return;
     }
     const profiles = getBranchData(branchId, 'customer_profiles.json');
-    
+
     // Filter profiles by tag
-    const targetCustomers = profiles.filter(p => targetTag === 'all' || p.tags.includes(targetTag));
-    
+    const targetCustomers = profiles.filter(p => targetTag === 'all' || (p.tags || []).includes(targetTag));
+
     let logs = [];
     targetCustomers.forEach(cust => {
       const msgLog = `[SaaS Promo Broadcast] Sent to ${cust.name || 'Customer'} (${cust.phone}): "${campaignText}"`;
       console.log(msgLog);
       logs.push({ phone: cust.phone, name: cust.name, status: 'Sent Successfully' });
-      
-      // If WhatsApp is active, actually send it!
-      if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-        const wid = cust.phone.includes('@') ? cust.phone : `${cust.phone}@c.us`;
-        whatsappClient.sendMessage(wid, campaignText).catch(e => console.error('Send error', e));
-      }
+
+      // Send via WhatsApp (Cloud API or QR, whichever this branch is on) —
+      // {bulk:true} makes sendWhatsAppToCustomer itself refuse QR-linked
+      // numbers (ban-risk), same protection runAutoPilotCampaign gets.
+      sendWhatsAppToCustomer(branchId, cust.phone, campaignText, { bulk: true })
+        .catch(e => console.error('Send error', e));
     });
 
     socket.emit('campaign_broadcast_result', { success: true, logs });

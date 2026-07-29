@@ -30,46 +30,24 @@ app.post('/api/businesses/:id/theme', requireAuth, requireBranchAccess, (req, re
 });
 
 // ── Walk-in Customer Registration ────────────────────────────────────────────
+// Writes to customer_profiles.json via the same updateCustomerProfile() the
+// WhatsApp/AI flow uses — this used to write to a separate crm.json that the
+// CRM table never read from, so every walk-in silently vanished (confirmed
+// bug: register one, refresh the table, it's just not there). Unifying onto
+// the one store the table actually reads fixes that.
 app.post('/api/businesses/:id/walkin', requireAuth, requireBranchAccess, (req, res) => {
   const { id } = req.params;
   const { name, phone, birthday, notes } = req.body;
   if (!name || !phone) return res.status(400).json({ error: 'Name and phone required' });
 
   const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-  const crmFile = path.join(DATA_DIR, id, 'crm.json');
-  let crm = [];
-  try { if (fs.existsSync(crmFile)) crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8')); } catch(e) {}
+  const existing = getBranchData(id, 'customer_profiles.json').find(p => p.phone === cleanPhone);
+  const isNew = !existing;
 
-  let customer = crm.find(c => c.phone === cleanPhone);
-  const isNew = !customer;
-  const now = new Date().toISOString();
-
-  if (isNew) {
-    customer = {
-      id: 'cust_' + Date.now(),
-      name, phone: cleanPhone, birthday: birthday || null, notes: notes || '',
-      visits: 1, lastVisit: now, createdAt: now,
-      loyaltyPoints: 10, loyaltyTier: 'Bronze', stamps: 0,
-      tags: ['walk-in']
-    };
-    crm.push(customer);
-  } else {
-    customer.visits = (customer.visits || 0) + 1;
-    customer.lastVisit = now;
-    if (birthday && !customer.birthday) customer.birthday = birthday;
-    if (notes) customer.notes = notes;
-    if (!customer.tags) customer.tags = [];
-    if (!customer.tags.includes('walk-in')) customer.tags.push('walk-in');
-  }
-
-  // Determine tier
-  const visits = customer.visits;
-  customer.loyaltyTier = visits >= 20 ? 'Gold' : visits >= 10 ? 'Silver' : 'Bronze';
-
-  try {
-    if (!fs.existsSync(path.join(DATA_DIR, id))) fs.mkdirSync(path.join(DATA_DIR, id), { recursive: true });
-    fs.writeFileSync(crmFile, JSON.stringify(crm, null, 2));
-  } catch(e) { return res.status(500).json({ error: 'Could not save customer' }); }
+  const customer = updateCustomerProfile(id, cleanPhone, name, 'walk-in', {
+    birthday: birthday || (existing && existing.birthday) || null,
+    notes: notes || (existing && existing.notes) || '',
+  });
 
   const pointsAwarded = isNew ? 10 : 0;
   res.json({ success: true, isNew, customer, pointsAwarded });
@@ -244,21 +222,22 @@ app.delete('/api/businesses/:id/accounting/expenses/:expId', requireAuth, requir
 // ── At-Risk Customers ─────────────────────────────────────────────────────────
 app.get('/api/businesses/:id/at-risk-customers', requireAuth, (req, res) => {
   const { id } = req.params;
-  const crmFile = path.join(DATA_DIR, id, 'crm.json');
-  let crm = [];
-  try { if (fs.existsSync(crmFile)) crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8')); } catch(e) {}
-
+  // customer_profiles.json is the one real customer store (WhatsApp/AI +
+  // walk-in both write here) — this used to read the separate, effectively
+  // unused crm.json, so At-Risk Customers has been empty for every café that
+  // wasn't relying on the (also just-fixed) walk-in flow.
+  const profiles = getBranchData(id, 'customer_profiles.json');
   const now = Date.now();
   const RISK_DAYS = 21; // customers who haven't visited in 21+ days
 
-  const atRisk = crm
+  const atRisk = profiles
     .filter(c => {
-      if (!c.lastVisit) return false;
-      const daysSince = (now - new Date(c.lastVisit).getTime()) / 86400000;
+      if (!c.lastActive) return false;
+      const daysSince = (now - new Date(c.lastActive).getTime()) / 86400000;
       return daysSince >= RISK_DAYS && c.visits >= 2; // only regulars, not one-timers
     })
     .map(c => {
-      const daysSince = Math.floor((now - new Date(c.lastVisit).getTime()) / 86400000);
+      const daysSince = Math.floor((now - new Date(c.lastActive).getTime()) / 86400000);
       return { ...c, daysSince, daysSinceLastVisit: daysSince };
     })
     .sort((a, b) => b.daysSinceLastVisit - a.daysSinceLastVisit)
