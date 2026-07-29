@@ -96,7 +96,7 @@ app.get('/api/businesses', (req, res) => {
 });
 
 // 2. Add dynamic new business (quick-add from HQ panel)
-app.post('/api/businesses', requireAuth, (req, res) => {
+app.post('/api/businesses', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   const { name, location, timings, contact, wifi, map, review,
           ownerName, ownerEmail, ownerPhone, brandColor } = req.body;
   if (!name || !location) {
@@ -329,10 +329,12 @@ app.get('/api/agency/clients', requireAuth, requireRole('agency_admin', 'admin')
     let revenue = 0, orders = 0;
     if (db) {
       try {
-        const rows = db.raw
-          ? db.raw('SELECT COUNT(*) as cnt, COALESCE(SUM(total_amount),0) as rev FROM orders WHERE business_id=?', [b.id])
-          : null;
-        if (rows && rows[0]) { orders = rows[0].cnt; revenue = rows[0].rev; }
+        // db.raw() is a zero-arg accessor for the underlying better-sqlite3
+        // handle, not a query runner — db.raw(sql, params) silently ignored
+        // both arguments and returned the handle itself, so this never ran.
+        // Also total_amount doesn't exist on orders; the real column is total.
+        const row = db.raw().prepare('SELECT COUNT(*) as cnt, COALESCE(SUM(total),0) as rev FROM orders WHERE business_id=?').get(b.id);
+        if (row) { orders = row.cnt; revenue = row.rev; }
       } catch(e) {}
     }
     const daysLeft = b.trialEndsAt

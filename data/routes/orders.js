@@ -309,7 +309,7 @@ app.post('/api/businesses/:id/orders/:orderId/verify-payment', (req, res) => {
 
 // ── Revenue stats ─────────────────────────────────────────────────────────────
 // GET /api/businesses/:id/revenue
-app.get('/api/businesses/:id/revenue', requireAuth, (req, res) => {
+app.get('/api/businesses/:id/revenue', requireAuth, requireBranchAccess, (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const stats  = db.getRevenueStats(req.params.id);
   const daily  = db.getDailyRevenue(req.params.id, 14);

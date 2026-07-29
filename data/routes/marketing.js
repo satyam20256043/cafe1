@@ -823,13 +823,14 @@ app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBra
 
   if (current.type === 'winback') {
     if (qrBulkBlocked && qrBulkBlocked(id)) return res.json({ success: false, message: QR_BULK_MSG });
-    const crmFile = path.join(DATA_DIR, id, 'crm.json');
-    let crm = [];
-    try { if (fs.existsSync(crmFile)) crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8')); } catch (e) {}
+    // customer_profiles.json is the one real customer store (WhatsApp/AI +
+    // walk-in both write here) — this used to read the separate, effectively
+    // unused crm.json, so winback always targeted zero customers.
+    const profiles = getBranchData(id, 'customer_profiles.json');
     const now = Date.now();
-    const atRisk = crm.filter(c => {
-      if (!c.lastVisit) return false;
-      const daysSince = (now - new Date(c.lastVisit).getTime()) / 86400000;
+    const atRisk = profiles.filter(c => {
+      if (!c.lastActive) return false;
+      const daysSince = (now - new Date(c.lastActive).getTime()) / 86400000;
       return daysSince >= 21 && c.visits >= 2;
     });
     const results = await Promise.all(atRisk.map(async c => {

@@ -1,7 +1,7 @@
 'use strict';
 // Sales pipeline — tracks prospective cafés the operator is pitching, before they
 // sign up. Global (no business_id), admin-only, forever. Never reachable by a
-// café owner/manager — same requireRole('agency_admin') guard as /api/settings.
+// café owner/manager — same requireRole('agency_admin', 'admin') guard as /api/settings.
 module.exports = function register(ctx) {
   const { app, db, requireAuth, requireRole } = ctx;
 
@@ -12,13 +12,13 @@ module.exports = function register(ctx) {
   // namespace for the unrelated website-contact-form lead capture feature, and
   // since it's require()d earlier in server.js its routes would silently shadow
   // these (Express matches the first-registered handler for a given path+method).
-  app.get('/api/crm-leads', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.get('/api/crm-leads', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
     res.json(db.listLeads());
   });
 
   // POST /api/crm-leads — create a new prospect
-  app.post('/api/crm-leads', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.post('/api/crm-leads', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
     const { cafe_name, phone, owner_name, location, status, follow_up_date, notes } = req.body;
     if (!cafe_name || !String(cafe_name).trim()) {
@@ -29,7 +29,7 @@ module.exports = function register(ctx) {
   });
 
   // PUT /api/crm-leads/:id — partial update (inline cell auto-save)
-  app.put('/api/crm-leads/:id', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.put('/api/crm-leads/:id', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
     const { cafe_name, phone, owner_name, location, status, follow_up_date, notes } = req.body;
     const fields = {};
@@ -46,20 +46,20 @@ module.exports = function register(ctx) {
   });
 
   // DELETE /api/crm-leads/:id
-  app.delete('/api/crm-leads/:id', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.delete('/api/crm-leads/:id', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
     const result = db.deleteLead(req.params.id);
     res.json(result);
   });
 
   // GET /api/lead-statuses — dropdown options (defaults + custom)
-  app.get('/api/lead-statuses', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.get('/api/lead-statuses', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
     res.json(db.listLeadStatuses());
   });
 
   // POST /api/lead-statuses — add a custom status
-  app.post('/api/lead-statuses', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.post('/api/lead-statuses', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
     const { label, color } = req.body;
     if (!label || !String(label).trim()) return res.status(400).json({ error: 'label is required' });
@@ -70,7 +70,7 @@ module.exports = function register(ctx) {
   });
 
   // DELETE /api/lead-statuses/:label — remove a custom status (defaults refused)
-  app.delete('/api/lead-statuses/:label', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.delete('/api/lead-statuses/:label', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
     const result = db.deleteLeadStatus(req.params.label);
     if (!result.success) return res.status(403).json({ error: result.error });
@@ -78,7 +78,7 @@ module.exports = function register(ctx) {
   });
 
   // POST /api/crm-leads/import — bulk create from parsed CSV rows
-  app.post('/api/crm-leads/import', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.post('/api/crm-leads/import', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
     const { rows } = req.body;
     if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows must be an array' });

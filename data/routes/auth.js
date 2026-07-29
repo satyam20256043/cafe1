@@ -151,7 +151,7 @@ app.patch('/api/staff/:staffId', (req, res) => {
 // account (e.g. every seeded café owner) — the UI reported success but the
 // old password kept working. Try SQLite first; fall back to JSON mode only
 // when db isn't loaded.
-app.get('/api/admin/staff', requireAuth, requireRole('agency_admin'), (req, res) => {
+app.get('/api/admin/staff', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   if (db) {
     const all = businesses.flatMap(b => db.listStaff(b.id));
     return res.json(all.map(({ password_hash, ...s }) => s));
@@ -161,7 +161,7 @@ app.get('/api/admin/staff', requireAuth, requireRole('agency_admin'), (req, res)
 });
 
 // ── Admin: change any staff password ─────────────────────────────────────────
-app.put('/api/admin/staff/:id/password', requireAuth, requireRole('agency_admin'), (req, res) => {
+app.put('/api/admin/staff/:id/password', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   const { newPassword } = req.body;
   if (!newPassword || newPassword.length < 4)
     return res.status(400).json({ error: 'Password must be at least 4 characters' });

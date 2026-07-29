@@ -5,7 +5,7 @@ module.exports = function register(ctx) {
     app, fs, path,
     DATA_DIR, BUSINESSES_FILE, businesses,
     razorpay,
-    requireAuth, requireRole,
+    requireAuth, requireRole, requireBranchAccess,
     getSubscriptionStatus,
   } = ctx;
 
@@ -33,7 +33,7 @@ module.exports = function register(ctx) {
   });
 
   // ── GET /api/businesses/:id/billing/status ────────────────────────────────────
-  app.get('/api/businesses/:id/billing/status', requireAuth, (req, res) => {
+  app.get('/api/businesses/:id/billing/status', requireAuth, requireBranchAccess, (req, res) => {
     const biz = businesses.find(b => b.id === req.params.id);
     if (!biz) return res.status(404).json({ error: 'Business not found' });
     const sub = getSubscriptionStatus(biz);
@@ -49,7 +49,7 @@ module.exports = function register(ctx) {
 
   // ── POST /api/businesses/:id/billing/create-order ─────────────────────────────
   // Owner initiates a subscription payment
-  app.post('/api/businesses/:id/billing/create-order', requireAuth, async (req, res) => {
+  app.post('/api/businesses/:id/billing/create-order', requireAuth, requireBranchAccess, async (req, res) => {
     if (!razorpay) {
       return res.status(503).json({
         error: 'Online payment is not enabled yet — please contact us to activate your plan.'
@@ -155,7 +155,7 @@ module.exports = function register(ctx) {
 
   // ── POST /api/admin/billing/generate-link ─────────────────────────────────────
   // Admin generates a Razorpay payment link to send to a café owner
-  app.post('/api/admin/billing/generate-link', requireAuth, requireRole('agency_admin'), async (req, res) => {
+  app.post('/api/admin/billing/generate-link', requireAuth, requireRole('agency_admin', 'admin'), async (req, res) => {
     if (!razorpay) return res.status(503).json({ error: 'Razorpay not configured' });
     const { businessId, planId, customAmount } = req.body;
 
@@ -205,7 +205,7 @@ module.exports = function register(ctx) {
   });
 
   // ── GET /api/admin/billing/history ────────────────────────────────────────────
-  app.get('/api/admin/billing/history', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.get('/api/admin/billing/history', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     const history = businesses
       .filter(b => b.lastPayment)
       .map(b => ({

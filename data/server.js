@@ -2770,58 +2770,11 @@ app.post('/api/businesses/:id/customers/:phone/ai-offer', requireAuth, requireBr
   res.json({ success: true, offerText, name, phone: cleanPhone });
 });
 
-// ── Customer Insights (for CRM panel) ────────────────────────────────────────
-app.get('/api/businesses/:id/customers/:phone/insights', requireAuth, requireBranchAccess, (req, res) => {
-  const { id, phone } = req.params;
-  const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-  const crmFile = path.join(DATA_DIR, id, 'crm.json');
-  let crm = [];
-  try { if (fs.existsSync(crmFile)) crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8')); } catch(e) {}
-
-  const customer = crm.find(c => c.phone === cleanPhone || c.phone === phone);
-  if (!customer) return res.status(404).json({ error: 'Customer not found' });
-
-  // Build insights from order history
-  const orderFile = path.join(DATA_DIR, id, 'orders.json');
-  let orders = [];
-  try { if (fs.existsSync(orderFile)) orders = JSON.parse(fs.readFileSync(orderFile, 'utf-8')); } catch(e) {}
-
-  const custOrders = orders.filter(o => (o.phone || o.customerPhone || '').replace(/\D/g,'').slice(-10) === cleanPhone);
-  const totalSpend = custOrders.reduce((s, o) => s + (o.total || 0), 0);
-  const avgSpend   = custOrders.length ? Math.round(totalSpend / custOrders.length) : 0;
-  const now = Date.now();
-  const daysSince = customer.lastVisit ? Math.floor((now - new Date(customer.lastVisit).getTime()) / 86400000) : null;
-
-  // Favourite items
-  const itemCounts = {};
-  custOrders.forEach(o => (o.items || []).forEach(i => { itemCounts[i.name] = (itemCounts[i.name] || 0) + (i.qty || 1); }));
-  const favourites = Object.entries(itemCounts).map(([name, count]) => ({ name, count })).sort((a,b) => b.count - a.count);
-
-  // Peak day/hour
-  const dayCounts = {}, hourCounts = {};
-  custOrders.forEach(o => {
-    const d = new Date(o.created_at || o.createdAt);
-    const day  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
-    const hour = d.getHours();
-    dayCounts[day]  = (dayCounts[day]  || 0) + 1;
-    hourCounts[hour]= (hourCounts[hour]|| 0) + 1;
-  });
-  const peakDay  = Object.entries(dayCounts).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'N/A';
-  const peakHour = Object.entries(hourCounts).sort((a,b)=>b[1]-a[1])[0]
-    ? (()=>{ const h=+Object.entries(hourCounts).sort((a,b)=>b[1]-a[1])[0][0]; return (h%12||12)+':00 '+(h<12?'AM':'PM'); })()
-    : 'N/A';
-
-  const totalVisits = customer.visits || custOrders.length || 1;
-  const daysSinceLast = daysSince ?? (customer.lastVisit ? 0 : 99);
-  const segment = daysSinceLast > 60 ? 'lost' : daysSinceLast > 30 ? 'at_risk' : totalVisits >= 10 ? 'loyal' : totalVisits >= 5 ? 'regular' : totalVisits >= 2 ? 'returning' : 'new';
-
-  res.json({
-    name: customer.name, phone: cleanPhone,
-    totalVisits, totalSpend: Math.round(totalSpend), avgSpend,
-    daysSinceLastVisit: daysSinceLast, lastVisit: customer.lastVisit,
-    peakDay, peakHour, favourites, segment
-  });
-});
+// Customer Insights (for CRM panel) lives in routes/extras.js, required above
+// (routes/extras.js registers first and wins) — the duplicate copy that used
+// to sit here was 100% dead code and still had the crm.json/lastVisit bugs
+// long after extras.js's copy was fixed elsewhere; removed to stop it
+// misleading whoever next goes looking for "the insights endpoint".
 
 // Lead capture (/api/contact) and lead listing (/api/leads) live in routes/agency.js.
 // The duplicate inline copies that used to sit here were dead code (agency.js registers

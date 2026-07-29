@@ -54,7 +54,7 @@ app.post('/api/businesses/:id/walkin', requireAuth, requireBranchAccess, (req, r
 });
 
 // ── WhatsApp Cloud API Config ─────────────────────────────────────────────────
-app.get('/api/businesses/:id/whatsapp/status', requireAuth, (req, res) => {
+app.get('/api/businesses/:id/whatsapp/status', requireAuth, requireBranchAccess, (req, res) => {
   const { id } = req.params;
   const cfgFile = path.join(DATA_DIR, id, 'whatsapp_config.json');
   if (!fs.existsSync(cfgFile)) {
@@ -148,7 +148,7 @@ app.post('/api/businesses/:id/setup-status', requireAuth, requireBranchAccess, (
 });
 
 // ── Accounting / Expenses ─────────────────────────────────────────────────────
-app.get('/api/businesses/:id/accounting/expenses', requireAuth, (req, res) => {
+app.get('/api/businesses/:id/accounting/expenses', requireAuth, requireBranchAccess, (req, res) => {
   const { id } = req.params;
   const { from, to, category } = req.query;
   const file = path.join(DATA_DIR, id, 'expenses.json');
@@ -220,7 +220,7 @@ app.delete('/api/businesses/:id/accounting/expenses/:expId', requireAuth, requir
 });
 
 // ── At-Risk Customers ─────────────────────────────────────────────────────────
-app.get('/api/businesses/:id/at-risk-customers', requireAuth, (req, res) => {
+app.get('/api/businesses/:id/at-risk-customers', requireAuth, requireBranchAccess, (req, res) => {
   const { id } = req.params;
   // customer_profiles.json is the one real customer store (WhatsApp/AI +
   // walk-in both write here) — this used to read the separate, effectively
@@ -246,7 +246,7 @@ app.get('/api/businesses/:id/at-risk-customers', requireAuth, (req, res) => {
   res.json(atRisk);
 });
 
-app.post('/api/businesses/:id/at-risk-customers/send-offer', async (req, res) => {
+app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requireBranchAccess, async (req, res) => {
   const { id } = req.params;
   const { phone, name, offerText } = req.body;
   if (!phone) return res.status(400).json({ error: 'Phone required' });
@@ -280,14 +280,14 @@ app.post('/api/businesses/:id/at-risk-customers/send-offer', async (req, res) =>
 });
 
 // ── AI Re-engagement Offer Generator ─────────────────────────────────────────
-app.post('/api/businesses/:id/customers/:phone/ai-offer', (req, res) => {
+app.post('/api/businesses/:id/customers/:phone/ai-offer', requireAuth, requireBranchAccess, (req, res) => {
   const { id, phone } = req.params;
   const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-  const crmFile = path.join(DATA_DIR, id, 'crm.json');
-  let crm = [];
-  try { if (fs.existsSync(crmFile)) crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8')); } catch(e) {}
+  // customer_profiles.json is the one real customer store — crm.json is dead
+  // (nothing writes it anymore), so this always fell back to "Valued Customer".
+  const profiles = getBranchData(id, 'customer_profiles.json');
 
-  const customer = crm.find(c => c.phone === cleanPhone || c.phone === phone);
+  const customer = profiles.find(c => c.phone === cleanPhone || c.phone === phone);
   const name = customer ? customer.name : 'Valued Customer';
   const visits = customer ? (customer.visits || 1) : 1;
 
@@ -307,26 +307,26 @@ app.post('/api/businesses/:id/customers/:phone/ai-offer', (req, res) => {
 });
 
 // ── Customer Insights (for CRM panel) ────────────────────────────────────────
-app.get('/api/businesses/:id/customers/:phone/insights', (req, res) => {
+app.get('/api/businesses/:id/customers/:phone/insights', requireAuth, requireBranchAccess, (req, res) => {
   const { id, phone } = req.params;
   const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-  const crmFile = path.join(DATA_DIR, id, 'crm.json');
-  let crm = [];
-  try { if (fs.existsSync(crmFile)) crm = JSON.parse(fs.readFileSync(crmFile, 'utf-8')); } catch(e) {}
+  // customer_profiles.json is the one real customer store — crm.json is dead
+  // (nothing writes it anymore), so this 404'd for every customer, always.
+  const profiles = getBranchData(id, 'customer_profiles.json');
 
-  const customer = crm.find(c => c.phone === cleanPhone || c.phone === phone);
+  const customer = profiles.find(c => c.phone === cleanPhone || c.phone === phone);
   if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-  // Build insights from order history
-  const orderFile = path.join(DATA_DIR, id, 'orders.json');
-  let orders = [];
-  try { if (fs.existsSync(orderFile)) orders = JSON.parse(fs.readFileSync(orderFile, 'utf-8')); } catch(e) {}
-
-  const custOrders = orders.filter(o => (o.phone || o.customerPhone || '').replace(/\D/g,'').slice(-10) === cleanPhone);
+  // Build insights from order history. Orders live in SQLite (data/orders.json
+  // is a dead legacy path once db is loaded — always [] in practice, same bug
+  // class as crm.json above), so pull from there via the existing listOrders
+  // helper and filter by phone the same way the JSON version used to.
+  const allOrders = db ? db.listOrders(id, { limit: 10000 }) : [];
+  const custOrders = allOrders.filter(o => (o.customer_phone || '').replace(/\D/g,'').slice(-10) === cleanPhone);
   const totalSpend = custOrders.reduce((s, o) => s + (o.total || 0), 0);
   const avgSpend   = custOrders.length ? Math.round(totalSpend / custOrders.length) : 0;
   const now = Date.now();
-  const daysSince = customer.lastVisit ? Math.floor((now - new Date(customer.lastVisit).getTime()) / 86400000) : null;
+  const daysSince = customer.lastActive ? Math.floor((now - new Date(customer.lastActive).getTime()) / 86400000) : null;
 
   // Favourite items
   const itemCounts = {};
@@ -336,7 +336,7 @@ app.get('/api/businesses/:id/customers/:phone/insights', (req, res) => {
   // Peak day/hour
   const dayCounts = {}, hourCounts = {};
   custOrders.forEach(o => {
-    const d = new Date(o.created_at || o.createdAt);
+    const d = new Date(o.created_at);
     const day  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
     const hour = d.getHours();
     dayCounts[day]  = (dayCounts[day]  || 0) + 1;
@@ -348,13 +348,13 @@ app.get('/api/businesses/:id/customers/:phone/insights', (req, res) => {
     : 'N/A';
 
   const totalVisits = customer.visits || custOrders.length || 1;
-  const daysSinceLast = daysSince ?? (customer.lastVisit ? 0 : 99);
+  const daysSinceLast = daysSince ?? (customer.lastActive ? 0 : 99);
   const segment = daysSinceLast > 60 ? 'lost' : daysSinceLast > 30 ? 'at_risk' : totalVisits >= 10 ? 'loyal' : totalVisits >= 5 ? 'regular' : totalVisits >= 2 ? 'returning' : 'new';
 
   res.json({
     name: customer.name, phone: cleanPhone,
     totalVisits, totalSpend: Math.round(totalSpend), avgSpend,
-    daysSinceLastVisit: daysSinceLast, lastVisit: customer.lastVisit,
+    daysSinceLastVisit: daysSinceLast, lastVisit: customer.lastActive,
     peakDay, peakHour, favourites, segment
   });
 });
@@ -421,7 +421,7 @@ function maskSecret(val) {
 }
 
 // GET /api/settings — admin only, returns masked values
-app.get('/api/settings', requireAuth, requireRole('agency_admin'), (req, res) => {
+app.get('/api/settings', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   const s = loadAgencySettings();
   res.json({
     baseUrl: s.baseUrl || '',
@@ -444,7 +444,7 @@ app.get('/api/settings', requireAuth, requireRole('agency_admin'), (req, res) =>
 });
 
 // PUT /api/settings — admin only, merges + saves
-app.put('/api/settings', requireAuth, requireRole('agency_admin'), (req, res) => {
+app.put('/api/settings', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   const s = loadAgencySettings();
   const b = req.body;
 

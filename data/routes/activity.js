@@ -21,7 +21,7 @@ module.exports = function register(ctx) {
   ctx.logActivity = appendLog;
 
   // GET /api/admin/activity-log?page=0&size=50 — paginated activity log
-  app.get('/api/admin/activity-log', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.get('/api/admin/activity-log', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     const log = loadLog();
     const page = parseInt(req.query.page) || 0;
     const size = Math.min(parseInt(req.query.size) || 50, 200);
@@ -29,7 +29,7 @@ module.exports = function register(ctx) {
   });
 
   // GET /api/admin/weekly-report — orders, revenue & top items per branch over the last 7 days
-  app.get('/api/admin/weekly-report', requireAuth, requireRole('agency_admin'), (req, res) => {
+  app.get('/api/admin/weekly-report', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
     const now = new Date();
     const weekAgo = new Date(now - 7 * 86400000);
     const log = loadLog();
