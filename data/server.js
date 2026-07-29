@@ -805,9 +805,10 @@ async function generateAIReply(branchId, text, fromPhone, decision) {
   const prompt = buildReceptionistPrompt(branchId, text, fromPhone);
   if (!prompt) return null;
   if (decision === 'claude') {
-    const claudeReply = await callClaude(prompt);
-    if (claudeReply) return claudeReply;
-    return callGemini(prompt); // growth/pro keep the Gemini safety net
+    // Claude Haiku only for WhatsApp replies (user decision) — no Gemini
+    // fallback on failure, same as the capped tier below. A transient miss
+    // drops to the local keyword tier rather than a different model.
+    return await callClaude(prompt);
   }
   if (decision === 'claude_capped') {
     const claudeReply = await callClaude(prompt);
