@@ -2177,7 +2177,7 @@ const routeCtx = {
   opsAlerts,
   normalizePhone: (db && db.normalizePhone) || ((p) => (p ? String(p).replace(/[^0-9]/g, '').slice(-10) : '')),
   logEvent: (db && db.logEvent) || (() => {}),
-  waApi, genAI,
+  waApi, genAI, callClaude, callGemini,
   whatsappConnectionStatus: 'Disconnected',
   requireAuth, requireBranchAccess, requireRole,
   signToken, verifyToken, loadStaff, STAFF_FILE,

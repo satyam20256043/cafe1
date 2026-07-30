@@ -6,7 +6,7 @@ module.exports = function register(ctx) {
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
     updateCustomerProfile, processCafeBotReply,
-    waApi, genAI, razorpay, whatsappConnectionStatus,
+    waApi, genAI, callClaude, callGemini, razorpay, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
@@ -324,19 +324,17 @@ function getDefaultDraftReply(customerName, rating) {
   }
 }
 
-// Generate draft AI reply for feedback — staff only (each call spends Gemini quota)
+// Generate draft AI reply for feedback — staff only. Claude first (user
+// decision 2026-07-30), Gemini as a fallback if Claude misses, then a static
+// template — every AI feature here keeps a non-AI fallback.
 app.post('/api/businesses/:id/feedback/:feedbackId/reply-draft', requireAuth, requireBranchAccess, async (req, res) => {
   const { id, feedbackId } = req.params;
   const feedback = getBranchData(id, 'feedback.json');
   const item = feedback.find(f => f.id === feedbackId);
   if (!item) return res.status(404).json({ error: 'Feedback not found' });
-  
-  let draft = '';
-  if (genAI) {
-    try {
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL || "gemini-3.5-flash" });
-      const business = businesses.find(b => b.id === id) || businesses[0];
-      const prompt = `You are the manager of "${business.name}" café. 
+
+  const business = businesses.find(b => b.id === id) || businesses[0];
+  const prompt = `You are the manager of "${business.name}" café.
 Write a professional, warm, and brief response (1-2 sentences) to the following customer review.
 If the rating is high (4-5 stars), thank them warmly and invite them back.
 If the rating is low (1-3 stars), apologize sincerely for any issues mentioned and offer to make it right.
@@ -344,17 +342,11 @@ Reviewer: ${item.customerName}
 Rating: ${item.rating} stars
 Comment: "${item.comment}"
 Manager Response draft:`;
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      draft = response.text().trim();
-    } catch (err) {
-      console.error('[Gemini Feedback Reply Error]', err);
-      draft = getDefaultDraftReply(item.customerName, item.rating);
-    }
-  } else {
-    draft = getDefaultDraftReply(item.customerName, item.rating);
-  }
-  
+
+  let draft = callClaude ? await callClaude(prompt) : null;
+  if (!draft && genAI && callGemini) draft = await callGemini(prompt);
+  if (!draft) draft = getDefaultDraftReply(item.customerName, item.rating);
+
   res.json({ success: true, draft });
 });
 
@@ -570,10 +562,10 @@ app.get('/api/businesses/:id/ai-campaign-suggestions', requireAuth, requireBranc
     return res.json([]);
   }
   
-  if (genAI) {
-    try {
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL || "gemini-3.5-flash" });
-      const prompt = `You are an expert restaurant marketing analyst. 
+  // Claude first (user decision 2026-07-30), Gemini as a fallback if Claude
+  // misses or doesn't return valid JSON, then the local heuristic — every AI
+  // feature here keeps a non-AI fallback.
+  const prompt = `You are an expert restaurant marketing analyst.
 Study the following customer profiles and feedback reviews from our cafe SaaS platform.
 Customer Profiles: ${JSON.stringify(profiles)}
 Feedback Reviews: ${JSON.stringify(feedback)}
@@ -588,14 +580,13 @@ Output a raw JSON array of objects. Do not wrap in markdown code blocks. Each ob
 - psychology: A brief description of their psychology and preferences (1 sentence)
 - offerText: A friendly, short promotional offer text message (1-2 sentences) to send them via WhatsApp (include emojis, warm greeting, and discount code or special benefit).
 `;
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text().trim();
-      let cleanOutput = text.replace(/```json/gi, '').replace(/```/gi, '').trim();
-      let list = JSON.parse(cleanOutput);
-      
-      // Add dynamic IDs and statuses
-      list = list.map((item, idx) => ({
+
+  function parseSuggestions(rawText) {
+    if (!rawText) return null;
+    try {
+      const cleanOutput = rawText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+      const list = JSON.parse(cleanOutput);
+      return list.map((item, idx) => ({
         id: `sug_${Date.now()}_${idx}`,
         customerPhone: item.customerPhone,
         customerName: item.customerName,
@@ -604,21 +595,18 @@ Output a raw JSON array of objects. Do not wrap in markdown code blocks. Each ob
         offerText: item.offerText,
         status: 'pending'
       }));
-      
-      campaignSuggestionsCache[id] = list;
-      return res.json(list);
     } catch (err) {
-      console.error('[Gemini AI Campaign Suggestions Error]', err);
-      // Fallback
-      const fallbackList = getLocalCampaignSuggestions(profiles, feedback, id);
-      campaignSuggestionsCache[id] = fallbackList;
-      return res.json(fallbackList);
+      console.error('[AI Campaign Suggestions] Failed to parse model output:', err.message);
+      return null;
     }
-  } else {
-    const list = getLocalCampaignSuggestions(profiles, feedback, id);
-    campaignSuggestionsCache[id] = list;
-    return res.json(list);
   }
+
+  let list = callClaude ? parseSuggestions(await callClaude(prompt)) : null;
+  if (!list && genAI && callGemini) list = parseSuggestions(await callGemini(prompt));
+  if (!list) list = getLocalCampaignSuggestions(profiles, feedback, id);
+
+  campaignSuggestionsCache[id] = list;
+  return res.json(list);
 });
 
 // Approve and send campaign
