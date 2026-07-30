@@ -883,7 +883,7 @@ function generateLocalConversationalReply(branchId, text, lang, fromPhone) {
 
   // Amenities / Charging
   if (['charging', 'socket', 'plug', 'laptop', 'work', 'wifi', 'internet'].some(kw => lowercaseText.includes(kw))) {
-    if (lang === 'hinglish') {
+    if (lang === 'hinglish' || lang === 'hindi') {
       return `Haan ji, café me tables ke paas free high-speed WiFi aur charging sockets/plugs standard available hain, toh aap yahan aaram se laptop par kaam kar sakte hain! 📶🔌`;
     } else {
       return `Yes! We have plenty of charging sockets/plugs near our tables and free high-speed WiFi (${business.wifi}), making it the perfect spot to work on your laptop! 📶🔌`;
@@ -1483,7 +1483,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
           return `Thank you so much! ❤️ Your feedback is highly valuable to us.\n\nIf you enjoyed your experience, please take a moment to leave us a Google review here: ${business.review} \nIt helps our local business grow! 😊⭐`;
         }
       } else {
-        if (lang === 'hinglish') {
+        if (lang === 'hinglish' || lang === 'hindi') {
           return `Feedback share karne ke liye shukriya! Hum isse behtar karne ke liye poori koshish karenge. Have a nice day! 😊`;
         } else {
           return `Thank you for sharing your feedback! We will use this to improve our service. Have a wonderful day! 😊`;
@@ -1668,39 +1668,39 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
 
       // ── Phase 4: Loyalty intents ───────────────────────────────────────────
       if (geminiReply.includes('INTENT:LOYALTY_QUERY')) {
-        if (!db) return lang === 'hinglish' ? 'Abhi loyalty system available nahi hai, baad mein try karein! 😊' : 'Loyalty system is currently unavailable. Please try again shortly!';
+        if (!db) return (lang === 'hinglish' || lang === 'hindi') ? 'Abhi loyalty system available nahi hai, baad mein try karein! 😊' : 'Loyalty system is currently unavailable. Please try again shortly!';
         try {
           const phone = fromPhone.replace(/[^0-9]/g,'').slice(-10);
           const card = db.getOrCreateCard(branchId, phone, userState.customerName || 'Customer');
           const stampsLeft = Math.max(0, 10 - (card.stamps||0));
           const business = businesses.find(b=>b.id===branchId)||businesses[0];
-          if (lang === 'hinglish') {
+          if (lang === 'hinglish' || lang === 'hindi') {
             return `*${card.customer_name||'Aap'}* ka loyalty card! 🌟\n\n☕ Stamps: *${card.stamps||0}/10* (${stampsLeft} aur chahiye free item ke liye!)\n💰 Points: *${card.points||0} pts*\n🏅 Tier: *${card.tier||'New'}*\n\n${(card.stamps||0)>=10?'🎁 Aapka FREE item redeem karne ke liye café mein aaiye!':stampsLeft+' aur visits mein ek free item milega! 😊'}`;
           }
           return `Here's your loyalty card, *${card.customer_name||'friend'}*! 🌟\n\n☕ Stamps: *${card.stamps||0}/10* (${stampsLeft} more for a FREE item!)\n💰 Points: *${card.points||0} pts*\n🏅 Tier: *${card.tier||'New'}*\n\n${(card.stamps||0)>=10?'🎁 You have a FREE item waiting — visit us to redeem!':'Visit '+stampsLeft+' more times to earn your free item! 😊'}`;
         } catch(e) {
-          return lang==='hinglish' ? 'Aapka loyalty card abhi check nahi ho pa raha, sorry! 😊' : 'Unable to fetch your loyalty card right now. Please try again!';
+          return (lang==='hinglish'||lang==='hindi') ? 'Aapka loyalty card abhi check nahi ho pa raha, sorry! 😊' : 'Unable to fetch your loyalty card right now. Please try again!';
         }
       }
 
       if (geminiReply.includes('INTENT:LOYALTY_REDEEM')) {
-        if (!db) return 'Loyalty system unavailable. Please visit us at the café to redeem!';
+        if (!db) return (lang==='hinglish'||lang==='hindi') ? 'Loyalty system abhi available nahi hai. Café mein aakar redeem karein!' : 'Loyalty system unavailable. Please visit us at the café to redeem!';
         try {
           const phone = fromPhone.replace(/[^0-9]/g,'').slice(-10);
           const card = db.getLoyaltyCard(branchId, phone);
-          if (!card) return lang==='hinglish' ? 'Aapka loyalty card nahi mila! Pehle ek visit karein. 😊' : 'No loyalty card found! Visit us to start earning stamps.';
+          if (!card) return (lang==='hinglish'||lang==='hindi') ? 'Aapka loyalty card nahi mila! Pehle ek visit karein. 😊' : 'No loyalty card found! Visit us to start earning stamps.';
           const stamps = card.stamps||0;
           const points = card.points||0;
           if (stamps >= 10) {
-            return lang==='hinglish'
+            return (lang==='hinglish'||lang==='hindi')
               ? `🎁 Aapke paas *${stamps} stamps* hain aur aap ek *FREE item* ke liye eligible hain! Café mein aaiye aur staff ko yeh message dikhayein. Hum khushi se redeem karenge! ☕`
               : `🎁 You have *${stamps} stamps* and qualify for a *FREE item*! Visit the café and show this message to our team — we'll redeem it with a smile! ☕`;
           } else if (points >= 500) {
-            return lang==='hinglish'
+            return (lang==='hinglish'||lang==='hindi')
               ? `💰 Aapke paas *${points} points* hain! 500 points = ₹50 discount. Café mein aaiye aur staff ko batayein aap points redeem karna chahte hain! 😊`
               : `💰 You have *${points} points*! 500 points = ₹50 off your bill. Visit the café and let our team know you'd like to redeem — easy as that! 😊`;
           } else {
-            return lang==='hinglish'
+            return (lang==='hinglish'||lang==='hindi')
               ? `Abhi redeem karne ke liye stamps/points kam hain! Aapke paas ${stamps}/10 stamps aur ${points} points hain. Jaldi ho jayega! ☕`
               : `Not quite there yet! You have ${stamps}/10 stamps and ${points} points. Keep visiting — you're on your way! ☕`;
           }
@@ -1818,7 +1818,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
 
   // F. WIFI
   if (['wifi', 'wi-fi', 'password', 'internet', 'net'].some(kw => lowercaseText.includes(kw))) {
-    if (lang === 'hinglish') {
+    if (lang === 'hinglish' || lang === 'hindi') {
       return `Haan ji, café me free WiFi available hai! 📶\nSSID / Password: ${business.wifi} 😊`;
     } else {
       return `Yes, we have free high-speed WiFi for all customers! 📶\nSSID / Password: ${business.wifi} 😊`;
@@ -1827,7 +1827,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
 
   // G. REVIEW
   if (['review', 'rating', 'feedback', 'stars', 'google review'].some(kw => lowercaseText.includes(kw))) {
-    if (lang === 'hinglish') {
+    if (lang === 'hinglish' || lang === 'hindi') {
       return `Aapka review humare liye bohot valuable hai! ⭐\nApna feedback yahan share karein: ${business.review} 😊`;
     } else {
       return `We would love to hear about your experience! ⭐\nPlease leave us a Google review here: ${business.review} 😊`;
@@ -1836,7 +1836,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
 
   // H. CONTACT
   if (['contact', 'phone', 'number', 'call', 'mobile'].some(kw => lowercaseText.includes(kw))) {
-    if (lang === 'hinglish') {
+    if (lang === 'hinglish' || lang === 'hindi') {
       return `Aap humein call kar sakte hain is number par: ${business.contact} 📞`;
     } else {
       return `You can reach out to our front desk directly at: ${business.contact} 📞`;
@@ -1847,7 +1847,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
   if (['student', 'college', 'school', 'id card', 'student offer', 'student discount'].some(kw => lowercaseText.includes(kw))) {
     updateCustomerProfile(branchId, fromPhone, null, 'is_student');
     
-    if (lang === 'hinglish') {
+    if (lang === 'hinglish' || lang === 'hindi') {
       return 'Haan ji! Students ko valid college ID card dikhane par flat 10% discount milta hai! 🎓😊';
     } else {
       return 'Yes! We offer a flat 10% discount to all students. Just present a valid Student ID card at checkout! 🎓😊';
