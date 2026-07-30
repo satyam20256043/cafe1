@@ -24,8 +24,10 @@ async function checkClaude() {
 async function checkGemini() {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return console.log('GEMINI: no key set');
-  const looksWrong = !key.startsWith('AIza');
-  console.log('GEMINI: key present, length=' + key.length + (looksWrong ? '  <-- WRONG FORMAT (real keys start "AIza", ~39 chars)' : ''));
+  // No reliable static format check here — Google issues valid keys in more
+  // than one shape/prefix (confirmed: a working key in this project doesn't
+  // start "AIza"). The live call result below is the only real signal.
+  console.log('GEMINI: key present, length=' + key.length);
   try {
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(key);
