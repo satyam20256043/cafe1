@@ -76,6 +76,21 @@ if (process.env.ANTHROPIC_API_KEY) {
   }
 }
 
+// GPT (OpenAI) — added as an available provider, NOT yet wired into
+// aiDecisionForBranch/generateAIReply's default routing. callGPT() below is
+// ready to use once a decision is made on what it should replace/complement.
+const GPT_MODEL = process.env.GPT_MODEL || 'gpt-5.5';
+let openaiClient = null;
+if (process.env.OPENAI_API_KEY) {
+  try {
+    const OpenAI = require('openai');
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    console.log(`[AI Engine] GPT tier available (model: ${GPT_MODEL}, not yet wired into reply routing)`);
+  } catch (e) {
+    console.error('[AI Engine] OpenAI SDK init failed:', e.message);
+  }
+}
+
 // Local date key (YYYY-MM-DD) for the daily Starter Haiku quota; resets at the
 // server's local midnight.
 function aiUsageDateKey() {
@@ -727,7 +742,7 @@ Your Response:`;
 // Retry transient LLM failures (429/5xx/network) with short backoff; never
 // retry auth errors. A per-provider circuit breaker stops hammering a
 // provider that is hard-down: 5 consecutive failures → open for 60s.
-const _llmBreaker = { claude: { fails: 0, openUntil: 0 }, gemini: { fails: 0, openUntil: 0 } };
+const _llmBreaker = { claude: { fails: 0, openUntil: 0 }, gemini: { fails: 0, openUntil: 0 }, gpt: { fails: 0, openUntil: 0 } };
 function _isTransientLlmError(e) {
   const m = String(e && e.message || e);
   if (m.includes('401') || m.includes('403') || m.toLowerCase().includes('invalid')) return false;
@@ -787,6 +802,28 @@ async function callClaude(prompt) {
     console.error('[Claude API Error]', error.message || error);
     if (String(error.message || error).includes('401')) {
       opsAlerts.raiseAlert('claude_auth', 'global', error.message || String(error));
+    }
+    return null;
+  }
+}
+
+// Not yet called from generateAIReply — see the GPT client-init comment above.
+async function callGPT(prompt) {
+  if (!openaiClient) return null;
+  try {
+    return await withLlmRetry('gpt', async () => {
+      const completion = await openaiClient.chat.completions.create({
+        model: GPT_MODEL,
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const textOut = (completion.choices?.[0]?.message?.content || '').trim();
+      return textOut || null;
+    });
+  } catch (error) {
+    console.error('[GPT API Error]', error.message || error);
+    if (String(error.message || error).includes('401')) {
+      opsAlerts.raiseAlert('gpt_auth', 'global', error.message || String(error));
     }
     return null;
   }
