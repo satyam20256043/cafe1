@@ -3524,8 +3524,8 @@ async function loadLoyaltyActivity() {
       <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
         <td style="padding:8px 16px;color:#e0e0e0">${r.customer_name||r.phone||'—'}</td>
         <td style="padding:8px 16px"><span style="color:${typeColor[r.type]||'#aaa'};font-size:12px;text-transform:capitalize">${r.type||''}</span></td>
-        <td style="padding:8px 16px;text-align:right;color:var(--caramel);font-family:'Cormorant Garamond',serif;font-size:15px">${r.type==='stamp'?(r.amount+' ☕'):(r.amount>0?'+':'')+r.amount+' pts'}</td>
-        <td style="padding:8px 16px;color:#666;font-size:12px">${r.note||''}</td>
+        <td style="padding:8px 16px;text-align:right;color:var(--caramel);font-family:'Cormorant Garamond',serif;font-size:15px">${r.type==='stamp'?(r.stamps+' ☕'):(r.points>0?'+':'')+r.points+' pts'}</td>
+        <td style="padding:8px 16px;color:#666;font-size:12px">${r.description||''}</td>
       </tr>`).join('');
   } catch(e) {}
 }
