@@ -605,6 +605,26 @@ function handleKnowledgeInterviewReply(branchId, fromPhone, text) {
   return `Q${iv.idx + 1}: ${iv.queue[iv.idx]}`;
 }
 
+// Last few turns of this customer's chat history, so the AI has context
+// instead of treating every message as the start of a new conversation.
+// User decision 2026-07-30.
+function getRecentConversationContext(branchId, fromPhone, limit = 8) {
+  if (!db || !fromPhone) return '';
+  try {
+    const phone = db.normalizePhone(fromPhone);
+    const rows = db.raw().prepare(
+      `SELECT direction, message FROM chat_messages WHERE business_id=? AND phone=? ORDER BY created_at DESC LIMIT ?`
+    ).all(branchId, phone, limit);
+    if (!rows.length) return '';
+    const transcript = rows.reverse()
+      .map(r => `${r.direction === 'in' ? 'Customer' : 'You'}: ${(r.message || '').slice(0, 300)}`)
+      .join('\n');
+    return `\n\nRecent conversation so far (for context — don't repeat yourself or re-ask something already answered; build naturally on it):\n${transcript}`;
+  } catch (e) {
+    return '';
+  }
+}
+
 function buildReceptionistPrompt(branchId, text, fromPhone) {
   try {
     const business = businesses.find(b => b.id === branchId) || businesses[0];
@@ -676,6 +696,7 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
       ? `\n- Café facts from the owner (answer these EXACTLY from the fact given — never add to or guess beyond them):\n${knowledgePairs.map(k => `  • ${k.q} → ${k.a}`).join('\n')}`
       : '';
     const knowledgeTopic = knowledgePairs.length ? ' the café facts listed above,' : '';
+    const conversationContext = getRecentConversationContext(branchId, fromPhone);
 
     const prompt = `You are a warm, kind, and humble human host at "${business.name}" café — think of the
 best staff member the café has: genuinely glad to hear from every customer, never scripted or
@@ -714,20 +735,23 @@ Café Context:
 - Standard offers: Students 10% off with ID 🎓 | Loyalty: earn 1 point per ₹1 spent ☕${platformsContext}${knowledgeContext}
 
 CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
-1. If the question is NOT about this café's menu, prices, timings, location, WiFi,
-   reviews, loyalty points,${platformsTopic}${knowledgeTopic} or booking a table — for example: job applications/hiring,
-   catering or events outside this café, franchise/business enquiries, questions about
-   a completely different topic, or anything else you don't have real information about
-   above — you MUST NOT answer it yourself and MUST NOT apologize or deflect in your own
-   words. Instead your ENTIRE response must be exactly this and nothing else:
-   INTENT:ESCALATE|unanswerable|<one short sentence summarising their question>
+1. Only escalate instead of answering when the question needs a SPECIFIC, VERIFIABLE
+   fact about THIS café that you were not given above — e.g. an exact catering/event
+   capacity, a dietary or allergen detail not on the menu, a policy that isn't stated
+   anywhere above, franchise/business enquiries, or job applications. Getting one of
+   these wrong misleads a real customer about a real business, so don't guess — escalate
+   instead. For general conversation, general knowledge, small talk, or anything you can
+   genuinely help with using your own good judgment WITHOUT inventing a fact about this
+   specific café, just answer warmly and helpfully yourself — you do not need to escalate
+   those. When you DO need to escalate, your ENTIRE response must be exactly this and
+   nothing else: INTENT:ESCALATE|unanswerable|<one short sentence summarising their question>
 2. Table booking → output exactly: INTENT:RESERVATION
 3. Custom/special discount request (customer asks for a deal, a coupon, or a lower price) → output exactly: INTENT:OFFER_REQUEST [details]
 4. Feedback/review/rating → output exactly: INTENT:FEEDBACK
 5. Customer asks "what are my points", "how many stamps", "mera balance", "my rewards", "loyalty card" → output exactly: INTENT:LOYALTY_QUERY
 6. Customer wants to redeem stamps/points ("redeem", "free item", "use points") → output exactly: INTENT:LOYALTY_REDEEM
 7. Otherwise, keep replies concise (max 3 sentences), conversational, and warm — write it the way
-   a kind, humble host would actually say it out loud, not like a company reading a policy.
+   a kind, humble host would actually say it out loud, not like a company reading a policy.${conversationContext}
 
 Customer query: "${text}"
 Your Response:`;
