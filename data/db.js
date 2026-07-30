@@ -956,7 +956,11 @@ function updateBirthday(businessId, phone, birthday) {
 }
 
 function getLoyaltyLeaderboard(businessId, limit=20) {
-  return db.prepare(`SELECT * FROM loyalty_points
+  // manager.html's renderLeaderboard/updateLoyaltyKPIs read r.name (matching
+  // the JSON-mode fallback below, which builds that field manually) — the raw
+  // column here is customer_name, so without this alias every row rendered
+  // "Guest" regardless of the actual customer name on file.
+  return db.prepare(`SELECT *, customer_name AS name FROM loyalty_points
     WHERE business_id=? ORDER BY points DESC LIMIT ?`).all(businessId, limit);
 }
 

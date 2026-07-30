@@ -465,20 +465,22 @@ async function confirmPayment(orderId) {
 // ── Socket events ─────────────────────────────────────────────────────────────
 // ── Sound + notification alert ───────────────────────────────────────────────
 function playOrderAlert() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.15, 0.3].forEach(delay => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.3);
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + 0.3);
-    });
-  } catch(e) {}
+  if (soundOn) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.15, 0.3].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.3);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.3);
+      });
+    } catch(e) {}
+  }
   // Browser notification
   if (Notification.permission === 'granted') {
     new Notification('🔔 New Order!', { body: 'A new order just arrived.', icon: '/manifest.json' });
@@ -488,8 +490,8 @@ function playOrderAlert() {
 if (Notification.permission === 'default') Notification.requestPermission();
 
 socket.on('new_order', ({ businessId, order }) => {
-  playOrderAlert();
   if (String(businessId) !== String(bizId)) return;
+  playOrderAlert();
   const exists = orders.findIndex(o => String(o.id || o.order_id || '') === String(order.id || order.order_id || ''));
   if (exists < 0) orders.unshift(order);
   else orders[exists] = order;

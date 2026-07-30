@@ -230,15 +230,25 @@ app.get('/api/businesses/:id/at-risk-customers', requireAuth, requireBranchAcces
   const now = Date.now();
   const RISK_DAYS = 21; // customers who haven't visited in 21+ days
 
-  const atRisk = profiles
-    .filter(c => {
-      if (!c.lastActive) return false;
-      const daysSince = (now - new Date(c.lastActive).getTime()) / 86400000;
-      return daysSince >= RISK_DAYS && c.visits >= 2; // only regulars, not one-timers
-    })
+  const atRiskProfiles = profiles.filter(c => {
+    if (!c.lastActive) return false;
+    const daysSince = (now - new Date(c.lastActive).getTime()) / 86400000;
+    return daysSince >= RISK_DAYS && c.visits >= 2; // only regulars, not one-timers
+  });
+
+  // manager.html's panel has always rendered "Avg ₹undefined" — nothing ever
+  // populated avgSpend. One fetch of the branch's orders, matched in JS
+  // (the list is already capped to 20 below, so this stays cheap).
+  const allOrders = db ? db.listOrders(id, { limit: 10000 }) : [];
+  const norm = p => String(p || '').replace(/\D/g, '').slice(-10);
+
+  const atRisk = atRiskProfiles
     .map(c => {
       const daysSince = Math.floor((now - new Date(c.lastActive).getTime()) / 86400000);
-      return { ...c, daysSince, daysSinceLastVisit: daysSince };
+      const custOrders = allOrders.filter(o => norm(o.customer_phone) === norm(c.phone));
+      const totalSpend = custOrders.reduce((s, o) => s + (o.total || 0), 0);
+      const avgSpend = custOrders.length ? Math.round(totalSpend / custOrders.length) : 0;
+      return { ...c, daysSince, daysSinceLastVisit: daysSince, avgSpend, totalSpend: Math.round(totalSpend) };
     })
     .sort((a, b) => b.daysSinceLastVisit - a.daysSinceLastVisit)
     .slice(0, 20);

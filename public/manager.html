@@ -4359,9 +4359,8 @@ async function dsReload() {
       rows = raw.map(c => ({
         'Name': c.name||'—',
         'Phone': c.phone||'—',
-        'Email': c.email||'—',
         'Visits': c.visits||c.visitCount||0,
-        'Last Visit': fmtDate(c.lastVisit||c.lastSeen),
+        'Last Visit': fmtDate(c.lastActive),
         'Loyalty Pts': c.loyaltyPoints||c.points||0,
         'Total Spent': '₹'+(c.totalSpent||c.lifetimeValue||0),
         'Birthday': c.birthday||'—',

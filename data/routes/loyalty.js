@@ -118,11 +118,15 @@ app.get('/api/businesses/:id/loyalty/birthdays', requireAuth, requireBranchAcces
 app.get('/api/businesses/:id/loyalty/activity', requireAuth, requireBranchAccess, (req, res) => {
   if (!db) return res.json([]);  // JSON mode: no transaction log available
   try {
+    // loyalty_transactions has no card_id column (it keys by business_id+phone
+    // directly, not a card-id FK) and loyalty_points has no name column (real
+    // column is customer_name) — the original query referenced both, so it
+    // threw on every call and the catch below silently returned [].
     const rows = db.raw().prepare(`
-      SELECT lt.*, lp.name AS customer_name, lp.phone
+      SELECT lt.*, lp.customer_name AS customer_name
       FROM loyalty_transactions lt
-      LEFT JOIN loyalty_points lp ON lt.card_id = lp.id
-      WHERE lp.business_id = ?
+      LEFT JOIN loyalty_points lp ON lp.business_id = lt.business_id AND lp.phone = lt.phone
+      WHERE lt.business_id = ?
       ORDER BY lt.created_at DESC LIMIT 50
     `).all(req.params.id);
     res.json(rows);
@@ -132,7 +136,11 @@ app.get('/api/businesses/:id/loyalty/activity', requireAuth, requireBranchAccess
 });
 
 // GET /api/businesses/:id/loyalty/:phone  — get card by phone (MUST be after named routes)
-app.get('/api/businesses/:id/loyalty/:phone', (req, res) => {
+// Staff-only: full card + recent transaction history is more than a customer
+// checking their own points needs (that's /loyalty/lookup, POST, by design
+// unauthenticated) — no frontend calls this GET today, but it was reachable
+// by anyone who knew a businessId+phone pair with zero auth.
+app.get('/api/businesses/:id/loyalty/:phone', requireAuth, requireBranchAccess, (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const card = db.getLoyaltyCard(req.params.id, req.params.phone);
   if (!card) return res.status(404).json({ error: 'No loyalty card found' });

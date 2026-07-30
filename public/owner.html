@@ -825,10 +825,10 @@ async function loadAtRisk() {
       <tr>
         <td>${c.name || '—'}</td>
         <td>${c.phone}</td>
-        <td>${fmtDate(c.last_visit || c.lastVisit)}</td>
-        <td><span class="badge red">${c.days_away || c.daysSinceLastVisit || '—'}d</span></td>
-        <td>${c.total_visits || c.totalVisits || 0}</td>
-        <td>${fmt(c.total_spend || c.totalSpend || 0)}</td>
+        <td>${fmtDate(c.lastActive)}</td>
+        <td><span class="badge red">${c.daysSinceLastVisit ?? '—'}d</span></td>
+        <td>${c.visits || 0}</td>
+        <td>${fmt(c.totalSpend || 0)}</td>
       </tr>`).join('');
   } catch(e) { tb.innerHTML = '<tr><td colspan="6" class="loading-row">Error loading customers</td></tr>'; }
 }

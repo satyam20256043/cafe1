@@ -33,7 +33,12 @@ module.exports = function register(ctx) {
     if (!waweb || !waweb.available) return qrUnavailable(res);
     const id = req.params.id;
     const cfg = getWaConfig(id) || {};
-    await waweb.stopClient(id, { logout: true });
+    try {
+      await waweb.stopClient(id, { logout: true });
+    } catch (e) {
+      console.error('[WA QR disconnect]', id, e.message);
+      return res.status(500).json({ error: 'Could not disconnect — try again' });
+    }
     if (cfg.cloudBackup && cfg.cloudBackup.phoneNumberId) {
       writeWaConfig(id, { mode: 'cloud', ...cfg.cloudBackup });
     } else {

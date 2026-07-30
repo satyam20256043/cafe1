@@ -199,7 +199,28 @@ app.post('/api/businesses/:id/reservations/:resId/status', requireAuth, requireB
 
 // 8. Get CRM profiles
 app.get('/api/businesses/:id/crm', requireAuth, requireBranchAccess, (req, res) => {
-  res.json(getBranchData(req.params.id, 'customer_profiles.json'));
+  const { id } = req.params;
+  const profiles = getBranchData(id, 'customer_profiles.json');
+  // Data Sheets exports (hq.html, manager.html) read totalSpent/loyaltyPoints
+  // off these profiles — customer_profiles.json has neither (spend lives in
+  // SQLite orders, numeric points in SQLite loyalty_points), so both always
+  // showed 0. Two grouped queries keep this cheap even for busy cafés
+  // (aggregate once, not once per customer).
+  if (db) {
+    const norm = p => String(p || '').replace(/\D/g, '').slice(-10);
+    const spendByPhone = {};
+    db.raw().prepare('SELECT customer_phone, SUM(total) AS spend FROM orders WHERE business_id=? GROUP BY customer_phone').all(id)
+      .forEach(r => { spendByPhone[norm(r.customer_phone)] = r.spend; });
+    const pointsByPhone = {};
+    db.raw().prepare('SELECT phone, points FROM loyalty_points WHERE business_id=?').all(id)
+      .forEach(r => { pointsByPhone[norm(r.phone)] = r.points; });
+    return res.json(profiles.map(p => ({
+      ...p,
+      totalSpent: Math.round(spendByPhone[norm(p.phone)] || 0),
+      loyaltyPoints: pointsByPhone[norm(p.phone)] || 0,
+    })));
+  }
+  res.json(profiles);
 });
 
 // 9. Get analytics
@@ -663,9 +684,18 @@ app.post('/api/businesses/:id/chat', async (req, res) => {
   if (customerName) {
     updateCustomerProfile(id, phone, customerName, 'chat_initiated');
   }
-  // Run pricing/reservation logic (persists both messages to chat_messages)
-  const reply = await processCafeBotReply(id, phone, text, { channel: 'web', customerName });
-  res.json({ success: true, reply });
+  try {
+    // Run pricing/reservation logic (persists both messages to chat_messages)
+    const reply = await processCafeBotReply(id, phone, text, { channel: 'web', customerName });
+    res.json({ success: true, reply });
+  } catch (err) {
+    // Without this, an uncaught rejection here just hangs the request forever
+    // (Express 4 doesn't auto-catch async handler errors) — this is the
+    // highest-traffic endpoint in the file, so a silent hang on any bug in
+    // the reply pipeline was the worst possible place to have one.
+    console.error('[chat] processCafeBotReply failed:', err.message);
+    res.status(500).json({ error: 'Something went wrong on our end — please try again.' });
+  }
 });
 
 // 12. Get custom offer requests
@@ -834,8 +864,19 @@ app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBra
       return daysSince >= 21 && c.visits >= 2;
     });
     const results = await Promise.all(atRisk.map(async c => {
-      const coupon = db ? db.issueCoupon({ businessId: id, sourceType: 'winback', customerPhone: c.phone,
-        discountType: 'percent', discountValue: 15 }) : null;
+      // issueCoupon isn't individually caught — without this, one customer's
+      // coupon failing (e.g. code-collision retries exhausted) would reject
+      // this whole Promise.all entry and, unhandled, could take the batch
+      // down with it. Falls back to messaging without a coupon code instead.
+      let coupon = null;
+      if (db) {
+        try {
+          coupon = db.issueCoupon({ businessId: id, sourceType: 'winback', customerPhone: c.phone,
+            discountType: 'percent', discountValue: 15 });
+        } catch (e) {
+          console.error('[winback] issueCoupon failed for', c.phone, ':', e.message);
+        }
+      }
       const msg = `Hi ${c.name || 'there'}! We miss you at our café ☕ Come back and enjoy 15% off your next visit! 🎁` +
         (coupon ? `\n\n🎟 Use code *${coupon.code}* at checkout!` : '');
       return sendWhatsAppToCustomer(id, c.phone, msg, { bulk: true }).catch(() => false);
@@ -881,6 +922,7 @@ app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBra
 
 // ── Chat history endpoint ──────────────────────────────────────────────────
 app.get('/api/businesses/:id/chat-history', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.json([]); // JSON mode: no chat_messages table to read
   const { id } = req.params;
   const { phone, limit=200 } = req.query;
   if (phone) {
