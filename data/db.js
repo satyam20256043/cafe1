@@ -213,6 +213,22 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_chat_biz ON chat_messages(business_id, phone, created_at);
 
+  -- Re-engagement nudges (user decision 2026-07-30): tracks a conversation
+  -- that's gone quiet after OUR side sent the last message. anchor_at is the
+  -- created_at of whichever outbound message is currently "waiting" for a
+  -- reply — it gets moved forward each time we send a nudge, so the same
+  -- table drives both the soft check-in and the follow-up offer without
+  -- needing separate timers. A row is only ever meaningful while the most
+  -- recent chat_messages row for that phone is still outbound; once the
+  -- customer replies, the sweep just stops matching it (self-clearing).
+  CREATE TABLE IF NOT EXISTS reengagement_state (
+    business_id TEXT NOT NULL, phone TEXT NOT NULL,
+    anchor_at   DATETIME NOT NULL,
+    stage       TEXT NOT NULL DEFAULT 'pending',  -- pending|checkin_sent|offer_sent
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (business_id, phone)
+  );
+
   -- Sales pipeline (prospects who haven't signed up yet — no business_id, admin-only)
   CREATE TABLE IF NOT EXISTS crm_leads (
     id TEXT PRIMARY KEY,
@@ -1056,6 +1072,12 @@ const insertCouponStmt = db.prepare(`
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?)
 `);
 const getCouponStmt = db.prepare(`SELECT * FROM coupons WHERE business_id = ? AND code = ?`);
+const findCouponBySourceStmt = db.prepare(
+  `SELECT * FROM coupons WHERE business_id = ? AND source_type = ? AND source_id = ? ORDER BY issued_at DESC LIMIT 1`
+);
+function findCouponBySource(businessId, sourceType, sourceId) {
+  return findCouponBySourceStmt.get(businessId, sourceType, sourceId);
+}
 const redeemCouponStmt = db.prepare(`
   UPDATE coupons SET status = 'redeemed', redeemed_at = datetime('now'), order_id = ?, redeemed_revenue = ?
   WHERE business_id = ? AND code = ? AND status = 'issued'
@@ -1064,7 +1086,7 @@ const redeemCouponStmt = db.prepare(`
 function generateCouponCode(sourceType) {
   const prefixMap = {
     ai_campaign: 'AI', offer_request: 'OFR', feedback5: 'THX', review: 'REV',
-    winback: 'WIN', birthday: 'BDAY', autopilot: 'AUTO', ai_instant: 'DEAL',
+    winback: 'WIN', birthday: 'BDAY', autopilot: 'AUTO', ai_instant: 'DEAL', reengagement: 'BACK',
   };
   const prefix = prefixMap[sourceType] || 'ZRD';
   const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -1159,7 +1181,7 @@ function getAttributionReport(businessId, { from, to } = {}) {
   }));
 }
 
-Object.assign(module.exports, { issueCoupon, validateCoupon, redeemCoupon, getAttributionReport });
+Object.assign(module.exports, { issueCoupon, findCouponBySource, validateCoupon, redeemCoupon, getAttributionReport });
 
 // ── AI escalations ────────────────────────────────────────────────────────────
 const insertEscalationStmt = db.prepare(`
@@ -1223,6 +1245,86 @@ function saveChatMessage(businessId, phone, customerName, direction, message, ch
 }
 
 Object.assign(module.exports, { saveChatMessage });
+
+// ── Re-engagement nudges ─────────────────────────────────────────────────────
+// Finds (business_id, phone) threads whose single most recent message OVERALL
+// (any direction) is outbound and falls inside the lookback window — i.e. we
+// spoke last and they haven't replied since. Windowing over ALL directions
+// first (not just 'out') matters: if we filtered to direction='out' before
+// windowing, a phone that replied again after an old outbound message would
+// still match on that stale outbound row, since the query would never see
+// their newer inbound reply at all — silently breaking the self-clearing
+// behavior the whole design depends on. Bounded by sinceIso so the sweep
+// never rescans long-dormant conversations. Tiebreak on id DESC as well as
+// created_at DESC — SQLite's CURRENT_TIMESTAMP is only second-precision, and
+// an inbound message immediately followed by our reply can easily land in
+// the same second; without a secondary key ROW_NUMBER()'s tie order is
+// unspecified and can pick the inbound row, silently dropping the thread.
+const staleOutboundThreadsStmt = db.prepare(`
+  SELECT business_id, phone, message, created_at FROM (
+    SELECT business_id, phone, direction, message, created_at,
+           ROW_NUMBER() OVER (PARTITION BY business_id, phone ORDER BY created_at DESC, id DESC) rn
+    FROM chat_messages
+    WHERE created_at >= ?
+  ) WHERE rn = 1 AND direction = 'out'
+`);
+function getStaleOutboundThreads(sinceIso) {
+  return staleOutboundThreadsStmt.all(sinceIso);
+}
+
+// Also needed: does this phone have any INBOUND message newer than a given
+// outbound anchor? If so, the "last message" query above would already have
+// excluded them (their reply would be the true latest message) — this is a
+// belt-and-suspenders check used only when composing the sweep, not required
+// for correctness of the query above, but cheap and removes any doubt.
+const lastMessageStmt = db.prepare(
+  `SELECT direction, message, created_at FROM chat_messages WHERE business_id=? AND phone=? ORDER BY created_at DESC LIMIT 1`
+);
+function getLastMessage(businessId, phone) { return lastMessageStmt.get(businessId, phone); }
+
+const lastInboundStmt = db.prepare(
+  `SELECT message, created_at FROM chat_messages WHERE business_id=? AND phone=? AND direction='in' ORDER BY created_at DESC LIMIT 1`
+);
+function getLastInboundMessage(businessId, phone) { return lastInboundStmt.get(businessId, phone); }
+
+const getReengagementStmt = db.prepare(
+  `SELECT * FROM reengagement_state WHERE business_id=? AND phone=?`
+);
+function getReengagementRow(businessId, phone) { return getReengagementStmt.get(businessId, phone); }
+
+const upsertReengagementStmt = db.prepare(`
+  INSERT INTO reengagement_state (business_id, phone, anchor_at, stage, updated_at)
+  VALUES (?, ?, ?, 'pending', datetime('now'))
+  ON CONFLICT(business_id, phone) DO UPDATE SET anchor_at=excluded.anchor_at, stage='pending', updated_at=datetime('now')
+`);
+// Starts (or restarts) tracking for this thread anchored on the given
+// outbound message's timestamp — used both the first time we notice a stale
+// thread, and whenever the actual latest outbound message has moved past
+// whatever we were previously tracking (e.g. a normal reply went out after
+// our last nudge attempt for an unrelated reason).
+function resetReengagementAnchor(businessId, phone, anchorAt) {
+  upsertReengagementStmt.run(businessId, phone, anchorAt);
+}
+
+const advanceReengagementStmt = db.prepare(
+  `UPDATE reengagement_state SET stage=?, anchor_at=?, updated_at=datetime('now') WHERE business_id=? AND phone=?`
+);
+// Call after successfully sending a nudge — moves the anchor to the nudge's
+// own timestamp (so the NEXT stage's wait is measured from it) and advances
+// the stage so the same message never gets sent twice.
+function advanceReengagementStage(businessId, phone, stage, anchorAt) {
+  advanceReengagementStmt.run(stage, anchorAt, businessId, phone);
+}
+
+const deleteReengagementStmt = db.prepare(
+  `DELETE FROM reengagement_state WHERE business_id=? AND phone=?`
+);
+function clearReengagementRow(businessId, phone) { deleteReengagementStmt.run(businessId, phone); }
+
+Object.assign(module.exports, {
+  getStaleOutboundThreads, getLastMessage, getLastInboundMessage, getReengagementRow,
+  resetReengagementAnchor, advanceReengagementStage, clearReengagementRow,
+});
 
 // ── Sales pipeline (CRM leads) ─────────────────────────────────────────────────
 // Tracks prospective cafés the operator is pitching — global, not per-tenant

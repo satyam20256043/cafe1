@@ -751,7 +751,11 @@ CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
 5. Customer asks "what are my points", "how many stamps", "mera balance", "my rewards", "loyalty card" → output exactly: INTENT:LOYALTY_QUERY
 6. Customer wants to redeem stamps/points ("redeem", "free item", "use points") → output exactly: INTENT:LOYALTY_REDEEM
 7. Otherwise, keep replies concise (max 3 sentences), conversational, and warm — write it the way
-   a kind, humble host would actually say it out loud, not like a company reading a policy.${conversationContext}
+   a kind, humble host would actually say it out loud, not like a company reading a policy.
+8. When asked about price or the menu, state the standard price plainly. Do not proactively
+   mention discounts, offers, or the student discount unless the customer specifically asks
+   about a deal, a discount, or a lower price — that's what rule 3 is for. Lead with the real
+   price, not with a promotion.${conversationContext}
 
 Customer query: "${text}"
 Your Response:`;
@@ -1194,6 +1198,134 @@ function runTrialReminders() {
       fs.writeFileSync(noticesFile, JSON.stringify(notices, null, 2));
     } catch (e) {
       console.error(`[Trial Reminders] Failed for branch ${b.id}:`, e.message);
+    }
+  }
+}
+
+// ── Re-engagement nudges (user decision 2026-07-30) ──────────────────────────
+// A conversation "went quiet" when the last message in the thread is ours and
+// it's sat unanswered — covers both a customer who started booking a table
+// and never confirmed, and one who was just asking questions and stopped
+// replying. Two-step, same for both: a soft, no-discount check-in first;
+// only if THAT also goes unanswered does the actual offer go out (a real,
+// same-day-expiring coupon, not just a claim). Deliberately uncapped across
+// separate visits — the goal is filling tables, not guarding margin.
+const REENGAGE_CHECKIN_AFTER_MS = 10 * 60 * 1000;    // 10 min of silence
+const REENGAGE_OFFER_AFTER_MS   = 15 * 60 * 1000;    // +15 min after the check-in
+const REENGAGE_LOOKBACK_MS      = 2 * 60 * 60 * 1000; // ignore threads gone stale longer ago than this
+const REENGAGE_DEFAULT_DISCOUNT = 10; // used when the café hasn't set its own AI discount ceiling
+
+function sqliteTimeToMs(s) { return new Date(String(s).replace(' ', 'T') + 'Z').getTime(); }
+function msUntilLocalMidnight() {
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  return midnight.getTime() - now.getTime();
+}
+
+function buildReengagementMessage(stage, track, lang, { customerName, reservationData, offerCode, discountPct }) {
+  const name = customerName ? String(customerName).trim().split(' ')[0] : '';
+  const greetName = name ? ' ' + name : '';
+  const hi = lang === 'hinglish' || lang === 'hindi';
+
+  if (stage === 'checkin') {
+    if (track === 'reservation') {
+      const detail = reservationData && reservationData.guests && reservationData.datetime
+        ? (hi ? ` (${reservationData.guests} log, ${reservationData.datetime})` : ` for ${reservationData.guests} on ${reservationData.datetime}`)
+        : '';
+      return hi
+        ? `Hey${greetName}! 😊 Bas check kar raha tha — abhi bhi wahin hain? Jab ready ho, main aapka table${detail} confirm kar dunga, bas bataiye!`
+        : `Hey${greetName}! 😊 Just checking in — are you still there? I can go ahead and confirm your table${detail} whenever you're ready!`;
+    }
+    return hi
+      ? `Hey${greetName}! 😊 Aap wahin hain? Agar menu, timing ya kisi aur cheez ke baare mein koi sawaal ho, khushi se bataunga!`
+      : `Hey${greetName}! 😊 Still there? Happy to help if you had more questions — menu, timings, anything at all!`;
+  }
+
+  // stage === 'offer'
+  if (track === 'reservation') {
+    return hi
+      ? `Abhi bhi soch rahe hain? 🤔 Aaj hi apna table confirm karein aur paayein *${discountPct}% off* — sirf aaj ke liye! Code: *${offerCode}* 🎁 Aapka intezaar rahega!`
+      : `Still deciding? 🤔 Confirm your table today and enjoy *${discountPct}% off* — just for today! Code: *${offerCode}* 🎁 Would love to have you in!`;
+  }
+  return hi
+    ? `Aapse baat karke accha laga! 😊 Aaj kabhi bhi aa jayein aur paayein *${discountPct}% off* apne order par — bas yeh code dikhayein: *${offerCode}* 🎉 Sirf aaj valid hai!`
+    : `Loved chatting with you! 😊 Come in anytime today and enjoy *${discountPct}% off* your order — just show this code: *${offerCode}* 🎉 Valid today only!`;
+}
+
+async function sweepReengagementNudges() {
+  if (!db) return;
+  let threads;
+  try {
+    const since = new Date(Date.now() - REENGAGE_LOOKBACK_MS).toISOString().slice(0, 19).replace('T', ' ');
+    threads = db.getStaleOutboundThreads(since);
+  } catch (e) { console.error('[Reengagement Sweep] query failed:', e.message); return; }
+
+  const now = Date.now();
+  for (const t of threads) {
+    try {
+      const branchId = t.business_id, phone = t.phone;
+      const business = businesses.find(b => b.id === branchId);
+      if (!business) continue;
+
+      let row = db.getReengagementRow(branchId, phone);
+      if (!row || row.anchor_at !== t.created_at) {
+        // First time seeing this stale thread, or a newer outbound message has
+        // since gone out for some other reason — (re)anchor and wait fresh.
+        db.resetReengagementAnchor(branchId, phone, t.created_at);
+        row = db.getReengagementRow(branchId, phone);
+      }
+      if (row.stage === 'offer_sent') continue; // done for this cycle until they reply
+
+      const age = now - sqliteTimeToMs(row.anchor_at);
+      const nextStage = row.stage === 'pending' ? 'checkin' : 'offer';
+      const waitNeeded = nextStage === 'checkin' ? REENGAGE_CHECKIN_AFTER_MS : REENGAGE_OFFER_AFTER_MS;
+      if (age < waitNeeded) continue;
+
+      const userState = userStates[branchId] && userStates[branchId][phone];
+      const track = (userState && userState.state === 'RESERVATION') ? 'reservation' : 'browser';
+      const lastInbound = db.getLastInboundMessage(branchId, phone);
+      const lang = detectLanguage((lastInbound && lastInbound.message) || '');
+
+      const profiles = getBranchData(branchId, 'customer_profiles.json');
+      const normPhone = db.normalizePhone(phone);
+      const profile = profiles.find(p => p.phone === normPhone);
+      const customerName = (userState && userState.reservationData && userState.reservationData.name) || (profile && profile.name) || '';
+
+      let text, discountPct;
+      if (nextStage === 'checkin') {
+        text = buildReengagementMessage('checkin', track, lang, { customerName, reservationData: userState && userState.reservationData });
+      } else {
+        // A failed send below never advances the stage, so this branch can run again
+        // on the next sweep tick for the same idle cycle — reuse the coupon already
+        // issued for it instead of minting a fresh code on every retry.
+        const sourceId = `${phone}:${row.anchor_at}`;
+        let coupon = db.findCouponBySource(branchId, 'reengagement', sourceId);
+        if (coupon) {
+          discountPct = coupon.discount_value;
+        } else {
+          const settings = getBranchData(branchId, 'branch-settings.json');
+          discountPct = (settings && Number.isFinite(settings.aiMaxDiscount) && settings.aiMaxDiscount > 0)
+            ? settings.aiMaxDiscount : REENGAGE_DEFAULT_DISCOUNT;
+          coupon = db.issueCoupon({
+            businessId: branchId, sourceType: 'reengagement', sourceId, customerPhone: phone,
+            discountType: 'percent', discountValue: discountPct,
+            expiresInDays: msUntilLocalMidnight() / 86400000,
+          });
+        }
+        text = buildReengagementMessage('offer', track, lang, { customerName, offerCode: coupon.code, discountPct });
+      }
+
+      const sent = await sendWhatsAppToCustomer(branchId, phone, text);
+      if (!sent) continue; // WhatsApp not connected / send failed — retry next sweep, nothing marked
+
+      db.saveChatMessage(branchId, phone, customerName || null, 'out', text, 'whatsapp');
+      emitToBranch(branchId, 'inbound_chat', { branchId, phone, text, sender: 'ai' });
+
+      const justSaved = db.getLastMessage(branchId, phone);
+      db.advanceReengagementStage(branchId, phone, nextStage === 'checkin' ? 'checkin_sent' : 'offer_sent', justSaved.created_at);
+      db.logEvent(branchId, 'reengagement.' + nextStage + '_sent', { customerPhone: phone, actor: 'system', metadata: { track, discountPct: discountPct || null } });
+    } catch (e) {
+      console.error('[Reengagement Sweep] failed for', t.business_id, t.phone, ':', e.message);
     }
   }
 }
@@ -3008,6 +3140,11 @@ server.listen(PORT, () => {
       setInterval(runTrialReminders, 24 * 60 * 60 * 1000); // then every 24h
     }, wait);
   })();
+
+  // Re-engagement sweep — short interval by design (checking for a 10-minute
+  // silence needs minute-level granularity, unlike the daily/weekly jobs above).
+  setInterval(sweepReengagementNudges, 60 * 1000);
+  console.log('[Reengagement] Sweep active — checking every 60s for quiet conversations');
 });
 
 // Graceful shutdown — destroy QR Chromium processes before exit (keeps sessions
