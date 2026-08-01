@@ -495,13 +495,30 @@ function getLoyaltyTier(visits) {
   return 'New Customer';
 }
 
+// Finds a customer_profiles.json entry by phone, normalizing BOTH sides —
+// callers increasingly pass an already-normalized phone (post W1b), but
+// existing profiles.json entries predate that and can still be raw-keyed
+// (91-prefixed, or unresolved LID digits); comparing raw would silently miss
+// them. See docs/ZORDIC_WA_IDENTITY_TIME_GUIDE.md §3 W1b.
+function findProfileByPhone(profiles, phone) {
+  const target = db ? db.normalizePhone(phone) : phone;
+  return profiles.find(p => (db ? db.normalizePhone(p.phone) : p.phone) === target);
+}
+
 function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFields = {}) {
+  // Canonical last-10-digit key (see docs/ZORDIC_WA_IDENTITY_TIME_GUIDE.md §3
+  // W1b) so the same human converges to one profile whether `phone` arrives
+  // raw, 91-prefixed, or (pre-existing data) as unresolved LID digits —
+  // matching existing profiles by normalized form, not raw equality, means
+  // old differently-formatted-but-same-number entries still match instead of
+  // silently duplicating going forward.
+  const normalizedPhone = db ? db.normalizePhone(phone) : phone;
   const profiles = getBranchData(branchId, 'customer_profiles.json');
-  let profile = profiles.find(p => p.phone === phone);
+  let profile = findProfileByPhone(profiles, normalizedPhone);
   const isNewCustomer = !profile;
   if (!profile) {
     profile = {
-      phone,
+      phone: normalizedPhone,
       name: name || 'Customer',
       visits: 0,
       tags: [],
@@ -516,7 +533,7 @@ function updateCustomerProfile(branchId, phone, name, lastIntent, additionalFiel
 
   profile.visits += 1;
   if (db) db.logEvent(branchId, isNewCustomer ? 'customer.new' : 'customer.repeat',
-    { customerPhone: phone, actor: 'system', metadata: { visits: profile.visits, lastIntent: lastIntent || null } });
+    { customerPhone: normalizedPhone, actor: 'system', metadata: { visits: profile.visits, lastIntent: lastIntent || null } });
   profile.lastActive = new Date().toLocaleString();
   
   if (name) profile.name = name;
@@ -658,7 +675,7 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
         } else {
           // Fall back to JSON profile
           const profiles = getBranchData(branchId, 'customer_profiles.json');
-          const profile = profiles.find(p => p.phone === fromPhone);
+          const profile = findProfileByPhone(profiles, fromPhone);
           if (profile) {
             customerName  = profile.name || 'Customer';
             customerVisits = profile.visits || 0;
@@ -901,7 +918,7 @@ function generateLocalConversationalReply(branchId, text, lang, fromPhone) {
   let customerTier = 'New Customer';
   if (fromPhone) {
     const profiles = getBranchData(branchId, 'customer_profiles.json');
-    const profile = profiles.find(p => p.phone === fromPhone);
+    const profile = findProfileByPhone(profiles, fromPhone);
     if (profile) {
       customerName = profile.name || '';
       customerTier = profile.loyaltyTier || getLoyaltyTier(profile.visits);
@@ -1294,7 +1311,7 @@ async function sweepReengagementNudges() {
 
       const profiles = getBranchData(branchId, 'customer_profiles.json');
       const normPhone = db.normalizePhone(phone);
-      const profile = profiles.find(p => p.phone === normPhone);
+      const profile = findProfileByPhone(profiles, normPhone);
       const customerName = (userState && userState.reservationData && userState.reservationData.name) || (profile && profile.name) || '';
 
       let text, discountPct;
@@ -1502,7 +1519,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
     let custName = userState.reservationData.name;
     if (!custName) {
       const profiles = getBranchData(branchId, 'customer_profiles.json');
-      const profile = profiles.find(p => p.phone === fromPhone);
+      const profile = findProfileByPhone(profiles, fromPhone);
       if (profile && profile.name) custName = profile.name;
     }
     custName = custName || 'Customer';
@@ -1590,7 +1607,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
       let custName = userState.reservationData.name;
       if (!custName) {
         const profiles = getBranchData(branchId, 'customer_profiles.json');
-        const profile = profiles.find(p => p.phone === fromPhone);
+        const profile = findProfileByPhone(profiles, fromPhone);
         if (profile && profile.name) {
           custName = profile.name;
         }
@@ -1651,7 +1668,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
         writeBranchData(branchId, 'feedback.json', feedback);
 
         const profiles = getBranchData(branchId, 'customer_profiles.json');
-        const profile = profiles.find(p => p.phone === fromPhone);
+        const profile = findProfileByPhone(profiles, fromPhone);
         if (profile) {
           profile.offersReceived = profile.offersReceived || [];
           if (!profile.offersReceived.some(o => o.offer.includes(couponCode))) {
@@ -2304,7 +2321,7 @@ const routeCtx = {
   app, io, fs, path,
   DATA_DIR, BUSINESSES_FILE, businesses,
   getBranchData, writeBranchData,
-  updateCustomerProfile, processCafeBotReply,
+  updateCustomerProfile, processCafeBotReply, findProfileByPhone,
   initializeBusinessFiles,
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
@@ -2528,46 +2545,34 @@ function startQrClientForBranch(branchId) {
       // pipeline, chat_messages persistence, reservation/loyalty state machine).
       // `from` may be "<digits>@c.us" OR a privacy id "<digits>@lid" — ALWAYS
       // reply to the full original id (a rebuilt "<digits>@c.us" fails with
-      // "No LID for user" for @lid senders), but for CRM/UI/loyalty/re-engagement
-      // keys we need the customer's real phone number, not WhatsApp's opaque LID
-      // digits (which look like a phone number but aren't one — they're a
-      // per-relationship privacy handle, so storing them broke phone-keyed
-      // features and left outbound sends to a stored LID silently unresolvable).
-      // whatsapp-web.js can resolve the real number when WhatsApp exposes it via
-      // Contact.phoneNumber; fall back to the LID digits (current behavior) when
-      // it can't — same is true for genuinely private numbers, not just a code gap.
+      // "No LID for user" for @lid senders — see wa_contact_ids below), but
+      // for CRM/UI/loyalty/re-engagement keys we need the customer's real
+      // phone number, not WhatsApp's opaque LID digits (a per-relationship
+      // privacy handle, not derived from the phone — storing them broke
+      // phone-keyed features and left outbound sends to a stored LID
+      // silently unresolvable with "No LID for user").
+      // client.getContactLidAndPhone() is whatsapp-web.js's purpose-built
+      // resolver — verified live (docs/ZORDIC_WA_IDENTITY_TIME_GUIDE.md §2)
+      // to return the real number via `pn` when WhatsApp exposes it; falls
+      // back to the LID digits when it can't, which is the correct behavior
+      // for a genuinely privacy-locked contact too, not just a gap.
       let fromPhone = String(from).replace(/@.*$/, '');
       if (String(from).endsWith('@lid')) {
         try {
-          // getContact() is a Puppeteer/CDP round-trip — on a RAM-constrained
-          // box it can hang far longer than it errors, and an unbounded await
-          // here would stall every subsequent inbound message behind it. Never
-          // let contact resolution delay a customer's reply by more than this.
-          const contact = await Promise.race([
-            msg.getContact(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('getContact timed out after 5s')), 5000)),
-          ]);
-          // TEMPORARY DIAGNOSTIC (docs/ZORDIC_WA_IDENTITY_TIME_GUIDE.md §2) —
-          // purely observational, does not affect fromPhone/resolution below.
-          // Remove once we've seen a live @lid sender's pn come back (or not).
-          try {
-            const diagClient = waweb.getClient(branchId);
-            const pairs = diagClient ? await Promise.race([
-              diagClient.getContactLidAndPhone([from]),
-              new Promise((_, rej) => setTimeout(() => rej(new Error('lidpn timeout')), 5000)),
-            ]) : null;
-            console.log('[LID DIAG]', from, JSON.stringify(pairs));
-          } catch (diagErr) { console.log('[LID DIAG] failed:', diagErr.message); }
-          const resolved = String((contact && contact.id) || '').replace(/@.*$/, '').replace(/[^0-9]/g, '');
-          // contact.id isn't necessarily a real phone number even when it's
-          // all-digits and differs from the message-level LID — WhatsApp's
-          // contact-level id can be a DIFFERENT internal identifier that just
-          // happens to also look numeric (confirmed live: it returned 15-digit
-          // values with no relation to any real phone). Only trust something
-          // that actually matches a real Indian mobile number shape — every
-          // café on this platform is India-based (see the 91-default elsewhere
-          // in this file) — anything else is treated as unresolved rather than
-          // risking corrupting the stored phone with a plausible-looking fake.
+          // A Puppeteer/CDP round-trip — on a RAM-constrained box it can hang
+          // far longer than it errors, and an unbounded await here would
+          // stall every subsequent inbound message behind it (see 07c6b35).
+          const client = waweb.getClient(branchId);
+          const pairs = client ? await Promise.race([
+            client.getContactLidAndPhone([from]),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('getContactLidAndPhone timed out after 5s')), 5000)),
+          ]) : null;
+          const pn = pairs && pairs[0] && pairs[0].pn;
+          const resolved = String(pn || '').replace(/@.*$/, '').replace(/[^0-9]/g, '');
+          // Only trust something that actually matches a real Indian mobile
+          // number shape — every café on this platform is India-based (see
+          // the 91-default elsewhere in this file) — anything else is
+          // treated as unresolved rather than risking a plausible-looking fake.
           const realPhoneMatch = resolved.match(/^(?:91)?([6-9]\d{9})$/);
           if (realPhoneMatch && realPhoneMatch[1] !== fromPhone.replace(/^91/, '')) {
             fromPhone = realPhoneMatch[1];
@@ -2578,6 +2583,11 @@ function startQrClientForBranch(branchId) {
           console.warn(`[WA QR] ${branchId}: LID phone resolution failed for ${from}:`, e.message);
         }
       }
+      // One canonical identity key (last 10 digits) regardless of channel —
+      // QR @c.us, resolved @lid, Cloud API's 91-prefixed format, and the
+      // web-chat widget all converge on the same record for the same human.
+      // See docs/ZORDIC_WA_IDENTITY_TIME_GUIDE.md §3 W1b.
+      if (db) fromPhone = db.normalizePhone(fromPhone);
       // Remember the exact id this message actually arrived on, regardless of
       // whether phone resolution above succeeded — it's the only id guaranteed
       // to reach this customer again later (see wa_contact_ids in db.js).
@@ -2650,9 +2660,14 @@ async function sendWhatsAppToCustomer(branchId, phone, text, opts = {}) {
     if (!waweb || !waweb.available) { console.warn('[WA QR] module unavailable for', branchId); return false; }
     // Prefer the exact id this customer last messaged in on — a phone number
     // alone can fail to resolve ("No LID for user") for @lid-only accounts,
-    // even when it's their genuine real number.
-    const waId = db && db.getWaContactId(branchId, phone);
-    return qrSendQueued(branchId, waId || phone, text).then(ok => {
+    // even when it's their genuine real number. Normalized explicitly here
+    // too (getWaContactId also normalizes internally) so the FALLBACK value
+    // — bare phone, when no wa_id is on file yet — is guaranteed the same
+    // canonical last-10 form waweb.js's own bare-digits path expects, not
+    // whatever raw format this specific caller happened to have on hand.
+    const normalizedPhone = db ? db.normalizePhone(phone) : phone;
+    const waId = db && db.getWaContactId(branchId, normalizedPhone);
+    return qrSendQueued(branchId, waId || normalizedPhone, text).then(ok => {
       if (!ok) opsAlerts.raiseAlert('wa_send_failed', branchId, 'QR send failed');
       return ok;
     });

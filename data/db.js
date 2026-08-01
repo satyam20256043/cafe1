@@ -1266,14 +1266,18 @@ const upsertWaContactIdStmt = db.prepare(`
   VALUES (?, ?, ?, datetime('now'))
   ON CONFLICT(business_id, phone) DO UPDATE SET wa_id=excluded.wa_id, updated_at=datetime('now')
 `);
+// phone is always normalized here regardless of what callers pass — the one
+// canonical-key guarantee (see docs/ZORDIC_WA_IDENTITY_TIME_GUIDE.md §3 W1b)
+// lives at this shared boundary so it can't be missed at an individual call
+// site. waId itself is untouched — it must stay the full original WhatsApp id.
 function saveWaContactId(businessId, phone, waId) {
-  try { upsertWaContactIdStmt.run(businessId, phone, waId); }
+  try { upsertWaContactIdStmt.run(businessId, normalizePhone(phone), waId); }
   catch (e) { console.error('[wa_contact_ids] save failed:', e.message); }
 }
 
 const getWaContactIdStmt = db.prepare(`SELECT wa_id FROM wa_contact_ids WHERE business_id=? AND phone=?`);
 function getWaContactId(businessId, phone) {
-  const row = getWaContactIdStmt.get(businessId, phone);
+  const row = getWaContactIdStmt.get(businessId, normalizePhone(phone));
   return row ? row.wa_id : null;
 }
 

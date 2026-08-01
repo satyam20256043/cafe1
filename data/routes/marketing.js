@@ -5,7 +5,7 @@ module.exports = function register(ctx) {
     app, io, fs, path,
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
-    updateCustomerProfile, processCafeBotReply,
+    updateCustomerProfile, processCafeBotReply, findProfileByPhone,
     waApi, genAI, callClaude, callGemini, razorpay, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
@@ -298,7 +298,7 @@ app.post('/api/businesses/:id/feedback', (req, res) => {
   // Save coupon code to customer profile if rating is 5
   if (couponCode && phone) {
     const profiles = getBranchData(id, 'customer_profiles.json');
-    const profile = profiles.find(p => p.phone === phone);
+    const profile = findProfileByPhone(profiles, phone);
     if (profile) {
       profile.offersReceived = profile.offersReceived || [];
       if (!profile.offersReceived.some(o => o.offer.includes(couponCode))) {
@@ -632,7 +632,7 @@ app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', re
 
   // Update CRM customer profile with offer received
   const profiles = getBranchData(id, 'customer_profiles.json');
-  const profile = profiles.find(p => p.phone === sug.customerPhone);
+  const profile = findProfileByPhone(profiles, sug.customerPhone);
   if (profile) {
     profile.offersReceived = profile.offersReceived || [];
     profile.offersReceived.push({

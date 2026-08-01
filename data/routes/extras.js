@@ -5,7 +5,7 @@ module.exports = function register(ctx) {
     app, io, fs, path,
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
-    updateCustomerProfile, processCafeBotReply,
+    updateCustomerProfile, processCafeBotReply, findProfileByPhone,
     waApi, genAI, razorpay, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
@@ -41,7 +41,7 @@ app.post('/api/businesses/:id/walkin', requireAuth, requireBranchAccess, (req, r
   if (!name || !phone) return res.status(400).json({ error: 'Name and phone required' });
 
   const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-  const existing = getBranchData(id, 'customer_profiles.json').find(p => p.phone === cleanPhone);
+  const existing = findProfileByPhone(getBranchData(id, 'customer_profiles.json'), cleanPhone);
   const isNew = !existing;
 
   const customer = updateCustomerProfile(id, cleanPhone, name, 'walk-in', {
@@ -297,7 +297,7 @@ app.post('/api/businesses/:id/customers/:phone/ai-offer', requireAuth, requireBr
   // (nothing writes it anymore), so this always fell back to "Valued Customer".
   const profiles = getBranchData(id, 'customer_profiles.json');
 
-  const customer = profiles.find(c => c.phone === cleanPhone || c.phone === phone);
+  const customer = findProfileByPhone(profiles, cleanPhone);
   const name = customer ? customer.name : 'Valued Customer';
   const visits = customer ? (customer.visits || 1) : 1;
 
@@ -324,7 +324,7 @@ app.get('/api/businesses/:id/customers/:phone/insights', requireAuth, requireBra
   // (nothing writes it anymore), so this 404'd for every customer, always.
   const profiles = getBranchData(id, 'customer_profiles.json');
 
-  const customer = profiles.find(c => c.phone === cleanPhone || c.phone === phone);
+  const customer = findProfileByPhone(profiles, cleanPhone);
   if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
   // Build insights from order history. Orders live in SQLite (data/orders.json
