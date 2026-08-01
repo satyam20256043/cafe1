@@ -2533,7 +2533,14 @@ function startQrClientForBranch(branchId) {
       let fromPhone = String(from).replace(/@.*$/, '');
       if (String(from).endsWith('@lid')) {
         try {
-          const contact = await msg.getContact();
+          // getContact() is a Puppeteer/CDP round-trip — on a RAM-constrained
+          // box it can hang far longer than it errors, and an unbounded await
+          // here would stall every subsequent inbound message behind it. Never
+          // let contact resolution delay a customer's reply by more than this.
+          const contact = await Promise.race([
+            msg.getContact(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('getContact timed out after 5s')), 5000)),
+          ]);
           const resolved = String((contact && contact.id) || '').replace(/@.*$/, '').replace(/[^0-9]/g, '');
           if (/^\d{10,15}$/.test(resolved) && resolved !== fromPhone) {
             fromPhone = resolved;
