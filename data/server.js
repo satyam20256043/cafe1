@@ -2658,16 +2658,28 @@ async function sendWhatsAppToCustomer(branchId, phone, text, opts = {}) {
   }
   if (cfg.mode === 'qr') {
     if (!waweb || !waweb.available) { console.warn('[WA QR] module unavailable for', branchId); return false; }
-    // Prefer the exact id this customer last messaged in on — a phone number
-    // alone can fail to resolve ("No LID for user") for @lid-only accounts,
-    // even when it's their genuine real number. Normalized explicitly here
-    // too (getWaContactId also normalizes internally) so the FALLBACK value
-    // — bare phone, when no wa_id is on file yet — is guaranteed the same
-    // canonical last-10 form waweb.js's own bare-digits path expects, not
-    // whatever raw format this specific caller happened to have on hand.
-    const normalizedPhone = db ? db.normalizePhone(phone) : phone;
-    const waId = db && db.getWaContactId(branchId, normalizedPhone);
-    return qrSendQueued(branchId, waId || normalizedPhone, text).then(ok => {
+    // `phone` is NOT always a bare number — the live-reply path (onMessage)
+    // deliberately passes the customer's full original id (`from`, e.g.
+    // "...@lid") directly, so a reply always reaches @lid senders correctly.
+    // ⚠️ REGRESSION FIXED: normalizing unconditionally here (stripping non-
+    // digits + truncating to last 10) silently mangled that full id into a
+    // meaningless digit string whenever it contained '@lid'/'@c.us', which
+    // broke EVERY live reply to an @lid customer — the manager portal still
+    // showed the reply (that UI event fires independent of send success) but
+    // nothing actually reached the phone. A full id must always pass through
+    // untouched; normalization only applies to a genuinely bare phone number.
+    const raw = String(phone);
+    let target;
+    if (raw.includes('@')) {
+      target = raw;
+    } else {
+      // Prefer the exact id this customer last messaged in on — a phone
+      // number alone can fail to resolve ("No LID for user") for @lid-only
+      // accounts, even when it's their genuine real number.
+      const normalizedPhone = db ? db.normalizePhone(raw) : raw;
+      target = (db && db.getWaContactId(branchId, normalizedPhone)) || normalizedPhone;
+    }
+    return qrSendQueued(branchId, target, text).then(ok => {
       if (!ok) opsAlerts.raiseAlert('wa_send_failed', branchId, 'QR send failed');
       return ok;
     });
