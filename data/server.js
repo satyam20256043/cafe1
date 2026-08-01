@@ -1,4 +1,10 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+// Every café using this platform is in India; every bare `new Date().toLocaleString()`
+// call throughout this file (customer lastActive, chat timestamps, growth
+// suggestions, etc.) renders in whatever zone the Node process runs in —
+// without this, a server defaulting to UTC shows staff times 5.5h off from
+// actual India time. Set once, globally, rather than patching each call site.
+process.env.TZ = process.env.TZ || 'Asia/Kolkata';
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -2542,8 +2548,18 @@ function startQrClientForBranch(branchId) {
             new Promise((_, reject) => setTimeout(() => reject(new Error('getContact timed out after 5s')), 5000)),
           ]);
           const resolved = String((contact && contact.id) || '').replace(/@.*$/, '').replace(/[^0-9]/g, '');
-          if (/^\d{10,15}$/.test(resolved) && resolved !== fromPhone) {
-            fromPhone = resolved;
+          // contact.id isn't necessarily a real phone number even when it's
+          // all-digits and differs from the message-level LID — WhatsApp's
+          // contact-level id can be a DIFFERENT internal identifier that just
+          // happens to also look numeric (confirmed live: it returned 15-digit
+          // values with no relation to any real phone). Only trust something
+          // that actually matches a real Indian mobile number shape — every
+          // café on this platform is India-based (see the 91-default elsewhere
+          // in this file) — anything else is treated as unresolved rather than
+          // risking corrupting the stored phone with a plausible-looking fake.
+          const realPhoneMatch = resolved.match(/^(?:91)?([6-9]\d{9})$/);
+          if (realPhoneMatch && realPhoneMatch[1] !== fromPhone.replace(/^91/, '')) {
+            fromPhone = realPhoneMatch[1];
           } else {
             console.warn(`[WA QR] ${branchId}: could not resolve real phone for @lid sender ${from} — storing LID digits as fallback`);
           }
