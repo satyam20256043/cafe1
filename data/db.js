@@ -229,6 +229,20 @@ db.exec(`
     PRIMARY KEY (business_id, phone)
   );
 
+  -- Last known original WhatsApp id (e.g. "<digits>@lid" or "<digits>@c.us") a
+  -- QR-linked customer messaged in from. Some WhatsApp accounts are only
+  -- reachable via this exact id, not a phone-number-reconstructed one ("No LID
+  -- for user" from a hand-built "<phone>@c.us") — every feature that INITIATES
+  -- a message (re-engagement, campaigns, trial reminders, offers) needs this to
+  -- reach those customers at all; replying within a live conversation already
+  -- works without it since that uses the inbound message's own id directly.
+  CREATE TABLE IF NOT EXISTS wa_contact_ids (
+    business_id TEXT NOT NULL, phone TEXT NOT NULL,
+    wa_id       TEXT NOT NULL,
+    updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (business_id, phone)
+  );
+
   -- Sales pipeline (prospects who haven't signed up yet — no business_id, admin-only)
   CREATE TABLE IF NOT EXISTS crm_leads (
     id TEXT PRIMARY KEY,
@@ -1245,6 +1259,25 @@ function saveChatMessage(businessId, phone, customerName, direction, message, ch
 }
 
 Object.assign(module.exports, { saveChatMessage });
+
+// ── WhatsApp contact id (QR/@lid resolution) ────────────────────────────────
+const upsertWaContactIdStmt = db.prepare(`
+  INSERT INTO wa_contact_ids (business_id, phone, wa_id, updated_at)
+  VALUES (?, ?, ?, datetime('now'))
+  ON CONFLICT(business_id, phone) DO UPDATE SET wa_id=excluded.wa_id, updated_at=datetime('now')
+`);
+function saveWaContactId(businessId, phone, waId) {
+  try { upsertWaContactIdStmt.run(businessId, phone, waId); }
+  catch (e) { console.error('[wa_contact_ids] save failed:', e.message); }
+}
+
+const getWaContactIdStmt = db.prepare(`SELECT wa_id FROM wa_contact_ids WHERE business_id=? AND phone=?`);
+function getWaContactId(businessId, phone) {
+  const row = getWaContactIdStmt.get(businessId, phone);
+  return row ? row.wa_id : null;
+}
+
+Object.assign(module.exports, { saveWaContactId, getWaContactId });
 
 // ── Re-engagement nudges ─────────────────────────────────────────────────────
 // Finds (business_id, phone) threads whose single most recent message OVERALL

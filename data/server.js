@@ -2544,6 +2544,10 @@ function startQrClientForBranch(branchId) {
           console.warn(`[WA QR] ${branchId}: LID phone resolution failed for ${from}:`, e.message);
         }
       }
+      // Remember the exact id this message actually arrived on, regardless of
+      // whether phone resolution above succeeded — it's the only id guaranteed
+      // to reach this customer again later (see wa_contact_ids in db.js).
+      if (db) db.saveWaContactId(branchId, fromPhone, from);
       const reply = await processCafeBotReply(branchId, fromPhone, body, { channel: 'whatsapp' });
       emitToBranch(branchId, 'inbound_chat', {
         branchId, phone: fromPhone, text: body, sender: 'customer',
@@ -2610,7 +2614,11 @@ async function sendWhatsAppToCustomer(branchId, phone, text, opts = {}) {
   }
   if (cfg.mode === 'qr') {
     if (!waweb || !waweb.available) { console.warn('[WA QR] module unavailable for', branchId); return false; }
-    return qrSendQueued(branchId, phone, text).then(ok => {
+    // Prefer the exact id this customer last messaged in on — a phone number
+    // alone can fail to resolve ("No LID for user") for @lid-only accounts,
+    // even when it's their genuine real number.
+    const waId = db && db.getWaContactId(branchId, phone);
+    return qrSendQueued(branchId, waId || phone, text).then(ok => {
       if (!ok) opsAlerts.raiseAlert('wa_send_failed', branchId, 'QR send failed');
       return ok;
     });
