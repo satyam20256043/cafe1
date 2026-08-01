@@ -199,6 +199,16 @@ async function stopAll() {
   await Promise.all(Object.keys(clients).map((id) => stopClient(id, { logout: false })));
 }
 
+// Raw whatsapp-web.js Client instance for a connected branch, or null. `clients`
+// is module-internal by design (external code should go through sendText/
+// getStatus) — this is a narrow escape hatch for callers that need a library
+// method with no wrapper here yet (e.g. getContactLidAndPhone for @lid
+// resolution), not a general invitation to reach into client internals.
+function getClient(branchId) {
+  const c = clients[branchId];
+  return (c && c.state === 'connected' && c.client) ? c.client : null;
+}
+
 module.exports = {
   available: !!Client,
   MAX_CLIENTS,
@@ -208,4 +218,5 @@ module.exports = {
   sendText,
   getStatus,
   activeCount,
+  getClient,
 };

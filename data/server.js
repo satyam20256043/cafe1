@@ -2547,6 +2547,17 @@ function startQrClientForBranch(branchId) {
             msg.getContact(),
             new Promise((_, reject) => setTimeout(() => reject(new Error('getContact timed out after 5s')), 5000)),
           ]);
+          // TEMPORARY DIAGNOSTIC (docs/ZORDIC_WA_IDENTITY_TIME_GUIDE.md §2) —
+          // purely observational, does not affect fromPhone/resolution below.
+          // Remove once we've seen a live @lid sender's pn come back (or not).
+          try {
+            const diagClient = waweb.getClient(branchId);
+            const pairs = diagClient ? await Promise.race([
+              diagClient.getContactLidAndPhone([from]),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('lidpn timeout')), 5000)),
+            ]) : null;
+            console.log('[LID DIAG]', from, JSON.stringify(pairs));
+          } catch (diagErr) { console.log('[LID DIAG] failed:', diagErr.message); }
           const resolved = String((contact && contact.id) || '').replace(/@.*$/, '').replace(/[^0-9]/g, '');
           // contact.id isn't necessarily a real phone number even when it's
           // all-digits and differs from the message-level LID — WhatsApp's
