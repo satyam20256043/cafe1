@@ -2517,13 +2517,33 @@ function startQrClientForBranch(branchId) {
       emitToBranch(branchId, 'wa_status', { branchId, state: 'disconnected', number: null });
       opsAlerts.raiseAlert('wa_qr_disconnected', branchId, reason);
     },
-    async onMessage({ from, body }) {
+    async onMessage({ from, body, msg }) {
       // Mirror the Cloud webhook handler exactly (channel:'whatsapp' → same AI
       // pipeline, chat_messages persistence, reservation/loyalty state machine).
-      // `from` may be "<digits>@c.us" OR a privacy id "<digits>@lid" — strip the
-      // domain for CRM/UI keys, but ALWAYS reply to the full original id (a
-      // rebuilt "<digits>@c.us" fails with "No LID for user" for @lid senders).
-      const fromPhone = String(from).replace(/@.*$/, '');
+      // `from` may be "<digits>@c.us" OR a privacy id "<digits>@lid" — ALWAYS
+      // reply to the full original id (a rebuilt "<digits>@c.us" fails with
+      // "No LID for user" for @lid senders), but for CRM/UI/loyalty/re-engagement
+      // keys we need the customer's real phone number, not WhatsApp's opaque LID
+      // digits (which look like a phone number but aren't one — they're a
+      // per-relationship privacy handle, so storing them broke phone-keyed
+      // features and left outbound sends to a stored LID silently unresolvable).
+      // whatsapp-web.js can resolve the real number when WhatsApp exposes it via
+      // Contact.phoneNumber; fall back to the LID digits (current behavior) when
+      // it can't — same is true for genuinely private numbers, not just a code gap.
+      let fromPhone = String(from).replace(/@.*$/, '');
+      if (String(from).endsWith('@lid')) {
+        try {
+          const contact = await msg.getContact();
+          const resolved = String((contact && contact.id) || '').replace(/@.*$/, '').replace(/[^0-9]/g, '');
+          if (/^\d{10,15}$/.test(resolved) && resolved !== fromPhone) {
+            fromPhone = resolved;
+          } else {
+            console.warn(`[WA QR] ${branchId}: could not resolve real phone for @lid sender ${from} — storing LID digits as fallback`);
+          }
+        } catch (e) {
+          console.warn(`[WA QR] ${branchId}: LID phone resolution failed for ${from}:`, e.message);
+        }
+      }
       const reply = await processCafeBotReply(branchId, fromPhone, body, { channel: 'whatsapp' });
       emitToBranch(branchId, 'inbound_chat', {
         branchId, phone: fromPhone, text: body, sender: 'customer',
