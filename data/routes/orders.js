@@ -5,7 +5,7 @@ module.exports = function register(ctx) {
     app, io, fs, path,
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
-    updateCustomerProfile, processCafeBotReply,
+    updateCustomerProfile, processCafeBotReply, toIsoZ,
     waApi, genAI, getRazorpayConfig, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
@@ -14,6 +14,15 @@ module.exports = function register(ctx) {
     whatsappClient,
     emitToBranch,
   } = ctx;
+
+// SQLite's created_at/updated_at have no zone marker (see toIsoZ in server.js)
+// — every order object leaving this file, whether via res.json or an
+// emitToBranch socket payload (kitchen.html listens live for 'new_order'),
+// needs both fields converted or staff see the wrong time for new orders.
+function orderWithIsoTimes(o) {
+  if (!o) return o;
+  return { ...o, created_at: toIsoZ(o.created_at), updated_at: toIsoZ(o.updated_at) };
+}
 
 // ── Place a new order ─────────────────────────────────────────────────────────
 // POST /api/businesses/:id/orders
@@ -84,8 +93,8 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
 
     if (db) db.logEvent(businessId, 'order.placed',
       { customerPhone: customerPhone, actor: 'customer', metadata: { orderId: order.id, total, itemCount: validatedItems.length, orderType: orderType || 'dine_in', couponCode: couponCode || null } });
-    emitToBranch(businessId, 'new_order', { businessId, order });
-    res.status(201).json(order);
+    emitToBranch(businessId, 'new_order', { businessId, order: orderWithIsoTimes(order) });
+    res.status(201).json(orderWithIsoTimes(order));
   } catch (err) {
     console.error('[orders] Failed to create order:', err.message);
     res.status(500).json({ error: 'Could not place order. Please try again or ask staff for help.' });
@@ -113,9 +122,10 @@ app.get('/api/businesses/:id/attribution', requireAuth, requireBranchAccess, (re
 app.get('/api/businesses/:id/orders', requireAuth, requireBranchAccess, (req, res) => {
   const { status, limit, offset } = req.query;
   if (db) {
-    return res.json(db.listOrders(req.params.id, {
+    const orders = db.listOrders(req.params.id, {
       status, limit: parseInt(limit)||50, offset: parseInt(offset)||0
-    }));
+    });
+    return res.json(orders.map(orderWithIsoTimes));
   }
   const orders = getBranchData(req.params.id, 'orders.json') || [];
   res.json(status ? orders.filter(o => o.status === status) : orders);
@@ -207,7 +217,7 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
   }
   // ─────────────────────────────────────────────────────────────────────────
 
-  res.json(order);
+  res.json(orderWithIsoTimes(order));
 });
 
 // ── Confirm payment (staff) ───────────────────────────────────────────────────
@@ -229,7 +239,7 @@ app.post('/api/businesses/:id/orders/:orderId/confirm-payment', requireAuth, req
   });
 
   emitToBranch(req.params.id, 'payment_confirmed', { businessId: req.params.id, orderId }, { public: true });
-  res.json(order);
+  res.json(orderWithIsoTimes(order));
 });
 
 // ── Create Razorpay order ─────────────────────────────────────────────────────

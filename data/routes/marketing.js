@@ -5,7 +5,7 @@ module.exports = function register(ctx) {
     app, io, fs, path,
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
-    updateCustomerProfile, processCafeBotReply, findProfileByPhone,
+    updateCustomerProfile, processCafeBotReply, findProfileByPhone, toIsoZ,
     waApi, genAI, callClaude, callGemini, razorpay, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
@@ -915,7 +915,7 @@ app.get('/api/businesses/:id/chat-history', requireAuth, requireBranchAccess, (r
   const { phone, limit=200 } = req.query;
   if (phone) {
     const msgs = db.raw().prepare('SELECT * FROM chat_messages WHERE business_id=? AND phone=? ORDER BY created_at ASC LIMIT ?').all(id, phone, +limit);
-    return res.json(msgs);
+    return res.json(msgs.map(m => ({ ...m, created_at: toIsoZ(m.created_at) })));
   }
   const convos = db.raw().prepare(`
     SELECT m.phone, m.customer_name, m.message as last_message, m.direction as last_direction, m.channel, m.created_at,
@@ -926,7 +926,7 @@ app.get('/api/businesses/:id/chat-history', requireAuth, requireBranchAccess, (r
     )
     ORDER BY m.created_at DESC LIMIT ?
   `).all(id, id, +limit);
-  res.json(convos);
+  res.json(convos.map(c => ({ ...c, created_at: toIsoZ(c.created_at) })));
 });
 
 // ── Manual staff reply from the Customer Chats tab ───────────────────────────

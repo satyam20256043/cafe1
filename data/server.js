@@ -1251,6 +1251,16 @@ const REENGAGE_LOOKBACK_MS      = 2 * 60 * 60 * 1000; // ignore threads gone sta
 const REENGAGE_DEFAULT_DISCOUNT = 10; // used when the café hasn't set its own AI discount ceiling
 
 function sqliteTimeToMs(s) { return new Date(String(s).replace(' ', 'T') + 'Z').getTime(); }
+// SQLite's datetime('now')/CURRENT_TIMESTAMP writes "YYYY-MM-DD HH:MM:SS" —
+// always UTC, but with no zone marker. Sent to the browser as-is, `new
+// Date(...)` parses that as LOCAL time, silently shifting every timestamp by
+// the browser's UTC offset (5.5h wrong for IST). Route handlers that return
+// raw SQLite rows must run their timestamp fields through this before
+// res.json() — see docs/ZORDIC_WA_IDENTITY_TIME_GUIDE.md §5.
+function toIsoZ(sqliteTs) {
+  if (!sqliteTs) return sqliteTs;
+  return String(sqliteTs).includes('T') ? sqliteTs : String(sqliteTs).replace(' ', 'T') + 'Z';
+}
 function msUntilLocalMidnight() {
   const now = new Date();
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
@@ -2333,7 +2343,7 @@ const routeCtx = {
   app, io, fs, path,
   DATA_DIR, BUSINESSES_FILE, businesses,
   getBranchData, writeBranchData,
-  updateCustomerProfile, processCafeBotReply, findProfileByPhone,
+  updateCustomerProfile, processCafeBotReply, findProfileByPhone, toIsoZ,
   initializeBusinessFiles,
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
@@ -2984,7 +2994,8 @@ app.get('/api/businesses/:id/analytics-v2', requireAuth, requireBranchAccess, (r
 app.get('/api/businesses/:id/events', requireAuth, requireBranchAccess, (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const { type, from, to, limit } = req.query;
-  res.json(db.getEvents(req.params.id, { type, from, to, limit: limit ? parseInt(limit) : undefined }));
+  const events = db.getEvents(req.params.id, { type, from, to, limit: limit ? parseInt(limit) : undefined });
+  res.json(events.map(e => ({ ...e, created_at: toIsoZ(e.created_at) })));
 });
 
 // Agency-wide roll-up across all tenants (for HQ)

@@ -5,7 +5,7 @@ module.exports = function register(ctx) {
     app, io, fs, path,
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
-    updateCustomerProfile, processCafeBotReply,
+    updateCustomerProfile, processCafeBotReply, toIsoZ,
     waApi, genAI, razorpay, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
@@ -79,7 +79,7 @@ app.post('/api/businesses/:id/loyalty/birthday', (req, res) => {
 
 // GET /api/businesses/:id/loyalty/leaderboard  — top customers
 app.get('/api/businesses/:id/loyalty/leaderboard', requireAuth, requireBranchAccess, (req, res) => {
-  if (db) return res.json(db.getLoyaltyLeaderboard(req.params.id, 20));
+  if (db) return res.json(db.getLoyaltyLeaderboard(req.params.id, 20).map(r => ({ ...r, last_visit: toIsoZ(r.last_visit) })));
   // JSON mode: derive leaderboard from customer profiles
   const profiles = getBranchData(req.params.id, 'customer_profiles.json') || [];
   const board = profiles
@@ -129,7 +129,7 @@ app.get('/api/businesses/:id/loyalty/activity', requireAuth, requireBranchAccess
       WHERE lt.business_id = ?
       ORDER BY lt.created_at DESC LIMIT 50
     `).all(req.params.id);
-    res.json(rows);
+    res.json(rows.map(r => ({ ...r, created_at: toIsoZ(r.created_at) })));
   } catch(e) {
     res.json([]);
   }
@@ -145,7 +145,10 @@ app.get('/api/businesses/:id/loyalty/:phone', requireAuth, requireBranchAccess, 
   const card = db.getLoyaltyCard(req.params.id, req.params.phone);
   if (!card) return res.status(404).json({ error: 'No loyalty card found' });
   const history = db.getLoyaltyHistory(req.params.id, req.params.phone, 5);
-  res.json({ card, history });
+  res.json({
+    card: { ...card, last_visit: toIsoZ(card.last_visit) },
+    history: history.map(h => ({ ...h, created_at: toIsoZ(h.created_at) })),
+  });
 });
 
 

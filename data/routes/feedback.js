@@ -1,7 +1,7 @@
 'use strict';
 // Phase 3 — Post-order 1-tap Feedback (star rating stored per order)
 module.exports = function register(ctx) {
-  const { app, db, requireAuth, requireBranchAccess } = ctx;
+  const { app, db, requireAuth, requireBranchAccess, toIsoZ } = ctx;
 
   // POST /api/businesses/:id/orders/:orderId/feedback  { rating, comment, customerName, phone }
   app.post('/api/businesses/:id/orders/:orderId/feedback', (req, res) => {
@@ -28,6 +28,6 @@ module.exports = function register(ctx) {
     const row = db.raw().prepare(
       'SELECT * FROM feedback WHERE business_id=? AND order_id=? ORDER BY created_at DESC LIMIT 1'
     ).get(req.params.id, req.params.orderId);
-    res.json(row || null);
+    res.json(row ? { ...row, created_at: toIsoZ(row.created_at) } : null);
   });
 };
