@@ -575,6 +575,15 @@ const SUGGESTED_KNOWLEDGE_QUESTIONS = [
   'How big a group can you seat together?',
   'Do you serve alcohol?',
   'How long is the typical wait at peak hours?',
+  'Do you have WiFi? Is it free for customers?',
+  'Do you take advance table reservations, and how (call / WhatsApp / walk-in only)?',
+  'Can customers bring their own cake or food from outside?',
+  'Is there a minimum order amount for dine-in or delivery?',
+  'Do you have a smoking area?',
+  'Are washrooms available for customers?',
+  'Do you allow photography or videography? Any restrictions for professional shoots?',
+  'Is the café wheelchair accessible?',
+  'Do you have charging points — is it good for sitting and working?',
 ];
 
 const knowledgeInterviews = {}; // branchId -> { phone10, queue, idx, savedCount }
