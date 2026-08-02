@@ -244,6 +244,22 @@ async function stopAll() {
   await Promise.all(Object.keys(clients).map((id) => stopClient(id, { logout: false })));
 }
 
+// Interface parity with waweb.js's getClient (added for @lid phone resolution
+// — see server.js's onMessage). Returns the raw Baileys socket, or null.
+// ⚠️ NOT a drop-in replacement: server.js calls client.getContactLidAndPhone(),
+// a whatsapp-web.js-specific method that doesn't exist on a Baileys socket —
+// that call fails and is caught by onMessage's existing try/catch, silently
+// falling back to storing raw LID digits (the same behavior as before the
+// getContactLidAndPhone resolution existed at all — not a regression, just
+// not yet enhanced here). Baileys exposes phone/LID resolution differently
+// (reportedly via msg.key.senderPn / remoteJidAlt directly on inbound
+// messages, no separate lookup call needed) — porting that is real future
+// work, out of scope for the stability/RAM trial this export unblocks today.
+function getClient(branchId) {
+  const c = clients[branchId];
+  return (c && c.state === 'connected' && c.sock) ? c.sock : null;
+}
+
 module.exports = {
   available: !!makeWASocket,
   MAX_CLIENTS,
@@ -253,4 +269,5 @@ module.exports = {
   sendText,
   getStatus,
   activeCount,
+  getClient,
 };
