@@ -584,6 +584,9 @@ const SUGGESTED_KNOWLEDGE_QUESTIONS = [
   'Do you allow photography or videography? Any restrictions for professional shoots?',
   'Is the café wheelchair accessible?',
   'Do you have charging points — is it good for sitting and working?',
+  "Do you have a kids' menu or high chairs available?",
+  'Is there a time limit for sitting and working with a laptop, especially during busy hours?',
+  'Can the bill be split across multiple cards or payment methods?',
 ];
 
 const knowledgeInterviews = {}; // branchId -> { phone10, queue, idx, savedCount }
