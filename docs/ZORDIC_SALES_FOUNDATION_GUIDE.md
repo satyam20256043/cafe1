@@ -20,6 +20,9 @@ showing their leads and their commission. Commission model, decided by the user:
 
 - **10%** of the first payment a café makes (new client landed)
 - **5%** of every subsequent payment (retention)
+- **The 5% is uncapped** — it continues for as long as that café keeps paying for
+  a plan, with no month limit. (User decision, 2026-08-03. Settled — do not add
+  a cap, and do not ask about one.)
 - Trigger: the café actually pays, which happens after the 30-day trial
 
 **The blocker this package solves:** the system currently has *no record of
@@ -93,6 +96,25 @@ link rep → lead → café → payment so attribution actually resolves.
 12. **`routeCtx`** — `data/server.js:2342`, the shared object every route module
     destructures. Add anything new route modules need there.
 13. Money columns elsewhere use `REAL` (e.g. `orders.total`). Match that.
+14. **HQ already has a Staff panel** — `public/hq.html` ~348-354: `loadStaffPanel()`,
+    `renderStaffTable()`, and a working inline **"🔑 Change Password"** form
+    (`showPwForm`/`savePw`) that PUTs to `/api/admin/staff/:id/password`
+    (`data/routes/auth.js:164`, admin-guarded, works for any staff id).
+    **Password reset for reps therefore already exists** — it only needs the rep
+    to be visible in the list, plus a role label. `ROLE_LABELS` is at
+    `public/hq.html:349` and has no `sales` entry.
+15. ⚠️ **`/api/admin/staff` will not show sales reps as written.**
+    `data/routes/auth.js:156` builds the list as
+    `businesses.flatMap(b => db.listStaff(b.id))` and `db.listStaff` is
+    `SELECT * FROM staff WHERE business_id=?` — so it only ever returns staff
+    attached to a real café. An agency-level rep is invisible to it. SF0 fixes
+    this.
+16. **JWT auth** — `data/auth.js:29` `signToken(payload)` →
+    `jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES })`. `requireAuth`
+    (auth.js:42) puts the decoded payload on `req.staff`, and `requireRole`
+    (auth.js:60) checks `req.staff.role`. Any extra claim signed into the token
+    is therefore visible to every route as `req.staff.<claim>` — that is the
+    mechanism SF6 uses.
 
 ## §2 — STOP RULES
 
@@ -108,8 +130,15 @@ link rep → lead → café → payment so attribution actually resolves.
 - **S4 — No destructive writes.** This package only ADDS tables/columns/routes.
   No DELETE, no UPDATE of existing rows beyond the specified backfill, no
   `businesses.json` rewrites except through the existing endpoint pattern.
-- **S5 — Don't build the dashboard.** SF0–SF4 only. No `/sales` page, no rep UI
-  beyond the HQ "Record Payment" control in SF4.
+- **S5 — Don't build the dashboard.** SF0–SF6 only. No `/sales` page, no rep UI
+  beyond the HQ controls specified in SF4–SF6.
+- **S8 — Impersonation is one-directional and narrow (SF6).** An admin may
+  impersonate a `sales` rep and nothing else. The endpoint MUST refuse any
+  target whose role is not exactly `sales` — allowing an admin to mint a token
+  for another admin/agency_admin turns a convenience feature into a privilege
+  escalation path. Every impersonation must be event-logged with both identities.
+  If you cannot satisfy all three (role check, `impersonatedBy` claim, audit
+  log), **stop and report** rather than shipping a partial version.
 - **S6 — Test data.** Leave test cafés in place (standing user instruction).
   Stage only source files — never commit `data/businesses.json` or `data/z*/`.
 - **S7 — Verify before claiming.** `node -c` every touched file, and run the
@@ -140,6 +169,13 @@ link rep → lead → café → payment so attribution actually resolves.
    - never return `password_hash`
 4. Add `GET /api/admin/sales-reps` (same guard) listing `sales` staff, minus
    password hashes — SF3/SF4 need it for the rep dropdown.
+5. **Fix `/api/admin/staff` so reps are visible** (`data/routes/auth.js:154`).
+   As written it returns only `businesses.flatMap(b => db.listStaff(b.id))`, so
+   an agency-level rep never appears — and the existing HQ password-change UI
+   consequently can't reach them. Union in agency-level staff, e.g. add a
+   `db.listAgencyStaff()` returning
+   `SELECT * FROM staff WHERE role IN ('agency_admin','admin','sales')` and
+   merge, de-duplicating by `id`. Keep stripping `password_hash`.
 
 **Check (run first, it determines step 3):**
 ```bash
@@ -304,6 +340,97 @@ second → confirm `0.05`.
 
 ---
 
+## SF5 — Admin: rep performance view
+
+**Goal:** the operator sees how every rep is doing, in HQ.
+
+1. `GET /api/admin/sales-performance`, `requireAuth, requireRole('agency_admin','admin')`.
+   Add to `data/routes/leads.js`. Returns one row per `sales` rep:
+   - `repId`, `name`, `username`
+   - `leadsTotal`, and a per-status breakdown (group `crm_leads` by `status`
+     where `assigned_to = repId` — statuses are user-editable, so derive them
+     from the data, never hard-code a list)
+   - `followUpsOverdue` — count where `follow_up_date < today` and the lead
+     isn't in a closed/converted state
+   - `cafesSigned` — count of businesses whose `salesRepId` is this rep (from
+     the in-memory `businesses` array, not SQL)
+   - `payingCafes` — distinct `business_id` count in `payments` for this rep
+   - `revenueDriven` — SUM of `payments.amount` for this rep
+   - `commissionLifetime`, `commissionThisMonth` — SUM of the **stored**
+     `commission_amount` (S2: never recompute)
+   - `conversionRate` — `cafesSigned / leadsTotal`, guarded against divide-by-zero
+     (return `null`, not `NaN`/`Infinity`, when `leadsTotal` is 0)
+2. Add `db.getSalesPerformance()` doing the SQL side; resolve `cafesSigned` in
+   the route where `businesses` is in scope.
+3. `public/hq.html` — new "Sales" panel/tab with a table of the above, sorted by
+   `commissionThisMonth` descending. Match the existing HQ table markup and
+   fetch patterns (see `loadStaffPanel`/`renderStaffTable`, ~348-351). Show ₹
+   amounts with `toLocaleString('en-IN')`, consistent with the rest of HQ.
+4. Any SQLite timestamp in the response goes through `toIsoZ` (§1.11).
+
+**Check:** seed a rep + a lead + two payments locally, hit the endpoint, confirm
+`commissionThisMonth` matches hand arithmetic and `conversionRate` is `null`
+(not `NaN`) for a rep with zero leads.
+
+---
+
+## SF6 — Admin: password reset + log in as a rep
+
+**Goal:** the operator can reset a rep's password and view the app as that rep.
+**Read S8 before starting.**
+
+**Password reset — mostly already built.** The HQ Staff panel's inline
+"🔑 Change Password" form and `PUT /api/admin/staff/:id/password` already work
+for any staff id (§1.14). Once SF0 step 5 makes reps visible in
+`/api/admin/staff`, this works for them too. Only cosmetics remain:
+1. `public/hq.html:349` — add `sales:'Sales Rep'` to `ROLE_LABELS`.
+2. Add a `.role-sales` badge style alongside the existing `.role-*` classes.
+3. Note (do not change): the minimum password length is 4 characters, enforced
+   both client-side (`savePw`) and server-side (auth.js:166). That's weak for a
+   new externally-held login. Flag it to the user in your report as a suggested
+   follow-up; do not unilaterally change it, since it would affect every
+   existing café account too.
+
+**Impersonation — new.**
+4. `POST /api/admin/sales-reps/:id/impersonate`,
+   `requireAuth, requireRole('agency_admin','admin')`, in `data/routes/leads.js`:
+   - load target via `db.getStaffById(req.params.id)`; 404 if absent
+   - **refuse unless `target.role === 'sales'`** → 403. Not a whitelist of
+     "non-admin roles" — an exact equality check on `sales` (S8).
+   - `const token = signToken({ id: target.id, businessId: target.business_id, name: target.name, role: 'sales', impersonatedBy: req.staff.id })`
+   - `db.logEvent(null, 'admin.impersonate', { actor: 'staff:'+req.staff.id, metadata: { targetRepId: target.id, targetName: target.name } })`
+     — if `logEvent` requires a non-null business id in this codebase, use the
+     activity log (`ctx.logActivity`, `data/routes/activity.js:21`) instead.
+     **An impersonation that isn't recorded anywhere is not acceptable** (S8).
+   - return `{ token, rep: { id, name, username } }` — never the password hash
+5. **Shorter expiry.** Pass an explicit shorter `expiresIn` for impersonation
+   tokens if `signToken` can accept one; if it can't without changing its
+   signature, note that in your report rather than widening the helper.
+6. `public/hq.html` — a "👤 Log in as" button in the rep row. On click: POST,
+   stash the returned token, open `/sales` (that page doesn't exist yet — SF5/SF6
+   ship before the dashboard, so it will 404 for now; that is expected and fine).
+   **Do not overwrite the admin's own `cafehq_token`** — store the impersonation
+   token under a separate key so the operator isn't logged out of HQ.
+7. Because the claim rides on the token, `req.staff.impersonatedBy` is readable
+   by every route (§1.16). Where a lead write is logged, include it so the audit
+   trail shows the real actor behind a rep-attributed action.
+
+**Check:**
+```bash
+cd "C:\Users\SSJ\OneDrive\Desktop\cafe-ai-bot" && node -e "
+const {verifyToken}=require('./data/auth.js');
+// paste a token returned by the impersonate endpoint:
+const t=process.argv[1]; if(!t){console.log('pass a token as argv');process.exit(0);}
+console.log(JSON.stringify(verifyToken(t).payload,null,2));
+" <TOKEN>
+```
+Confirm the payload has `role: 'sales'` **and** an `impersonatedBy` matching the
+admin's id. Then confirm the endpoint returns **403** when pointed at an
+`agency_admin` id — that negative test is the important one; run it explicitly
+and report the result.
+
+---
+
 ## §3 — Finishing
 
 1. `node -c` every touched file.
@@ -332,7 +459,8 @@ tracking (marking commission as *paid out* to a rep), clawback on refund/cancel,
 a sales-manager role, and any change to café-facing UI. Those come after this
 foundation is deployed and verified.
 
-**One open business question the user has not answered** — flag it, don't decide
-it: whether the 5% retention rate continues indefinitely or should be capped
-(e.g. 12 months). The schema above supports either; nothing here needs to change
-if a cap is added later, since each payment's rate is frozen at write time.
+All four business decisions are settled — do not reopen them:
+- 10% first payment, 5% every payment after
+- 5% is **uncapped**, running as long as the café keeps paying
+- reps see **only** their own leads
+- admin gets a performance view, password reset, and log-in-as (SF5, SF6)
