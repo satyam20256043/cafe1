@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zordical — Sales</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/zordic-ui.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--z-bg);color:var(--z-ink);min-height:100vh;padding-bottom:76px}
+a{color:inherit}
+.hidden{display:none!important}
+
+/* ── Impersonation banner ── */
+.imp-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,var(--z-gold-dark),var(--z-gold));color:#2A1B00;padding:9px 14px;font-size:12.5px;font-weight:600;flex-wrap:wrap}
+.imp-banner button{background:rgba(0,0,0,0.15);border:none;color:#2A1B00;font-weight:700;padding:6px 12px;border-radius:20px;font-size:12px;cursor:pointer}
+
+/* ── Top bar ── */
+.topbar{position:sticky;top:0;z-index:50;background:var(--z-surface);border-bottom:1px solid var(--z-border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--z-shadow)}
+.topbar img{height:22px;width:auto;display:block}
+.topbar-right{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--z-ink-2)}
+.logout-btn{background:none;border:1px solid var(--z-border);color:var(--z-ink-3);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.logout-btn:hover{border-color:var(--z-danger);color:var(--z-danger)}
+
+/* ── Content ── */
+main{max-width:560px;margin:0 auto;padding:16px}
+.view-title{font-family:'DM Serif Display',Georgia,serif;font-size:19px;color:var(--z-ink);margin-bottom:3px}
+.view-sub{font-size:12.5px;color:var(--z-ink-3);margin-bottom:16px}
+.section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--z-ink-3);margin:18px 0 8px}
+.section-label:first-child{margin-top:0}
+
+/* ── Cards ── */
+.card{background:var(--z-surface);border:1px solid var(--z-border);border-radius:var(--z-radius-lg);padding:14px;margin-bottom:10px;box-shadow:var(--z-shadow)}
+.card-title{font-weight:700;font-size:14.5px;color:var(--z-ink);margin-bottom:2px}
+.card-row{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--z-ink-2);margin-top:4px}
+.card-row a{color:var(--z-info);text-decoration:none}
+.overdue{border-left:3px solid var(--z-danger)}
+
+/* ── Inputs / buttons ── */
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--z-ink-2);margin-bottom:4px}
+.input,select.input,textarea.input{width:100%;border:1px solid var(--z-border);border-radius:8px;padding:9px 11px;font-family:inherit;font-size:13.5px;color:var(--z-ink);background:var(--z-bg);outline:none}
+.input:focus{border-color:var(--z-gold)}
+.btn{border:none;border-radius:20px;padding:9px 16px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn-gold{background:var(--z-gold);color:#2A1B00}
+.btn-gold:hover{background:var(--z-gold-dark)}
+.btn-ghost{background:none;border:1px solid var(--z-border);color:var(--z-ink-2)}
+.btn-ghost:hover{border-color:var(--z-gold);color:var(--z-gold-dark)}
+.btn-danger{background:none;border:1px solid var(--z-border);color:var(--z-ink-3)}
+.btn-danger:hover{border-color:var(--z-danger);color:var(--z-danger)}
+.btn-sm{padding:6px 12px;font-size:11.5px}
+.btn:disabled{opacity:.6;cursor:default}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.toolbar .input{flex:1;min-width:120px}
+
+/* ── Misc ── */
+.msg{font-size:12px;margin-top:6px}
+.msg-ok{color:var(--z-success)}
+.msg-err{color:var(--z-danger)}
+.empty-state{text-align:center;padding:36px 16px;color:var(--z-ink-3)}
+.empty-state .big{font-size:30px;margin-bottom:8px}
+.loading-wrap{text-align:center;padding:40px}
+.spinner{width:26px;height:26px;border:3px solid var(--z-border);border-top-color:var(--z-gold);border-radius:50%;margin:0 auto;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.checklist{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chk{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--z-bg);color:var(--z-ink-3);border:1px solid var(--z-border)}
+.chk.done{background:var(--z-success-bg);color:var(--z-success);border-color:transparent}
+.headline-row{display:flex;gap:10px;margin-bottom:16px}
+.headline{flex:1;background:var(--z-surface);border:1px solid var(--z-border);border-radius:var(--z-radius-lg);padding:14px;text-align:center;box-shadow:var(--z-shadow)}
+.headline-val{font-family:'DM Serif Display',Georgia,serif;font-size:22px;color:var(--z-gold-dark)}
+.headline-lbl{font-size:11px;color:var(--z-ink-3);margin-top:2px}
+.disclaimer{font-size:11.5px;color:var(--z-ink-3);background:var(--z-bg);border:1px solid var(--z-border);border-radius:8px;padding:9px 11px;margin-bottom:14px}
+.kit-link{display:flex;align-items:center;gap:10px;padding:12px;background:var(--z-surface);border:1px solid var(--z-border);border-radius:10px;margin-bottom:8px;text-decoration:none;color:var(--z-ink);font-size:13px;font-weight:500}
+.kit-link:hover{border-color:var(--z-gold)}
+.kit-link .ic{font-size:18px}
+.plan-card{background:var(--z-surface);border:1px solid var(--z-border);border-radius:var(--z-radius-lg);padding:16px;margin-bottom:10px}
+.plan-name{font-family:'DM Serif Display',Georgia,serif;font-size:17px}
+.plan-price{font-size:20px;font-weight:700;color:var(--z-gold-dark);margin:4px 0}
+.plan-feat{font-size:12px;color:var(--z-ink-2);padding:2px 0}
+
+/* ── Bottom nav ── */
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--z-surface);border-top:1px solid var(--z-border);display:flex;box-shadow:0 -2px 10px rgba(42,32,24,.06)}
+.nav-btn{flex:1;background:none;border:none;padding:8px 2px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--z-ink-3);font-size:9.5px;font-weight:600;cursor:pointer;position:relative}
+.nav-btn .ic{font-size:18px}
+.nav-btn.active{color:var(--z-gold-dark)}
+.nav-badge{position:absolute;top:2px;right:calc(50% - 20px);background:var(--z-danger);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 3px}
+.nav-badge.show{display:flex}
+</style>
+</head>
+<body>
+
+<div class="imp-banner" id="imp-banner">
+  <span>👤 Viewing as <strong id="imp-rep-name"></strong> — you are an admin</span>
+  <button onclick="returnToHQ()">Return to HQ</button>
+</div>
+
+<header class="topbar">
+  <img src="/logo.svg" alt="Zordical">
+  <div class="topbar-right">
+    <span id="rep-name-label"></span>
+    <button class="logout-btn" onclick="doLogout()" title="Log out">⎋</button>
+  </div>
+</header>
+
+<main id="view-root"><div class="loading-wrap"><div class="spinner"></div></div></main>
+
+<nav class="bottom-nav">
+  <button class="nav-btn" data-view="followups" onclick="switchView('followups')">
+    <span class="ic">🔔</span><span>Follow-ups</span><span class="nav-badge" id="followup-badge"></span>
+  </button>
+  <button class="nav-btn" data-view="leads" onclick="switchView('leads')"><span class="ic">👥</span><span>Leads</span></button>
+  <button class="nav-btn" data-view="earnings" onclick="switchView('earnings')"><span class="ic">💰</span><span>Earnings</span></button>
+  <button class="nav-btn" data-view="cafes" onclick="switchView('cafes')"><span class="ic">☕</span><span>My Cafés</span></button>
+  <button class="nav-btn" data-view="kit" onclick="switchView('kit')"><span class="ic">📎</span><span>Kit</span></button>
+</nav>
+
+<script>
+let ME = null;
+let _leads = [];
+let _leadStatuses = [];
+let _leadsLoaded = false;
+let _earnings = null;
+let _cafes = null;
+let _plans = null;
+
+function esc(s){ const d=document.createElement('div'); d.textContent=String(s??''); return d.innerHTML; }
+function friendly(e){
+  const msg=(e&&e.message)||String(e||'');
+  const m=msg.match(/(?:^HTTP|Server error)\D*(\d{3})/i);
+  if(m){ const code=+m[1];
+    if(code===401) return 'Your session expired — please sign in again.';
+    if(code===403) return "You don't have permission to do that.";
+    if(code===404) return 'Not found.';
+    if(code>=500) return 'Something went wrong on our end — please try again.';
+    return 'Something went wrong — please try again.';
+  }
+  if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) return "Couldn't connect — check your connection and try again.";
+  return msg || 'Something went wrong — please try again.';
+}
+function fmtDate(v){ if(!v) return '—'; try{ return new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }catch{ return String(v); } }
+function fmtMoney(n){ return '₹'+Math.round(n||0).toLocaleString('en-IN'); }
+
+// ── Auth: impersonation token (SF6) takes priority so an admin's own
+// cafehq_token is never touched; falls back to a normal rep login. ──
+function getToken(){ return localStorage.getItem('cafehq_impersonate_token') || localStorage.getItem('cafehq_token'); }
+function authHdr(){ return { 'Authorization': 'Bearer ' + getToken() }; }
+function returnToHQ(){ localStorage.removeItem('cafehq_impersonate_token'); window.location.href = '/hq'; }
+function doLogout(){
+  if (localStorage.getItem('cafehq_impersonate_token')) { returnToHQ(); return; }
+  localStorage.removeItem('cafehq_token');
+  localStorage.removeItem('cafehq_staff');
+  window.location.href = '/admin-login';
+}
+
+async function init(){
+  const token = getToken();
+  if (!token) { window.location.href = '/admin-login'; return; }
+  try{
+    const r = await fetch('/api/auth/me', { headers: authHdr() });
+    if (!r.ok) { window.location.href = '/admin-login'; return; }
+    const me = await r.json();
+    // Never trust a role cached in localStorage — this is the source of truth.
+    if (me.role !== 'sales') {
+      window.location.href = ['agency_admin','admin'].includes(me.role) ? '/hq' : '/admin-login';
+      return;
+    }
+    ME = me;
+    document.getElementById('rep-name-label').textContent = me.name || '';
+    if (me.impersonatedBy) {
+      document.getElementById('imp-rep-name').textContent = me.name || '';
+      document.getElementById('imp-banner').style.display = 'flex';
+    }
+    switchView('followups'); // SD2: default landing view
+  }catch(e){
+    console.error('[init]', e);
+    window.location.href = '/admin-login';
+  }
+}
+
+function switchView(view){
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  const root = document.getElementById('view-root');
+  root.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  if (view === 'followups') renderFollowups();
+  else if (view === 'leads') renderLeadsView();
+  else if (view === 'earnings') renderEarnings();
+  else if (view === 'cafes') renderCafes();
+  else if (view === 'kit') renderKit();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SD1/SD2 — Leads data (shared by My Leads + Today's Follow-ups)
+// ══════════════════════════════════════════════════════════════════════
+const DEFAULT_STATUS_COLORS = { 'Prospect':'#9A8870','Called':'#2C6E9E','Messaged':'#1D9E75','Trial':'#B8860B','Progressing':'#C9A84C','Paid':'#2d7a2d','Lost':'#C0392B' };
+function statusColor(label){
+  const found = _leadStatuses.find(s => s.label === label);
+  return found ? found.color : (DEFAULT_STATUS_COLORS[label] || '#9A8870');
+}
+async function ensureLeadsLoaded(force){
+  if (_leadsLoaded && !force) return;
+  const r = await fetch('/api/crm-leads', { headers: authHdr() });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  _leads = await r.json();
+  _leadsLoaded = true;
+  // /api/lead-statuses stays admin-only per SF1 — this is expected to 403 for
+  // a rep; fall back to the default palette above rather than widen the route.
+  try{
+    const sr = await fetch('/api/lead-statuses', { headers: authHdr() });
+    _leadStatuses = sr.ok ? await sr.json() : [];
+  }catch(e){ _leadStatuses = []; }
+  updateFollowupBadge();
+}
+function updateFollowupBadge(){
+  const today = new Date().toISOString().slice(0,10);
+  const n = _leads.filter(l => l.follow_up_date && l.follow_up_date <= today).length;
+  const b = document.getElementById('followup-badge');
+  if (n > 0) { b.textContent = n > 9 ? '9+' : n; b.classList.add('show'); }
+  else { b.classList.remove('show'); }
+}
+
+function leadCard(l, opts){
+  opts = opts || {};
+  const color = statusColor(l.status);
+  const overdue = l.follow_up_date && l.follow_up_date < new Date().toISOString().slice(0,10);
+  const statusOpts = (_leadStatuses.length ? _leadStatuses.map(s=>s.label) : Object.keys(DEFAULT_STATUS_COLORS))
+    .map(s => `<option value="${esc(s)}"${s===l.status?' selected':''}>${esc(s)}</option>`).join('');
+  return `<div class="card${overdue?' overdue':''}" id="lead-${esc(l.id)}">
+    <div class="card-title">${esc(l.cafe_name||'Untitled lead')}</div>
+    ${l.owner_name ? `<div class="card-row">👤 ${esc(l.owner_name)}</div>` : ''}
+    ${l.phone ? `<div class="card-row">📞 <a href="tel:${esc(l.phone)}">${esc(l.phone)}</a></div>` : ''}
+    ${l.location ? `<div class="card-row">📍 ${esc(l.location)}</div>` : ''}
+    <div class="card-row" style="margin-top:8px">
+      <select class="input" style="width:auto;padding:5px 24px 5px 10px;font-size:12px;border-radius:20px;background-color:${color}18;color:${color};border-color:${color}55" onchange="updateLead('${l.id}','status',this.value)">${statusOpts}</select>
+      <input class="input" type="date" style="width:auto;padding:5px 8px;font-size:12px" value="${esc(l.follow_up_date||'')}" onchange="updateLead('${l.id}','follow_up_date',this.value)">
+    </div>
+    <textarea class="input" style="margin-top:8px;min-height:44px;font-size:12.5px" placeholder="Notes…" onchange="updateLead('${l.id}','notes',this.value)">${esc(l.notes||'')}</textarea>
+    <div class="card-row" style="margin-top:10px;justify-content:space-between">
+      <button class="btn btn-ghost btn-sm" onclick="toggleLink('${l.id}')">🔗 Convert / Link</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteLead('${l.id}')">Delete</button>
+    </div>
+    <div class="hidden" id="link-${esc(l.id)}" style="margin-top:10px;border-top:1px solid var(--z-border);padding-top:10px">
+      <div style="font-size:11.5px;color:var(--z-ink-3);margin-bottom:6px">Signed up? Open onboarding, then paste the new café's ID here (from the confirmation screen or its manager URL) to attribute it to you.</div>
+      <button class="btn btn-gold btn-sm" style="margin-bottom:8px" onclick="window.open('/onboard','_blank')">↗ Open Onboarding</button>
+      <input class="input" id="link-input-${esc(l.id)}" placeholder="e.g. the_roasted_bean_ab12cd">
+      <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="linkLead('${l.id}')">Link this café</button>
+      <div class="msg" id="link-msg-${esc(l.id)}"></div>
+    </div>
+  </div>`;
+}
+function toggleLink(id){ document.getElementById('link-'+id).classList.toggle('hidden'); }
+async function updateLead(id, field, value){
+  const lead = _leads.find(l => l.id === id);
+  if (lead) lead[field] = value;
+  try{
+    const r = await fetch('/api/crm-leads/'+encodeURIComponent(id), { method:'PUT', headers:{'Content-Type':'application/json',...authHdr()}, body: JSON.stringify({[field]:value}) });
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    updateFollowupBadge();
+    if (field === 'follow_up_date' || field === 'status') { renderFollowups.current && renderFollowups.current(); }
+  }catch(e){ console.error('[updateLead]', e); alert('Could not save: ' + friendly(e)); await ensureLeadsLoaded(true); }
+}
+async function deleteLead(id){
+  const lead = _leads.find(l => l.id === id);
+  if (!confirm('Remove "'+(lead?lead.cafe_name:'this lead')+'" from your pipeline?')) return;
+  try{
+    const r = await fetch('/api/crm-leads/'+encodeURIComponent(id), { method:'DELETE', headers: authHdr() });
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    _leads = _leads.filter(l => l.id !== id);
+    updateFollowupBadge();
+    const active = document.querySelector('.nav-btn.active');
+    if (active) switchView(active.dataset.view);
+  }catch(e){ console.error('[deleteLead]', e); alert('Could not delete: ' + friendly(e)); }
+}
+async function linkLead(id){
+  const input = document.getElementById('link-input-'+id);
+  const msg = document.getElementById('link-msg-'+id);
+  const businessId = (input.value||'').trim();
+  if (!businessId) { msg.textContent = 'Paste the café ID first.'; msg.className='msg msg-err'; return; }
+  msg.textContent = 'Linking…'; msg.className = 'msg';
+  try{
+    const r = await fetch('/api/crm-leads/'+encodeURIComponent(id)+'/link-business', { method:'POST', headers:{'Content-Type':'application/json',...authHdr()}, body: JSON.stringify({businessId}) });
+    const d = await r.json();
+    if (!r.ok) { msg.textContent = d.error === 'Business already linked to a sales rep' ? '⚠️ This café is already linked to a rep.' : ('❌ ' + (d.error || 'Failed')); msg.className = 'msg msg-err'; return; }
+    msg.textContent = '✅ Linked — commission starts once they pay.'; msg.className = 'msg msg-ok';
+  }catch(e){ console.error('[linkLead]', e); msg.textContent = '❌ ' + friendly(e); msg.className = 'msg msg-err'; }
+}
+
+// ── Add Lead (SD3) ──
+let _addFormOpen = false;
+function toggleAddForm(){
+  _addFormOpen = !_addFormOpen;
+  const el = document.getElementById('add-lead-form');
+  if (el) el.classList.toggle('hidden', !_addFormOpen);
+  if (_addFormOpen) { const inp = document.getElementById('add-cafe-name'); if (inp) inp.focus(); }
+}
+async function submitAddLead(){
+  const name = document.getElementById('add-cafe-name').value.trim();
+  const msg = document.getElementById('add-lead-msg');
+  if (!name) { msg.textContent = 'Café name is required.'; msg.className = 'msg msg-err'; return; }
+  const phone = document.getElementById('add-phone').value.trim();
+  const owner = document.getElementById('add-owner').value.trim();
+  const location = document.getElementById('add-location').value.trim();
+  msg.textContent = 'Saving…'; msg.className = 'msg';
+  try{
+    const r = await fetch('/api/crm-leads', { method:'POST', headers:{'Content-Type':'application/json',...authHdr()}, body: JSON.stringify({ cafe_name:name, phone, owner_name:owner, location }) });
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    const lead = await r.json();
+    _leads.unshift(lead);
+    updateFollowupBadge();
+    toggleAddForm();
+    ['add-cafe-name','add-phone','add-owner','add-location'].forEach(id => document.getElementById(id).value = '');
+    renderLeadsView();
+  }catch(e){ console.error('[submitAddLead]', e); msg.textContent = '❌ ' + friendly(e); msg.className = 'msg msg-err'; }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SD1 — My Leads
+// ══════════════════════════════════════════════════════════════════════
+let _leadSearch = '';
+async function renderLeadsView(){
+  const root = document.getElementById('view-root');
+  try{
+    await ensureLeadsLoaded();
+    const statusOpts = (_leadStatuses.length ? _leadStatuses.map(s=>s.label) : Object.keys(DEFAULT_STATUS_COLORS));
+    root.innerHTML = `
+      <div class="view-title">My Leads</div>
+      <div class="view-sub">Prospects you're pitching — only you can see these.</div>
+      <div class="toolbar">
+        <input class="input" id="lead-search" placeholder="🔍 Search…" value="${esc(_leadSearch)}" oninput="_leadSearch=this.value;renderLeadsList()">
+        <button class="btn btn-gold" onclick="toggleAddForm()">+ Add Lead</button>
+      </div>
+      <div class="card hidden" id="add-lead-form">
+        <div class="field"><label>Café name *</label><input class="input" id="add-cafe-name" placeholder="e.g. The Roasted Bean"></div>
+        <div class="field"><label>Phone</label><input class="input" id="add-phone" placeholder="Optional"></div>
+        <div class="field"><label>Owner name</label><input class="input" id="add-owner" placeholder="Optional"></div>
+        <div class="field"><label>Location</label><input class="input" id="add-location" placeholder="Optional"></div>
+        <button class="btn btn-gold" onclick="submitAddLead()">Create Lead</button>
+        <button class="btn btn-ghost" onclick="toggleAddForm()">Cancel</button>
+        <div class="msg" id="add-lead-msg"></div>
+      </div>
+      <div id="leads-list"></div>`;
+    renderLeadsList();
+  }catch(e){
+    console.error('[renderLeadsView]', e);
+    root.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${esc(friendly(e))}</div>`;
+  }
+}
+function renderLeadsList(){
+  const list = document.getElementById('leads-list');
+  if (!list) return;
+  const q = _leadSearch.toLowerCase();
+  const rows = _leads.filter(l => !q || [l.cafe_name,l.phone,l.owner_name,l.location,l.notes].some(v => String(v||'').toLowerCase().includes(q)));
+  list.innerHTML = rows.length ? rows.map(l => leadCard(l)).join('') : '<div class="empty-state"><div class="big">🌱</div>No leads yet — tap + Add Lead to start.</div>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SD2 — Today's Follow-ups (default landing view)
+// ══════════════════════════════════════════════════════════════════════
+async function renderFollowups(){
+  const root = document.getElementById('view-root');
+  try{
+    await ensureLeadsLoaded();
+    renderFollowups.current = renderFollowups;
+    const today = new Date().toISOString().slice(0,10);
+    const overdue = _leads.filter(l => l.follow_up_date && l.follow_up_date < today);
+    const dueToday = _leads.filter(l => l.follow_up_date === today);
+    if (!overdue.length && !dueToday.length) {
+      root.innerHTML = `<div class="view-title">Today's Follow-ups</div><div class="view-sub">You're all caught up.</div>
+        <div class="empty-state"><div class="big">✅</div>No follow-ups due — nice work.</div>`;
+      return;
+    }
+    root.innerHTML = `<div class="view-title">Today's Follow-ups</div><div class="view-sub">The leads that need you today.</div>`
+      + (overdue.length ? `<div class="section-label">⚠️ Overdue (${overdue.length})</div>` + overdue.map(l=>leadCard(l)).join('') : '')
+      + (dueToday.length ? `<div class="section-label">Today (${dueToday.length})</div>` + dueToday.map(l=>leadCard(l)).join('') : '');
+  }catch(e){
+    console.error('[renderFollowups]', e);
+    root.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${esc(friendly(e))}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SD4 — My Earnings
+// ══════════════════════════════════════════════════════════════════════
+async function renderEarnings(){
+  const root = document.getElementById('view-root');
+  try{
+    const r = await fetch('/api/sales/me/earnings', { headers: authHdr() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _earnings = await r.json();
+    const s = _earnings.summary, rows = _earnings.payments;
+    root.innerHTML = `
+      <div class="view-title">My Earnings</div>
+      <div class="view-sub">Commission from cafés you signed.</div>
+      <div class="disclaimer">These are figures you've <strong>earned</strong>, not confirmation they've been paid out to you yet — payout tracking is coming later.</div>
+      <div class="headline-row">
+        <div class="headline"><div class="headline-val">${fmtMoney(s.thisMonthCommission)}</div><div class="headline-lbl">This month</div></div>
+        <div class="headline"><div class="headline-val">${fmtMoney(s.lifetimeCommission)}</div><div class="headline-lbl">Lifetime</div></div>
+      </div>
+      ${rows.length ? `<div class="section-label">History</div>` + rows.map(p => `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div class="card-title">${esc(p.businessName)}</div>
+              <div class="card-row">${fmtMoney(p.amount)} · ${esc(p.plan||'—')} · ${fmtDate(p.paidAt)}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-weight:700;color:var(--z-gold-dark)">${fmtMoney(p.commissionAmount)}</div>
+              <span class="z-badge ${p.isFirstPayment?'z-badge-gold':'z-badge-info'}">${p.isFirstPayment?'New client · '+Math.round(p.commissionRate*100)+'%':'Retention · '+Math.round(p.commissionRate*100)+'%'}</span>
+            </div>
+          </div>
+        </div>`).join('') : `<div class="empty-state"><div class="big">💰</div>No commission yet — it starts when your first café pays after their trial.</div>`}
+    `;
+  }catch(e){
+    console.error('[renderEarnings]', e);
+    root.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${esc(friendly(e))}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SD5 — My Signed Cafés
+// ══════════════════════════════════════════════════════════════════════
+async function renderCafes(){
+  const root = document.getElementById('view-root');
+  try{
+    const r = await fetch('/api/sales/me/cafes', { headers: authHdr() });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _cafes = await r.json();
+    if (!_cafes.length) {
+      root.innerHTML = `<div class="view-title">My Signed Cafés</div><div class="view-sub">Cafés attributed to you.</div>
+        <div class="empty-state"><div class="big">☕</div>No signed cafés yet — link one from the Leads tab once it converts.</div>`;
+      return;
+    }
+    const setupScore = c => [c.menuDone,c.qrDone,c.whatsappConnected,c.hasFirstOrder].filter(Boolean).length;
+    const sorted = _cafes.slice().sort((a,b) => {
+      const da = a.trialDaysLeft==null ? Infinity : a.trialDaysLeft;
+      const db = b.trialDaysLeft==null ? Infinity : b.trialDaysLeft;
+      if (da !== db) return da - db;
+      return setupScore(a) - setupScore(b);
+    });
+    root.innerHTML = `<div class="view-title">My Signed Cafés</div><div class="view-sub">Setup progress and trial status for cafés you signed.</div>`
+      + sorted.map(c => `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="card-title">${esc(c.name)}</div>
+          <span class="z-badge ${c.subscriptionStatus==='active'?'z-badge-success':c.subscriptionStatus==='paused'?'z-badge-danger':'z-badge-warn'}">${esc(c.subscriptionStatus||'trial')}</span>
+        </div>
+        ${c.location ? `<div class="card-row">📍 ${esc(c.location)}</div>` : ''}
+        <div class="card-row">${c.plan ? '📦 '+esc(c.plan) : '📦 no plan yet'}${c.trialDaysLeft!=null ? ' · ⏳ '+(c.trialDaysLeft<=0?'trial expired':c.trialDaysLeft+' day'+(c.trialDaysLeft===1?'':'s')+' left') : ''}</div>
+        <div class="checklist">
+          <span class="chk${c.menuDone?' done':''}">${c.menuDone?'✅':'⬜'} Menu</span>
+          <span class="chk${c.qrDone?' done':''}">${c.qrDone?'✅':'⬜'} QR</span>
+          <span class="chk${c.whatsappConnected?' done':''}">${c.whatsappConnected?'✅':'⬜'} WhatsApp</span>
+          <span class="chk${c.hasFirstOrder?' done':''}">${c.hasFirstOrder?'✅':'⬜'} 1st order</span>
+          <span class="chk${c.hasPayments?' done':''}">${c.hasPayments?'✅':'⬜'} Paid</span>
+        </div>
+      </div>`).join('');
+  }catch(e){
+    console.error('[renderCafes]', e);
+    root.innerHTML = `<div class="empty-state"><div class="big">⚠️</div>${esc(friendly(e))}</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SD6 — Pitch Kit + Pricing
+// ══════════════════════════════════════════════════════════════════════
+async function renderKit(){
+  const root = document.getElementById('view-root');
+  root.innerHTML = `
+    <div class="view-title">Pitch Kit &amp; Pricing</div>
+    <div class="view-sub">Everything you need on a call or in person.</div>
+    <div class="section-label">Pitch Kit</div>
+    <a class="kit-link" href="/pitch" target="_blank"><span class="ic">🖥️</span> Live pitch deck (online demo)</a>
+    <a class="kit-link" href="/Zordic-Pitch-Mobile.pdf" target="_blank"><span class="ic">📱</span> Pitch deck — mobile PDF (offline)</a>
+    <a class="kit-link" href="/Zordic-Sales-Call-Guide.pdf" target="_blank"><span class="ic">📞</span> Sales call guide</a>
+    <a class="kit-link" href="/Zordic-Sales-Call-Cheatsheet.pdf" target="_blank"><span class="ic">📋</span> Sales call cheatsheet</a>
+    <a class="kit-link" href="/Zordic-Owner-Guide.pdf" target="_blank"><span class="ic">📖</span> Owner &amp; manager guide (send after signup)</a>
+    <div class="section-label">Pricing</div>
+    <div id="pricing-cards"><div class="loading-wrap"><div class="spinner"></div></div></div>
+  `;
+  try{
+    const r = await fetch('/api/plans');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    _plans = d.plans || [];
+    document.getElementById('pricing-cards').innerHTML = _plans.map(p => `
+      <div class="plan-card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div class="plan-name">${esc(p.name)}</div>
+          ${p.badge ? `<span class="z-badge z-badge-gold">${esc(p.badge)}</span>` : ''}
+        </div>
+        <div class="plan-price">${fmtMoney(p.price)}<span style="font-size:12px;color:var(--z-ink-3);font-weight:400"> / ${p.duration_days||30} days</span></div>
+        ${(p.features||[]).map(f => `<div class="plan-feat">✓ ${esc(f)}</div>`).join('')}
+      </div>`).join('') + `<div class="disclaimer">Every plan starts with a 30-day free trial, no card required — quote this confidently.</div>`;
+  }catch(e){
+    console.error('[renderKit/plans]', e);
+    document.getElementById('pricing-cards').innerHTML = `<div class="empty-state">${esc(friendly(e))}</div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -219,8 +219,8 @@ function seedOwnerIfNeeded(businessId, ownerName) {
 
 // ── Me & Logout Handlers ─────────────────────────────────────────────────────
 function meHandler(req, res) {
-  const { id, businessId, name, role } = req.staff;
-  res.json({ id, businessId, name, role });
+  const { id, businessId, name, role, impersonatedBy } = req.staff;
+  res.json({ id, businessId, name, role, impersonatedBy });
 }
 
 function logoutHandler(req, res) {

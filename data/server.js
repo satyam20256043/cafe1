@@ -170,6 +170,11 @@ app.get('/admin-login', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'admin-login.html'));
 });
 
+// Sales rep dashboard — client-side guards itself (see public/sales.html)
+app.get('/sales', (req, res) => {
+  res.sendFile(path.join(ROOT_DIR, 'public', 'sales.html'));
+});
+
 app.get('/cafe/:id', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'cafe.html'));
 });

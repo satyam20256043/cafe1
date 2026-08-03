@@ -3,7 +3,7 @@
 // sign up. Global (no business_id), admin-only, forever. Never reachable by a
 // café owner/manager — same requireRole('agency_admin', 'admin') guard as /api/settings.
 module.exports = function register(ctx) {
-  const { app, db, requireAuth, requireRole, fs, businesses, BUSINESSES_FILE, signToken } = ctx;
+  const { app, db, requireAuth, requireRole, fs, businesses, BUSINESSES_FILE, signToken, toIsoZ } = ctx;
 
   const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
   const AGENCY_BUSINESS_ID = '_agency'; // convention confirmed against the one existing agency_admin row
@@ -81,6 +81,57 @@ module.exports = function register(ctx) {
       });
     }
     res.json({ token, rep: { id: target.id, name: target.name, username: target.username } });
+  });
+
+  // GET /api/sales/me/earnings — a rep's own commission summary + line items (SD4)
+  // Rep id comes from req.staff.id ONLY (S1) — never from a query param/body.
+  app.get('/api/sales/me/earnings', requireAuth, requireRole('sales'), (req, res) => {
+    if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
+    const repId = req.staff.id;
+    const summary = db.getRepCommissionSummary(repId);
+    const payments = db.listPaymentsForRep(repId).map(p => {
+      const biz = businesses.find(b => b.id === p.business_id);
+      return {
+        businessId: p.business_id,
+        businessName: biz ? (biz.name || biz.id) : p.business_id,
+        amount: p.amount,
+        plan: p.plan,
+        paidAt: toIsoZ(p.paid_at),
+        commissionRate: p.commission_rate,
+        commissionAmount: p.commission_amount,
+        isFirstPayment: !!p.is_first_payment,
+      };
+    });
+    res.json({ summary, payments });
+  });
+
+  // GET /api/sales/me/cafes — a rep's own signed cafés, setup + trial status
+  // only (SD5). S2/S3: never requireBranchAccess, never customer/revenue data.
+  app.get('/api/sales/me/cafes', requireAuth, requireRole('sales'), (req, res) => {
+    if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
+    const repId = req.staff.id;
+    const payingBizIds = new Set(db.listPaymentsForRep(repId).map(p => p.business_id));
+    const mine = businesses.filter(b => b.salesRepId === repId).map(b => {
+      // ctx.getSetupStatus is set by routes/extras.js — read lazily at request
+      // time (same pattern as ctx.logActivity), not destructured at module
+      // load, since require() order between route files isn't guaranteed.
+      const setup = ctx.getSetupStatus ? ctx.getSetupStatus(b.id) : {};
+      return {
+        id: b.id,
+        name: b.name,
+        location: b.location || null,
+        subscriptionStatus: b.subscriptionStatus || 'trial',
+        plan: b.subscriptionPlan || b.plan || null,
+        trialEndsAt: b.trialEndsAt || null,
+        trialDaysLeft: b.trialEndsAt ? Math.max(0, Math.ceil((new Date(b.trialEndsAt) - Date.now()) / 86400000)) : null,
+        menuDone: !!setup.menuDone,
+        qrDone: !!setup.qrDone,
+        whatsappConnected: !!setup.whatsappConnected,
+        hasFirstOrder: !!setup.hasFirstOrder,
+        hasPayments: payingBizIds.has(b.id),
+      };
+    });
+    res.json(mine);
   });
 
   // GET /api/crm-leads — list every prospect

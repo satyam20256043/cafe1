@@ -353,8 +353,8 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
     const data = await res.json();
 
-    if (!res.ok || !['agency_admin', 'admin'].includes(data.staff && data.staff.role)) {
-      showError((data.error) || 'Access denied — this login is for the agency admin only.');
+    if (!res.ok || !['agency_admin', 'admin', 'sales'].includes(data.staff && data.staff.role)) {
+      showError((data.error) || 'Access denied — this login is for agency staff only.');
       btn.disabled = false;
       btn.innerHTML = 'Sign In to Agency HQ';
       return;
@@ -363,8 +363,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     localStorage.setItem('cafehq_token', data.token);
     localStorage.setItem('cafehq_staff', JSON.stringify(data.staff));
 
+    const dest = data.staff.role === 'sales' ? '/sales' : '/hq';
     showSuccess(`Welcome back, ${data.staff.name}! Redirecting…`);
-    setTimeout(() => { window.location.href = '/hq'; }, 800);
+    setTimeout(() => { window.location.href = dest; }, 800);
 
   } catch (err) {
     showError('Network error. Please check your connection.');
@@ -373,12 +374,12 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   }
 });
 
-// If already logged in as admin, skip straight to HQ
+// If already logged in, skip straight to the right portal for that role
 const existingToken = localStorage.getItem('cafehq_token');
 const existingStaff = JSON.parse(localStorage.getItem('cafehq_staff') || 'null');
-if (existingToken && existingStaff && ['agency_admin','admin'].includes(existingStaff.role)) {
+if (existingToken && existingStaff && ['agency_admin','admin','sales'].includes(existingStaff.role)) {
   fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${existingToken}` } })
-    .then(r => { if (r.ok) window.location.href = '/hq'; })
+    .then(r => { if (r.ok) window.location.href = existingStaff.role === 'sales' ? '/sales' : '/hq'; })
     .catch(() => {});
 }
 </script>

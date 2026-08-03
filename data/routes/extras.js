@@ -111,8 +111,11 @@ ctx.markSetupStepDone = function(id, key) {
   } catch(e) { console.error('[setup] markSetupStepDone failed:', e.message); }
 };
 
-app.get('/api/businesses/:id/setup-status', requireAuth, requireBranchAccess, (req, res) => {
-  const { id } = req.params;
+// Shared with the SD5 rep-facing "My Signed Cafés" endpoint (data/routes/leads.js)
+// so the setup-progress logic isn't duplicated. Exposed on ctx, read lazily at
+// request time — module require() order doesn't matter (same pattern as
+// ctx.markSetupStepDone below and ctx.logActivity in routes/activity.js).
+function getSetupStatus(id) {
   const flags = loadSetupFlags(id);
   const waConfigured = fs.existsSync(path.join(DATA_DIR, id, 'whatsapp_config.json'));
   let whatsappConnected = false;
@@ -127,13 +130,18 @@ app.get('/api/businesses/:id/setup-status', requireAuth, requireBranchAccess, (r
     try { hasFirstOrder = db.raw().prepare('SELECT COUNT(*) c FROM orders WHERE business_id=?').get(id).c > 0; }
     catch(e) {}
   }
-  res.json({
+  return {
     menuDone: !!flags.menuDone,
     qrDone: !!flags.qrDone,
     dismissed: !!flags.dismissed,
     whatsappConnected,
     hasFirstOrder,
-  });
+  };
+}
+ctx.getSetupStatus = getSetupStatus;
+
+app.get('/api/businesses/:id/setup-status', requireAuth, requireBranchAccess, (req, res) => {
+  res.json(getSetupStatus(req.params.id));
 });
 
 app.post('/api/businesses/:id/setup-status', requireAuth, requireBranchAccess, (req, res) => {
