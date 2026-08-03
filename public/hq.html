@@ -140,6 +140,7 @@
   .role-owner{background:var(--amber-lt);color:var(--amber)}
   .role-kitchen{background:var(--sage-lt);color:var(--sage)}
   .role-admin{background:var(--rose-lt);color:var(--rose)}
+  .role-sales{background:var(--gold-lt);color:var(--gold-d)}
   .pw-change-row td{background:var(--gold-lt)!important;padding:10px 16px!important}
   .pw-inline-form{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .pw-inline-input{border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:var(--font-b);font-size:13px;color:var(--ink);background:var(--white);outline:none;width:200px}
@@ -210,6 +211,7 @@
   <button class="hq-tab" onclick="switchHQTab('billing',this)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Billing</button>
   <button class="hq-tab" onclick="switchHQTab('activity',this)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Activity</button>
   <button class="hq-tab" onclick="switchHQTab('leads',this)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg> Leads</button>
+  <button class="hq-tab" onclick="switchHQTab('sales',this)"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Sales</button>
 </div>
 <div id="pane-branches" class="tab-pane active">
   <div style="margin-bottom:24px">
@@ -318,6 +320,21 @@
     </table>
   </div></div>
 </div>
+<div id="pane-sales" class="tab-pane">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div>
+      <h2 style="font-family:var(--font-d);font-size:20px;color:var(--ink);margin-bottom:4px">Sales Team Performance</h2>
+      <p style="font-size:13px;color:var(--ink-3)">How every rep is doing — leads, signed cafés, and commission earned.</p>
+    </div>
+    <button class="btn-primary" onclick="loadSalesPanel()"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg> Refresh</button>
+  </div>
+  <div class="ds-table-wrap">
+    <table class="ds-table">
+      <thead><tr><th>Rep</th><th>Leads</th><th>Overdue</th><th>Cafés Signed</th><th>Paying Cafés</th><th>Revenue Driven</th><th>Commission (Lifetime)</th><th>Commission (This Mo.)</th><th>Conv. Rate</th><th>Actions</th></tr></thead>
+      <tbody id="sales-perf-body"><tr><td colspan="10" style="padding:28px;color:var(--ink-3);text-align:center">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</div>
 <script>
 let allBranches=[],currentFilter='all',_hqSheet='clients',_hqAllRows=[],_hqFiltRows=[],_hqPage=1;
 const HQ_PAGE=50,EMOJIS=['☕','🏠','🍵','🧁','🍰','🥐','🍮','🫖','🥤','🍫'];
@@ -327,7 +344,7 @@ function esc(s){const d=document.createElement('div');d.textContent=String(s??''
 function friendly(e){const msg=(e&&e.message)||String(e||'');const m=msg.match(/(?:^HTTP|Server error)\D*(\d{3})/i);if(m){const code=+m[1];if(code===401)return'Your session expired — please sign in again.';if(code===403)return"You don't have permission to do that.";if(code===404)return'Not found.';if(code>=500)return'Something went wrong on our end — please try again.';return'Something went wrong — please try again.';}if(/Failed to fetch|NetworkError|Load failed/i.test(msg))return"Couldn't connect — check your connection and try again.";return msg||'Something went wrong — please try again.';}
 function skelRows(cols,rows){rows=rows||3;let out='';for(let r=0;r<rows;r++){out+='<tr>';for(let c=0;c<cols;c++){const w=55+Math.floor(Math.random()*35);out+=`<td style="padding:11px 14px"><div class="z-skel" style="height:13px;width:${w}%"></div></td>`;}out+='</tr>';}return out;}
 function fmtDate(v){if(!v)return'—';try{return new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}catch{return String(v);}}
-function switchHQTab(id,btn){document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.hq-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pane-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='datasheet'&&!_hqAllRows.length)hqDsReload();if(id==='revenue')renderRevenue();if(id==='settings')loadSettings();if(id==='staff')loadStaffPanel();if(id==='billing')loadBillingPanel();if(id==='activity')loadActivityPanel();if(id==='leads')loadLeads();}
+function switchHQTab(id,btn){document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.hq-tab').forEach(b=>b.classList.remove('active'));document.getElementById('pane-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='datasheet'&&!_hqAllRows.length)hqDsReload();if(id==='revenue')renderRevenue();if(id==='settings')loadSettings();if(id==='staff')loadStaffPanel();if(id==='billing')loadBillingPanel();if(id==='activity')loadActivityPanel();if(id==='leads')loadLeads();if(id==='sales')loadSalesPanel();}
 async function init(){try{const r=await fetch('/api/agency/clients',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}});if(!r.ok)throw new Error('HTTP '+r.status+': '+await r.text());const data=await r.json();allBranches=Array.isArray(data)?data:[];updateKPIs();renderCards();populateBranchFilter();}catch(e){console.error('[init]',e);document.getElementById('branch-grid').innerHTML='<div class="empty-state"><div style="font-size:36px;margin-bottom:12px">⚠️</div><h3 style="color:var(--ink-2)">Could not load</h3><p>'+friendly(e)+'</p></div>';}}
 function updateKPIs(){const t=allBranches.length,a=allBranches.filter(b=>b.subscriptionStatus==='active').length,tr=allBranches.filter(b=>b.subscriptionStatus==='trial').length,rv=allBranches.reduce((s,b)=>s+(b.revenue||0),0),ex=allBranches.filter(b=>b.daysLeft!=null&&b.daysLeft<=7).length;document.getElementById('kpi-total').textContent=t;document.getElementById('kpi-active').textContent=a;document.getElementById('kpi-trial').textContent=tr;document.getElementById('kpi-revenue').textContent='₹'+Math.round(rv).toLocaleString('en-IN');document.getElementById('kpi-expiring').textContent=ex;document.getElementById('hdr-total').textContent=t;document.getElementById('hdr-active').textContent=a;}
 function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-pill').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderCards();}
@@ -346,7 +363,7 @@ async function saveSettings(){const btn=document.getElementById('settings-save-b
 function toggleReveal(id,btn){const el=document.getElementById(id);el.type=el.type==='password'?'text':'password';btn.textContent=el.type==='password'?'Show':'Hide';}
 /* ── Staff Panel JS ── */
 let _staffList=[];
-const ROLE_LABELS={agency_admin:'Agency Admin',manager:'Manager',owner:'Owner',kitchen:'Kitchen',admin:'Admin'};
+const ROLE_LABELS={agency_admin:'Agency Admin',manager:'Manager',owner:'Owner',kitchen:'Kitchen',admin:'Admin',sales:'Sales Rep'};
 async function loadStaffPanel(){const tbody=document.getElementById('staff-table-body');tbody.innerHTML='<tr><td colspan="6" style="padding:28px;color:var(--ink-3);text-align:center"><div class="loading-spinner" style="margin:0 auto"></div></td></tr>';try{const r=await fetch('/api/admin/staff',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}});if(!r.ok)throw new Error('HTTP '+r.status+': '+await r.text());_staffList=await r.json();renderStaffTable();}catch(e){console.error('[loadStaffPanel]',e);tbody.innerHTML=`<tr><td colspan="6" style="padding:24px;color:var(--rose);text-align:center">⚠️ ${esc(friendly(e))}</td></tr>`;}}
 function renderStaffTable(){const tbody=document.getElementById('staff-table-body');if(!_staffList.length){tbody.innerHTML='<tr><td colspan="6" style="padding:28px;color:var(--ink-3);text-align:center">No staff found</td></tr>';return;}tbody.innerHTML=_staffList.map((s,i)=>`<tr id="sr-${s.id}"><td style="color:var(--ink-3);font-size:12px">${i+1}</td><td><strong>${esc(s.name||'—')}</strong>${s.email?`<br><span style="font-size:11px;color:var(--ink-3)">${esc(s.email)}</span>`:''}</td><td><code style="background:var(--bg);padding:2px 8px;border-radius:5px;font-size:12px;color:var(--ink-2)">${esc(s.username)}</code></td><td><span class="staff-role-badge role-${s.role}">${esc(ROLE_LABELS[s.role]||s.role)}</span></td><td style="font-size:12.5px;color:var(--ink-2)">${esc(s.business_id||'— all branches —')}</td><td><button class="btn-change-pw" onclick="showPwForm('${s.id}')">🔑 Change Password</button></td></tr><tr id="spr-${s.id}" style="display:none"><td colspan="6" class="pw-change-row"><div class="pw-inline-form"><span style="font-size:13px;color:var(--ink-2);font-weight:500">New password for <strong>${esc(s.name||s.username)}</strong>:</span><input class="pw-inline-input" type="text" id="pwi-${s.id}" placeholder="Enter new password" autocomplete="new-password"/><button class="btn-save-pw" onclick="savePw('${s.id}')">Save</button><button class="btn-cancel-pw" onclick="hidePwForm('${s.id}')">Cancel</button><span id="pwm-${s.id}" style="font-size:12px;margin-left:4px"></span></div></td></tr>`).join('');}
 function showPwForm(id){document.querySelectorAll('[id^="spr-"]').forEach(r=>r.style.display='none');const row=document.getElementById('spr-'+id);if(row){row.style.display='';const inp=document.getElementById('pwi-'+id);if(inp)inp.focus();}}
@@ -371,10 +388,50 @@ async function setClientSub(id,status){
     loadBillingPanel();
   }catch(e){console.error('[setClientSub]',e);alert('Could not update status: '+friendly(e));}
 }
-async function loadBillingPanel(){const tb=document.getElementById('billing-table-body'),hb=document.getElementById('billing-history-body');if(tb)tb.innerHTML='<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center"><div class="loading-spinner" style="margin:0 auto"></div></td></tr>';try{const[biz,hist,plansData]=await Promise.all([fetch('/api/agency/clients',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}}).then(r=>r.json()),fetch('/api/admin/billing/history',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}}).then(r=>r.ok?r.json():[]).catch(()=>[]),fetch('/api/plans').then(r=>r.json()).catch(()=>({plans:[]}))]);_hqPlans=plansData.plans||[];const ba=Array.isArray(biz)?biz:[];const st=s=>({active:'sb-active',trial:'sb-trial',paused:'sb-paused',expired:'sb-offline'}[s]||'sb-trial');if(tb)tb.innerHTML=ba.map(b=>`<tr><td><strong>${esc(b.name||b.id)}</strong><br><span style="font-size:11px;color:var(--ink-3)">${esc(b.id)}</span></td><td><select class="form-input" style="font-size:12px;padding:4px 8px" onchange="setClientPlan('${b.id}',this.value)">${planOptions(b.subscriptionPlan)}</select></td><td><span class="status-badge ${st(b.subscriptionStatus||'trial')}">${esc(b.subscriptionStatus||'trial')}</span></td><td style="font-size:12px">${b.subscriptionEnd?fmtDate(b.subscriptionEnd):'—'}</td><td style="font-size:12px">${b.lastPayment?'₹'+b.lastPayment.amount+' on '+fmtDate(b.lastPayment.paidAt):'—'}</td><td style="display:flex;gap:6px;flex-wrap:wrap">${b.subscriptionStatus!=='active'?`<button class="btn-change-pw" style="color:var(--sage);border-color:rgba(90,140,94,0.3)" onclick="setClientSub('${b.id}','active')" title="Mark active — use after confirming payment received by any method">✓ Approve</button>`:''}${b.subscriptionStatus!=='paused'?`<button class="btn-change-pw" style="color:var(--rose);border-color:rgba(184,80,90,0.3)" onclick="setClientSub('${b.id}','paused')" title="Temporarily stop service for this café">⏸ Pause</button>`:''}<button class="btn-change-pw" onclick="openGenLink('${b.id}','${esc(b.name||b.id)}')">🔗 Link</button></td></tr>`).join('')||'<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">No branches</td></tr>';const ha=Array.isArray(hist)?hist:[];if(hb)hb.innerHTML=ha.map(h=>`<tr><td style="font-size:12px">${fmtDate(h.paidAt)}</td><td>${esc(h.businessName||h.businessId||'—')}</td><td>${esc(h.planName||h.plan||'—')}</td><td style="font-weight:600;color:var(--gold-d)">₹${h.amount||'—'}</td><td style="font-size:11px;color:var(--ink-3)">${esc(h.paymentId||'—')}</td></tr>`).join('')||'<tr><td colspan="5" style="padding:24px;color:var(--ink-3);text-align:center">No payments yet</td></tr>';}catch(e){console.error('[loadBillingPanel]',e);if(tb)tb.innerHTML=`<tr><td colspan="6" style="padding:24px;color:var(--rose);text-align:center">${esc(friendly(e))}</td></tr>`;}}
+async function loadBillingPanel(){const tb=document.getElementById('billing-table-body'),hb=document.getElementById('billing-history-body');if(tb)tb.innerHTML='<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center"><div class="loading-spinner" style="margin:0 auto"></div></td></tr>';try{const[biz,hist,plansData]=await Promise.all([fetch('/api/agency/clients',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}}).then(r=>r.json()),fetch('/api/admin/billing/history',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}}).then(r=>r.ok?r.json():[]).catch(()=>[]),fetch('/api/plans').then(r=>r.json()).catch(()=>({plans:[]}))]);_hqPlans=plansData.plans||[];const ba=Array.isArray(biz)?biz:[];const st=s=>({active:'sb-active',trial:'sb-trial',paused:'sb-paused',expired:'sb-offline'}[s]||'sb-trial');if(tb)tb.innerHTML=ba.map(b=>`<tr><td><strong>${esc(b.name||b.id)}</strong><br><span style="font-size:11px;color:var(--ink-3)">${esc(b.id)}</span></td><td><select class="form-input" style="font-size:12px;padding:4px 8px" onchange="setClientPlan('${b.id}',this.value)">${planOptions(b.subscriptionPlan)}</select></td><td><span class="status-badge ${st(b.subscriptionStatus||'trial')}">${esc(b.subscriptionStatus||'trial')}</span></td><td style="font-size:12px">${b.subscriptionEnd?fmtDate(b.subscriptionEnd):'—'}</td><td style="font-size:12px">${b.lastPayment?'₹'+b.lastPayment.amount+' on '+fmtDate(b.lastPayment.paidAt):'—'}</td><td style="display:flex;gap:6px;flex-wrap:wrap">${b.subscriptionStatus!=='active'?`<button class="btn-change-pw" style="color:var(--sage);border-color:rgba(90,140,94,0.3)" onclick="setClientSub('${b.id}','active')" title="Mark active — use after confirming payment received by any method">✓ Approve</button>`:''}${b.subscriptionStatus!=='paused'?`<button class="btn-change-pw" style="color:var(--rose);border-color:rgba(184,80,90,0.3)" onclick="setClientSub('${b.id}','paused')" title="Temporarily stop service for this café">⏸ Pause</button>`:''}<button class="btn-change-pw" onclick="openGenLink('${b.id}','${esc(b.name||b.id)}')">🔗 Link</button><button class="btn-change-pw" onclick="openRecordPayment('${b.id}','${esc(b.name||b.id)}','${b.subscriptionStatus||'trial'}')">💰 Payment</button></td></tr>`).join('')||'<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">No branches</td></tr>';const ha=Array.isArray(hist)?hist:[];if(hb)hb.innerHTML=ha.map(h=>`<tr><td style="font-size:12px">${fmtDate(h.paidAt)}</td><td>${esc(h.businessName||h.businessId||'—')}</td><td>${esc(h.planName||h.plan||'—')}</td><td style="font-weight:600;color:var(--gold-d)">₹${h.amount||'—'}</td><td style="font-size:11px;color:var(--ink-3)">${esc(h.paymentId||'—')}</td></tr>`).join('')||'<tr><td colspan="5" style="padding:24px;color:var(--ink-3);text-align:center">No payments yet</td></tr>';}catch(e){console.error('[loadBillingPanel]',e);if(tb)tb.innerHTML=`<tr><td colspan="6" style="padding:24px;color:var(--rose);text-align:center">${esc(friendly(e))}</td></tr>`;}}
 async function openGenLink(bizId,bizName){_genLinkBizId=bizId;let plans=[];try{const pd=await fetch('/api/plans').then(r=>r.json());plans=Array.isArray(pd)?pd:(pd.plans||[]);}catch{}const wrap=document.getElementById('billing-modal-wrap'),inner=document.getElementById('billing-modal-inner');if(!wrap)return;inner.innerHTML=`<div style="font-family:var(--font-d);font-size:18px;color:var(--ink);margin-bottom:4px">Generate Payment Link</div><div style="font-size:13px;color:var(--ink-3);margin-bottom:20px">For: <strong>${esc(bizName)}</strong></div><div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">Select Plan</label><select id="gl-plan" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:var(--font-b);font-size:13px;background:var(--bg);outline:none">${(Array.isArray(plans)?plans:[]).map(p=>`<option value="${p.id}">${esc(p.name)} — ₹${p.price}</option>`).join('')}</select></div><div id="gl-out" style="margin-bottom:16px"></div><div style="display:flex;gap:10px;justify-content:flex-end"><button onclick="document.getElementById('billing-modal-wrap').style.display='none'" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--ink-3);cursor:pointer">Cancel</button><button class="btn-primary" onclick="doGenLink()">Generate Link</button></div>`;wrap.style.display='flex';}
 async function loadActivityPanel(){const kp=document.getElementById('activity-kpis'),rb=document.getElementById('activity-report-body'),lb=document.getElementById('activity-log-body');if(rb)rb.innerHTML='<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center"><div class="loading-spinner" style="margin:0 auto"></div></td></tr>';try{const[rep,log]=await Promise.all([fetch('/api/admin/weekly-report',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}}).then(r=>r.json()),fetch('/api/admin/activity-log?page=0&size=50',{headers:{'Authorization':'Bearer '+localStorage.getItem('cafehq_token')}}).then(r=>r.json())]);const branches=rep.branches||[];const tr=branches.reduce((s,b)=>s+(b.weekRevenue||0),0),to=branches.reduce((s,b)=>s+(b.weekOrders||0),0);if(kp)kp.innerHTML=[{label:'7-Day Revenue',val:'₹'+Math.round(tr).toLocaleString('en-IN')},{label:'7-Day Orders',val:to.toLocaleString()},{label:'Logins (7d)',val:(rep.activity&&rep.activity.logins)||0},{label:'Total Events (7d)',val:(rep.activity&&rep.activity.totalEvents)||0}].map(x=>`<div class="ds-stat-card"><div class="ds-stat-val">${esc(String(x.val))}</div><div class="ds-stat-lbl">${esc(x.label)}</div></div>`).join('');if(rb)rb.innerHTML=branches.map(b=>`<tr><td><strong>${esc(b.name||b.id)}</strong></td><td>${esc(b.plan||'—')}</td><td><span class="status-badge ${SC[b.status]||'sb-active'}">${esc(SL[b.status]||b.status||'—')}</span></td><td style="font-weight:600;color:var(--gold-d)">₹${Math.round(b.weekRevenue||0).toLocaleString('en-IN')}</td><td>${b.weekOrders||0}</td><td style="font-size:12px">${(b.topItems||[]).map(i=>esc(i.name||'')+' ('+(i.qty||0)+')').join(', ')||'—'}</td></tr>`).join('')||'<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">No data</td></tr>';const entries=log.entries||[];if(lb)lb.innerHTML=entries.map(e=>`<tr><td style="font-size:12px">${fmtDate(e.timestamp)} ${new Date(e.timestamp).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(e.event||'—')}</td><td>${esc(e.username||'—')}</td><td>${esc(e.role||'—')}</td><td style="font-size:12px">${esc(e.businessId||'—')}</td><td style="font-size:11px;color:var(--ink-3)">${esc(e.ip||'—')}</td></tr>`).join('')||'<tr><td colspan="6" style="padding:24px;color:var(--ink-3);text-align:center">No activity yet</td></tr>';}catch(e){console.error('[loadActivityPanel]',e);if(rb)rb.innerHTML=`<tr><td colspan="6" style="padding:24px;color:var(--rose);text-align:center">${esc(friendly(e))}</td></tr>`;}}
 async function doGenLink(){const planId=document.getElementById('gl-plan')?.value,out=document.getElementById('gl-out');if(out)out.innerHTML='<div style="font-size:13px;color:var(--ink-3)">Generating…</div>';try{const r=await fetch('/api/admin/billing/generate-link',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('cafehq_token')},body:JSON.stringify({businessId:_genLinkBizId,planId})});const d=await r.json();if(d.error){if(out)out.innerHTML=`<div style="color:var(--rose);font-size:13px">❌ ${esc(d.error)}</div>`;return;}const url=d.short_url||d.url||'(no URL)';if(out)out.innerHTML=`<div style="padding:12px;background:var(--sage-lt);border:1px solid rgba(90,140,94,0.3);border-radius:8px"><div style="font-size:12px;color:var(--sage);font-weight:600;margin-bottom:6px">✅ Payment link created</div><a href="${url}" target="_blank" style="font-size:13px;color:var(--sky);word-break:break-all">${url}</a></div>`;}catch(e){console.error('[doGenLink]',e);if(out)out.innerHTML=`<div style="color:var(--rose);font-size:13px">❌ ${esc(friendly(e))}</div>`;}}
+/* ── Record Payment (SF4) — logs a real payment; commission is computed and
+   frozen server-side. Does NOT flip subscription status — that stays a
+   separate, deliberate action via setClientSub. ── */
+let _rpBizId=null,_rpBizStatus=null;
+function openRecordPayment(bizId,bizName,status){
+  _rpBizId=bizId;_rpBizStatus=status;
+  const wrap=document.getElementById('billing-modal-wrap'),inner=document.getElementById('billing-modal-inner');
+  if(!wrap)return;
+  const today=new Date().toISOString().slice(0,10);
+  inner.innerHTML=`<div style="font-family:var(--font-d);font-size:18px;color:var(--ink);margin-bottom:4px">Record Payment</div><div style="font-size:13px;color:var(--ink-3);margin-bottom:20px">For: <strong>${esc(bizName)}</strong></div><div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">Amount (₹)</label><input id="rp-amount" type="number" min="1" step="1" class="settings-input" placeholder="3000"></div><div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">Plan</label><select id="rp-plan" class="settings-input">${planOptions('')}</select></div><div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">Date</label><input id="rp-date" type="date" class="settings-input" value="${today}"></div><div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:var(--ink-2);display:block;margin-bottom:6px">Reference <span class="settings-hint">(UPI ref, cheque no., optional)</span></label><input id="rp-ref" type="text" class="settings-input" placeholder="e.g. UPI-2288341"></div><div id="rp-out" style="margin-bottom:10px"></div><div style="display:flex;gap:10px;justify-content:flex-end"><button onclick="document.getElementById('billing-modal-wrap').style.display='none'" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--ink-3);cursor:pointer">Cancel</button><button class="btn-primary" onclick="doRecordPayment()">Record Payment</button></div>`;
+  wrap.style.display='flex';
+}
+async function doRecordPayment(){
+  const amount=Number(document.getElementById('rp-amount').value);
+  const plan=document.getElementById('rp-plan').value;
+  const dateVal=document.getElementById('rp-date').value;
+  const reference=document.getElementById('rp-ref').value.trim();
+  const out=document.getElementById('rp-out');
+  if(!amount||amount<=0){out.innerHTML='<div style="color:var(--rose);font-size:13px">Enter a valid amount</div>';return;}
+  if(!plan){out.innerHTML='<div style="color:var(--rose);font-size:13px">Select a plan</div>';return;}
+  out.innerHTML='<div style="font-size:13px;color:var(--ink-3)">Saving…</div>';
+  try{
+    const r=await fetch('/api/agency/clients/'+_rpBizId+'/payments',{
+      method:'POST',headers:{'Content-Type':'application/json',...leadsAuthHdr()},
+      body:JSON.stringify({amount,plan,paidAt:dateVal?dateVal+' 12:00:00':undefined,reference:reference||undefined}),
+    });
+    const d=await r.json();
+    if(!r.ok){out.innerHTML=`<div style="color:var(--rose);font-size:13px">❌ ${esc(d.error||'Failed')}</div>`;return;}
+    out.innerHTML=`<div style="padding:10px;background:var(--sage-lt);border:1px solid rgba(90,140,94,0.3);border-radius:8px;font-size:12.5px;color:var(--sage);font-weight:600">✅ Payment recorded — commission ₹${d.commission_amount||0} (${Math.round((d.commission_rate||0)*100)}%)</div>`;
+    const status=_rpBizStatus,bizId=_rpBizId;
+    setTimeout(()=>{
+      document.getElementById('billing-modal-wrap').style.display='none';
+      loadBillingPanel();
+      if(status!=='active' && confirm('Payment recorded. Mark this café Active now?')) setClientSub(bizId,'active');
+    },900);
+  }catch(e){
+    console.error('[doRecordPayment]',e);
+    out.innerHTML=`<div style="color:var(--rose);font-size:13px">❌ ${esc(friendly(e))}</div>`;
+  }
+}
 /* ── Leads Pipeline (sales CRM — admin-only, separate from signed-up clients) ── */
 let _leads=[],_leadStatuses=[];
 function leadsAuthHdr(){return {'Authorization':'Bearer '+localStorage.getItem('cafehq_token')};}
@@ -596,6 +653,50 @@ async function importLeadsCSV(file){
   }catch(e){
     console.error('[importLeadsCSV]',e);
     alert('Import failed: '+friendly(e));
+  }
+}
+/* ── Sales Team Performance (SF5) + Log in as rep (SF6) ── */
+async function loadSalesPanel(){
+  const tbody=document.getElementById('sales-perf-body');
+  tbody.innerHTML='<tr><td colspan="10" style="padding:28px;color:var(--ink-3);text-align:center"><div class="loading-spinner" style="margin:0 auto"></div></td></tr>';
+  try{
+    const r=await fetch('/api/admin/sales-performance',{headers:leadsAuthHdr()});
+    if(!r.ok) throw new Error('HTTP '+r.status+': '+await r.text());
+    const rows=await r.json();
+    rows.sort((a,b)=>(b.commissionThisMonth||0)-(a.commissionThisMonth||0));
+    if(!rows.length){
+      tbody.innerHTML='<tr><td colspan="10" style="padding:28px;color:var(--ink-3);text-align:center">No sales reps yet — add one from the Staff panel.</td></tr>';
+      return;
+    }
+    tbody.innerHTML=rows.map(rep=>`<tr>
+      <td><strong>${esc(rep.name)}</strong><br><span style="font-size:11px;color:var(--ink-3)">${esc(rep.username)}</span></td>
+      <td>${rep.leadsTotal}</td>
+      <td${rep.followUpsOverdue>0?' style="color:var(--rose);font-weight:600"':''}>${rep.followUpsOverdue}</td>
+      <td>${rep.cafesSigned}</td>
+      <td>${rep.payingCafes}</td>
+      <td>₹${Math.round(rep.revenueDriven||0).toLocaleString('en-IN')}</td>
+      <td style="font-weight:600;color:var(--gold-d)">₹${Math.round(rep.commissionLifetime||0).toLocaleString('en-IN')}</td>
+      <td style="font-weight:600;color:var(--gold-d)">₹${Math.round(rep.commissionThisMonth||0).toLocaleString('en-IN')}</td>
+      <td>${rep.conversionRate==null?'—':Math.round(rep.conversionRate*100)+'%'}</td>
+      <td><button class="btn-change-pw" onclick="impersonateRep('${rep.repId}','${esc(rep.name)}')">👤 Log in as</button></td>
+    </tr>`).join('');
+  }catch(e){
+    console.error('[loadSalesPanel]',e);
+    tbody.innerHTML=`<tr><td colspan="10" style="padding:24px;color:var(--rose);text-align:center">⚠️ ${esc(friendly(e))}</td></tr>`;
+  }
+}
+async function impersonateRep(id,name){
+  if(!confirm('Log in as '+name+'? This opens their rep view in a new tab — your own HQ session stays signed in here.')) return;
+  try{
+    const r=await fetch('/api/admin/sales-reps/'+encodeURIComponent(id)+'/impersonate',{method:'POST',headers:leadsAuthHdr()});
+    if(!r.ok) throw new Error('HTTP '+r.status+': '+await r.text());
+    const d=await r.json();
+    // Separate key from cafehq_token — impersonating a rep must never log the admin out of HQ.
+    localStorage.setItem('cafehq_impersonate_token',d.token);
+    window.open('/sales','_blank');
+  }catch(e){
+    console.error('[impersonateRep]',e);
+    alert('Could not log in as rep: '+friendly(e));
   }
 }
 const socket=io();

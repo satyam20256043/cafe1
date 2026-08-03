@@ -10,7 +10,7 @@ module.exports = function register(ctx) {
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
-    db,
+    db, toIsoZ,
     initializeBusinessFiles,
     whatsappClient,
     startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
@@ -395,6 +395,51 @@ app.post('/api/agency/clients/:id/status', requireAuth, requireRole('agency_admi
   }
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
   res.json({ success: true, id, subscriptionStatus: businesses[idx].subscriptionStatus, subscriptionPlan: businesses[idx].subscriptionPlan });
+});
+
+// POST /api/agency/clients/:id/payments — operator logs a real payment received;
+// commission is computed and frozen automatically (10% first payment, 5% after,
+// per the café's linked sales rep if any — SF2). Admin-only: reps never record
+// their own payments. Does NOT flip subscription status/active state — that
+// stays a deliberate, separate action via the status endpoint above.
+app.post('/api/agency/clients/:id/payments', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
+  if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
+  const { id } = req.params;
+  const { amount, plan, paidAt, reference } = req.body;
+  const business = businesses.find(b => b.id === id);
+  if (!business) return res.status(404).json({ error: 'Business not found' });
+
+  const amountNum = Number(amount);
+  if (!Number.isFinite(amountNum) || amountNum <= 0) {
+    return res.status(400).json({ error: 'amount must be a positive number' });
+  }
+  let planIds = [];
+  try { planIds = (JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'plans.json'), 'utf-8')).plans || []).map(p => p.id); } catch(e) {}
+  if (!plan || !planIds.includes(plan)) {
+    return res.status(400).json({ error: 'Invalid plan' });
+  }
+
+  const row = db.recordPayment({
+    businessId: id, amount: amountNum, plan, paidAt: paidAt || undefined,
+    recordedBy: req.staff.id, reference: reference || null,
+    salesRepId: business.salesRepId || null,
+  });
+  db.logEvent(id, 'payment.recorded', {
+    actor: 'staff:' + req.staff.id,
+    metadata: { amount: amountNum, plan, commission: row.commission_amount },
+  });
+  res.json({
+    ...row,
+    paid_at: toIsoZ(row.paid_at),
+    created_at: toIsoZ(row.created_at),
+  });
+});
+
+// GET /api/agency/clients/:id/payments — that café's payment history
+app.get('/api/agency/clients/:id/payments', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
+  if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
+  const rows = db.listPaymentsForBusiness(req.params.id);
+  res.json(rows.map(r => ({ ...r, paid_at: toIsoZ(r.paid_at), created_at: toIsoZ(r.created_at) })));
 });
 
 // ── AI3: "Teach your AI" knowledge base ──────────────────────────────────────

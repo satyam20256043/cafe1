@@ -153,7 +153,19 @@ app.patch('/api/staff/:staffId', (req, res) => {
 // when db isn't loaded.
 app.get('/api/admin/staff', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   if (db) {
-    const all = businesses.flatMap(b => db.listStaff(b.id));
+    // Café-scoped staff (business_id.listStaff) never includes agency-level
+    // staff (agency_admin/admin/sales, business_id='_agency', not a real café)
+    // — union them in explicitly or agency-level accounts (including sales
+    // reps) are invisible to this list and unreachable from the password-reset
+    // UI that reads it.
+    const cafeStaff = businesses.flatMap(b => db.listStaff(b.id));
+    const agencyStaff = db.listAgencyStaff();
+    const seen = new Set();
+    const all = [...cafeStaff, ...agencyStaff].filter(s => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
     return res.json(all.map(({ password_hash, ...s }) => s));
   }
   const staff = loadStaff();

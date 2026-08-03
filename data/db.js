@@ -253,6 +253,7 @@ db.exec(`
     status TEXT DEFAULT 'Prospect',
     follow_up_date TEXT,            -- YYYY-MM-DD, nullable
     notes TEXT,
+    assigned_to TEXT,                -- staff id of the sales rep who owns this lead, NULL = operator's own pipeline
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -263,6 +264,26 @@ db.exec(`
     is_default INTEGER DEFAULT 0,
     sort_order INTEGER DEFAULT 100
   );
+  -- One immutable row per payment received. commission_rate/commission_amount/
+  -- is_first_payment are frozen at write time from that moment's rate — never
+  -- recomputed from current plan prices or the rep's current rate, so past
+  -- earnings can't silently change if pricing or a rep's book changes later.
+  CREATE TABLE IF NOT EXISTS payments (
+    id            TEXT PRIMARY KEY,
+    business_id   TEXT NOT NULL,
+    amount        REAL NOT NULL,          -- rupees actually received
+    plan          TEXT,                   -- plan id at time of payment
+    paid_at       DATETIME NOT NULL,      -- when money changed hands
+    recorded_by   TEXT,                   -- staff id who logged it
+    reference     TEXT,                   -- UPI ref / cheque no / note
+    sales_rep_id  TEXT,                   -- frozen: who earns on this
+    commission_rate REAL,                 -- frozen: 0.10 or 0.05
+    commission_amount REAL,               -- frozen: amount * rate
+    is_first_payment INTEGER DEFAULT 0,   -- frozen: drove the rate
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_payments_business ON payments(business_id);
+  CREATE INDEX IF NOT EXISTS idx_payments_rep ON payments(sales_rep_id);
   -- Per-café daily counter for metered premium AI. Starter cafés get a limited
   -- number of Claude (Haiku) replies per day; growth/pro are unmetered.
   CREATE TABLE IF NOT EXISTS ai_daily_usage (
@@ -352,11 +373,18 @@ db.exec(`
     ['backups', 'path',    'TEXT'],
     ['backups', 'size_mb', 'REAL'],
     ['backups', 'status',  'TEXT'],
+    // Sales rep foundation
+    ['crm_leads', 'assigned_to', 'TEXT'],
   ];
   cols.forEach(([tbl, col, def]) => {
     try { db.prepare(`ALTER TABLE ${tbl} ADD COLUMN ${col} ${def}`).run(); }
     catch(e) { /* column already exists or table not yet created — ignore */ }
   });
+  // Must run after the ALTER TABLE above, not in the initial CREATE TABLE
+  // block — on a pre-existing DB, crm_leads already existed without
+  // assigned_to, so an index on that column there would fail before this
+  // migration ever got a chance to add it.
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_crm_leads_assigned_to ON crm_leads(assigned_to)'); } catch(e) { /* ignore */ }
   // Ensure loyalty_transactions table exists (for old DBs)
   try {
     db.exec(`CREATE TABLE IF NOT EXISTS loyalty_transactions (
@@ -568,11 +596,17 @@ function getStaffById(id) {
 // Agency-wide login: matches by username only, restricted to platform-operator
 // roles (never used for café staff, who must always match their own business_id).
 function getAdminStaffByUsername(username) {
-  return db.prepare("SELECT * FROM staff WHERE username=? AND role IN ('agency_admin','admin') LIMIT 1")
+  return db.prepare("SELECT * FROM staff WHERE username=? AND role IN ('agency_admin','admin','sales') LIMIT 1")
            .get(username);
 }
 function listStaff(businessId) {
   return db.prepare('SELECT * FROM staff WHERE business_id=? ORDER BY role, name').all(businessId);
+}
+// Agency-level staff (agency_admin/admin/sales) — business_id='_agency' by
+// convention, not attached to any real café. listStaff(businessId) alone
+// can't surface these since it's always scoped to one café's business_id.
+function listAgencyStaff() {
+  return db.prepare("SELECT * FROM staff WHERE role IN ('agency_admin','admin','sales') ORDER BY role, name").all();
 }
 function createStaff({ businessId, name, username, passwordHash, role, phone }) {
   const textId = `staff_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
@@ -623,7 +657,7 @@ function consumePasswordResetOtp(id) {
 
 // Re-export with all helpers
 Object.assign(module.exports, {
-  raw, getStaffByUsername, getAdminStaffByUsername, getStaffById, listStaff,
+  raw, getStaffByUsername, getAdminStaffByUsername, getStaffById, listStaff, listAgencyStaff,
   createStaff, updateStaffPassword, setStaffActive, logBackup,
   createPasswordResetOtp, getValidPasswordResetOtp, consumePasswordResetOtp,
   upsertBusinessRow,
@@ -1381,10 +1415,11 @@ const seedLeadStatusStmt = db.prepare(`
 for (const [label, color, order] of DEFAULT_LEAD_STATUSES) seedLeadStatusStmt.run(label, color, order);
 
 const insertLeadStmt = db.prepare(`
-  INSERT INTO crm_leads (id, cafe_name, phone, owner_name, location, status, follow_up_date, notes)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO crm_leads (id, cafe_name, phone, owner_name, location, status, follow_up_date, notes, assigned_to)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 const listLeadsStmt = db.prepare(`SELECT * FROM crm_leads ORDER BY created_at DESC`);
+const listLeadsByRepStmt = db.prepare(`SELECT * FROM crm_leads WHERE assigned_to = ? ORDER BY created_at DESC`);
 const deleteLeadStmt = db.prepare(`DELETE FROM crm_leads WHERE id = ?`);
 const listLeadStatusesStmt = db.prepare(`SELECT * FROM crm_lead_statuses ORDER BY sort_order ASC, label ASC`);
 const insertLeadStatusStmt = db.prepare(`
@@ -1392,23 +1427,25 @@ const insertLeadStatusStmt = db.prepare(`
 `);
 const deleteLeadStatusStmt = db.prepare(`DELETE FROM crm_lead_statuses WHERE label = ? AND is_default = 0`);
 
-function createLead({ cafeName, phone, ownerName, location, status, followUpDate, notes }) {
+function createLead({ cafeName, phone, ownerName, location, status, followUpDate, notes, assignedTo }) {
   const id = `lead_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   insertLeadStmt.run(
     id, cafeName, phone || null, ownerName || null, location || null,
-    status || 'Prospect', followUpDate || null, notes || null
+    status || 'Prospect', followUpDate || null, notes || null, assignedTo || null
   );
   return db.prepare('SELECT * FROM crm_leads WHERE id = ?').get(id);
 }
 
-function listLeads() {
-  return listLeadsStmt.all();
+// { assignedTo } omitted/undefined -> every lead (admin view); provided ->
+// only that rep's leads (server-side scoping, see data/routes/leads.js).
+function listLeads({ assignedTo } = {}) {
+  return assignedTo ? listLeadsByRepStmt.all(assignedTo) : listLeadsStmt.all();
 }
 
 // Whitelisted partial update — only touches fields actually present in `fields`.
 const LEAD_EDITABLE_FIELDS = {
   cafeName: 'cafe_name', phone: 'phone', ownerName: 'owner_name', location: 'location',
-  status: 'status', followUpDate: 'follow_up_date', notes: 'notes',
+  status: 'status', followUpDate: 'follow_up_date', notes: 'notes', assignedTo: 'assigned_to',
 };
 function updateLead(id, fields) {
   const sets = [];
@@ -1460,6 +1497,111 @@ Object.assign(module.exports, {
   createLead, listLeads, updateLead, deleteLead,
   listLeadStatuses, addLeadStatus, deleteLeadStatus,
 });
+
+// ── Payments ledger ─────────────────────────────────────────────────────────
+// One immutable row per payment. commission_rate/commission_amount/
+// is_first_payment are frozen at insert time — reads must sum the stored
+// commission_amount, never recompute from current rates or plan prices.
+const insertPaymentStmt = db.prepare(`
+  INSERT INTO payments (id, business_id, amount, plan, paid_at, recorded_by, reference, sales_rep_id, commission_rate, commission_amount, is_first_payment)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+const countPaymentsForBusinessStmt = db.prepare('SELECT COUNT(*) AS n FROM payments WHERE business_id = ?');
+const listPaymentsForBusinessStmt = db.prepare('SELECT * FROM payments WHERE business_id = ? ORDER BY paid_at DESC');
+const listPaymentsForRepStmt = db.prepare('SELECT * FROM payments WHERE sales_rep_id = ? ORDER BY paid_at DESC');
+
+function recordPayment({ businessId, amount, plan, paidAt, recordedBy, reference, salesRepId }) {
+  const isFirst = countPaymentsForBusinessStmt.get(businessId).n === 0;
+  // A café signed with no rep (direct signup) is normal — still record the
+  // payment, just with no commission attached, rather than blocking it.
+  const rate = salesRepId ? (isFirst ? 0.10 : 0.05) : null;
+  const commissionAmount = salesRepId ? Math.round(amount * rate * 100) / 100 : 0;
+  const id = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  insertPaymentStmt.run(
+    id, businessId, amount, plan || null, paidAt || new Date().toISOString(),
+    recordedBy || null, reference || null, salesRepId || null,
+    rate, commissionAmount, isFirst ? 1 : 0
+  );
+  return db.prepare('SELECT * FROM payments WHERE id = ?').get(id);
+}
+
+function listPaymentsForBusiness(businessId) {
+  return listPaymentsForBusinessStmt.all(businessId);
+}
+
+function listPaymentsForRep(salesRepId, { from, to } = {}) {
+  let rows = listPaymentsForRepStmt.all(salesRepId);
+  if (from) rows = rows.filter(r => r.paid_at >= from);
+  if (to) rows = rows.filter(r => r.paid_at <= to);
+  return rows;
+}
+
+// Sums the frozen commission_amount on each row — never recomputes from
+// today's rate, so a rep's historical earnings can't shift if rates change.
+function getRepCommissionSummary(salesRepId) {
+  const rows = listPaymentsForRepStmt.all(salesRepId);
+  const now = new Date();
+  const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  let lifetimeCommission = 0, firstPaymentCount = 0, repeatPaymentCount = 0, thisMonthCommission = 0;
+  for (const r of rows) {
+    const amt = r.commission_amount || 0;
+    lifetimeCommission += amt;
+    if (r.is_first_payment) firstPaymentCount++; else repeatPaymentCount++;
+    if (String(r.paid_at).startsWith(monthPrefix)) thisMonthCommission += amt;
+  }
+  return {
+    salesRepId,
+    lifetimeCommission: Math.round(lifetimeCommission * 100) / 100,
+    firstPaymentCount, repeatPaymentCount,
+    thisMonthCommission: Math.round(thisMonthCommission * 100) / 100,
+  };
+}
+
+Object.assign(module.exports, {
+  recordPayment, listPaymentsForBusiness, listPaymentsForRep, getRepCommissionSummary,
+});
+
+// SQL-side half of the admin rep-performance view. cafesSigned/conversionRate
+// need the in-memory `businesses` array (salesRepId lives in businesses.json,
+// not SQLite) so those are resolved by the caller in data/routes/leads.js.
+function getSalesPerformance() {
+  const reps = db.prepare("SELECT id, name, username FROM staff WHERE role = 'sales' ORDER BY name").all();
+  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const monthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  return reps.map(rep => {
+    const leads = db.prepare('SELECT status, follow_up_date FROM crm_leads WHERE assigned_to = ?').all(rep.id);
+    const leadsTotal = leads.length;
+    const byStatus = {};
+    for (const l of leads) byStatus[l.status] = (byStatus[l.status] || 0) + 1;
+    // 'Paid' and 'Lost' are the two seeded terminal statuses (won/dead) — a
+    // lead sitting in either no longer needs its follow-up chased. Any other
+    // status, default or operator-added custom, still counts as active.
+    const followUpsOverdue = leads.filter(l =>
+      l.follow_up_date && l.follow_up_date < today && l.status !== 'Paid' && l.status !== 'Lost'
+    ).length;
+
+    const payments = db.prepare('SELECT business_id, amount, commission_amount, paid_at FROM payments WHERE sales_rep_id = ?').all(rep.id);
+    const payingCafes = new Set(payments.map(p => p.business_id)).size;
+    let revenueDriven = 0, commissionLifetime = 0, commissionThisMonth = 0;
+    for (const p of payments) {
+      revenueDriven += p.amount || 0;
+      commissionLifetime += p.commission_amount || 0;
+      if (String(p.paid_at).startsWith(monthPrefix)) commissionThisMonth += p.commission_amount || 0;
+    }
+
+    return {
+      repId: rep.id, name: rep.name, username: rep.username,
+      leadsTotal, byStatus, followUpsOverdue, payingCafes,
+      revenueDriven: Math.round(revenueDriven * 100) / 100,
+      commissionLifetime: Math.round(commissionLifetime * 100) / 100,
+      commissionThisMonth: Math.round(commissionThisMonth * 100) / 100,
+    };
+  });
+}
+
+Object.assign(module.exports, { getSalesPerformance });
 
 // ── Metered premium AI (Starter daily Claude cap) ──────────────────────────────
 const getClaudeUsageStmt  = db.prepare('SELECT claude_count FROM ai_daily_usage WHERE business_id = ? AND usage_date = ?');
