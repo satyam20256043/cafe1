@@ -175,6 +175,11 @@ app.get('/sales', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'sales.html'));
 });
 
+// Sales rep login — separate from /admin-login so reps have their own link
+app.get('/sales-login', (req, res) => {
+  res.sendFile(path.join(ROOT_DIR, 'public', 'sales-login.html'));
+});
+
 app.get('/cafe/:id', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'cafe.html'));
 });

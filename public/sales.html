@@ -153,19 +153,19 @@ function doLogout(){
   if (localStorage.getItem('cafehq_impersonate_token')) { returnToHQ(); return; }
   localStorage.removeItem('cafehq_token');
   localStorage.removeItem('cafehq_staff');
-  window.location.href = '/admin-login';
+  window.location.href = '/sales-login';
 }
 
 async function init(){
   const token = getToken();
-  if (!token) { window.location.href = '/admin-login'; return; }
+  if (!token) { window.location.href = '/sales-login'; return; }
   try{
     const r = await fetch('/api/auth/me', { headers: authHdr() });
-    if (!r.ok) { window.location.href = '/admin-login'; return; }
+    if (!r.ok) { window.location.href = '/sales-login'; return; }
     const me = await r.json();
     // Never trust a role cached in localStorage — this is the source of truth.
     if (me.role !== 'sales') {
-      window.location.href = ['agency_admin','admin'].includes(me.role) ? '/hq' : '/admin-login';
+      window.location.href = ['agency_admin','admin'].includes(me.role) ? '/hq' : '/sales-login';
       return;
     }
     ME = me;
@@ -177,7 +177,7 @@ async function init(){
     switchView('followups'); // SD2: default landing view
   }catch(e){
     console.error('[init]', e);
-    window.location.href = '/admin-login';
+    window.location.href = '/sales-login';
   }
 }
 
