@@ -709,12 +709,28 @@ async function impersonateRep(id,name){
   }
 }
 /* ── Add Sales Rep (Staff panel) ── */
+let _repUsernameEdited=false, _repShareMsg='';
 function openAddRep(){
   const wrap=document.getElementById('rep-modal-wrap'),inner=document.getElementById('rep-modal-inner');
   if(!wrap)return;
-  inner.innerHTML=`<div style="font-family:var(--font-d);font-size:18px;color:var(--ink);margin-bottom:4px">Add Sales Rep</div><div style="font-size:13px;color:var(--ink-3);margin-bottom:20px">Create a login for a new sales rep — they sign in separately from HQ.</div><div class="settings-row"><label>Name</label><input class="settings-input" id="rep-name" placeholder="Full name"></div><div class="settings-row"><label>Username</label><input class="settings-input" id="rep-username" placeholder="e.g. priya.sales"></div><div class="settings-row"><label>Password <span class="settings-hint">(min 4 characters — you'll share this with them)</span></label><input class="settings-input" id="rep-password" type="text" placeholder="Set an initial password"></div><div class="settings-row"><label>Phone <span class="settings-hint">(optional)</span></label><input class="settings-input" id="rep-phone" placeholder="Optional"></div><div id="rep-add-out" style="margin-bottom:10px"></div><div style="display:flex;gap:10px;justify-content:flex-end"><button onclick="document.getElementById('rep-modal-wrap').style.display='none'" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--ink-3);cursor:pointer">Cancel</button><button class="btn-primary" onclick="doAddRep()">Create Rep</button></div>`;
+  _repUsernameEdited=false;
+  inner.innerHTML=`<div style="font-family:var(--font-d);font-size:18px;color:var(--ink);margin-bottom:4px">Add Sales Rep</div><div style="font-size:13px;color:var(--ink-3);margin-bottom:20px">Create a login for a new sales rep — they sign in separately from HQ.</div><div class="settings-row"><label>Name</label><input class="settings-input" id="rep-name" placeholder="Full name" oninput="repSuggestUsername()"></div><div class="settings-row"><label>Username <span class="settings-hint">(suggested from name — edit freely)</span></label><input class="settings-input" id="rep-username" placeholder="e.g. priya.sales" oninput="_repUsernameEdited=true"></div><div class="settings-row"><label>Password <span class="settings-hint">(min 4 characters — you'll share this with them)</span></label><div class="settings-secret-row"><input class="settings-input" id="rep-password" type="text" placeholder="Set an initial password"><button type="button" class="settings-reveal" onclick="repGenPassword()">🎲 Generate</button></div></div><div class="settings-row"><label>Phone <span class="settings-hint">(optional)</span></label><input class="settings-input" id="rep-phone" placeholder="Optional"></div><div id="rep-add-out" style="margin-bottom:10px"></div><div style="display:flex;gap:10px;justify-content:flex-end"><button id="rep-cancel-btn" onclick="document.getElementById('rep-modal-wrap').style.display='none'" style="padding:8px 18px;border:1px solid var(--border);border-radius:8px;background:none;color:var(--ink-3);cursor:pointer">Cancel</button><button id="rep-create-btn" class="btn-primary" onclick="doAddRep()">Create Rep</button></div>`;
   wrap.style.display='flex';
+  repGenPassword();
   document.getElementById('rep-name').focus();
+}
+function repSuggestUsername(){
+  if(_repUsernameEdited)return;
+  const name=document.getElementById('rep-name').value;
+  document.getElementById('rep-username').value=name.toLowerCase().trim().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,'.').slice(0,30);
+}
+function repGenPassword(){
+  // Excludes 0/O/1/l/I — a rep reads or gets this texted to them; ambiguous
+  // characters cause real login failures, not just cosmetic confusion.
+  const chars='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const arr=new Uint32Array(8);
+  crypto.getRandomValues(arr);
+  document.getElementById('rep-password').value=Array.from(arr,n=>chars[n%chars.length]).join('');
 }
 async function doAddRep(){
   const name=document.getElementById('rep-name').value.trim();
@@ -730,12 +746,24 @@ async function doAddRep(){
     const r=await fetch('/api/admin/sales-reps',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+localStorage.getItem('cafehq_token')},body:JSON.stringify({name,username,password,phone:phone||undefined})});
     const d=await r.json();
     if(!r.ok){out.innerHTML=`<div style="color:var(--rose);font-size:13px">❌ ${esc(d.error||'Failed')}</div>`;return;}
-    out.innerHTML=`<div style="padding:12px;background:var(--sage-lt);border:1px solid rgba(90,140,94,0.3);border-radius:8px;font-size:12.5px"><div style="color:var(--sage);font-weight:600;margin-bottom:6px">✅ Rep created</div><div style="color:var(--ink-2)">Give them this link plus their username &amp; password:</div><div style="margin-top:6px;font-family:monospace;background:var(--white);padding:6px 8px;border-radius:6px;color:var(--ink);word-break:break-all">${esc(location.origin)}/sales-login</div></div>`;
-    setTimeout(()=>{ document.getElementById('rep-modal-wrap').style.display='none'; loadStaffPanel(); },2400);
+    const link=location.origin+'/sales-login';
+    _repShareMsg=`Hi ${name}! You're set up on Zordical Sales.\nLogin: ${link}\nUsername: ${username}\nPassword: ${password}`;
+    out.innerHTML=`<div style="padding:12px;background:var(--sage-lt);border:1px solid rgba(90,140,94,0.3);border-radius:8px;font-size:12.5px"><div style="color:var(--sage);font-weight:600;margin-bottom:8px">✅ Rep created</div><div style="white-space:pre-line;font-family:monospace;background:var(--white);padding:8px 10px;border-radius:6px;color:var(--ink);word-break:break-all;font-size:11.5px;line-height:1.6">${esc(_repShareMsg)}</div><button class="btn-save-pw" style="margin-top:8px" onclick="repCopyShareMsg(this)">📋 Copy to send</button></div>`;
+    document.getElementById('rep-create-btn').style.display='none';
+    const cancelBtn=document.getElementById('rep-cancel-btn');
+    cancelBtn.textContent='Close';
+    cancelBtn.onclick=()=>{ document.getElementById('rep-modal-wrap').style.display='none'; loadStaffPanel(); };
   }catch(e){
     console.error('[doAddRep]',e);
     out.innerHTML=`<div style="color:var(--rose);font-size:13px">❌ ${esc(friendly(e))}</div>`;
   }
+}
+function repCopyShareMsg(btn){
+  navigator.clipboard.writeText(_repShareMsg).then(()=>{
+    const orig=btn.textContent;
+    btn.textContent='✅ Copied!';
+    setTimeout(()=>{btn.textContent=orig;},1400);
+  }).catch(()=>{ alert('Could not copy automatically — select and copy the text above by hand.'); });
 }
 const socket=io();
 socket.on('connect',()=>socket.emit('join_business',{token:localStorage.getItem('cafehq_token')})); // joins the 'agency' room (receives all branches)
