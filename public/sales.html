@@ -298,11 +298,14 @@ function toggleAddForm(){
 }
 async function submitAddLead(){
   const name = document.getElementById('add-cafe-name').value.trim();
-  const msg = document.getElementById('add-lead-msg');
-  if (!name) { msg.textContent = 'Café name is required.'; msg.className = 'msg msg-err'; return; }
-  const phone = document.getElementById('add-phone').value.trim();
   const owner = document.getElementById('add-owner').value.trim();
+  const phone = document.getElementById('add-phone').value.trim();
   const location = document.getElementById('add-location').value.trim();
+  const msg = document.getElementById('add-lead-msg');
+  if (!name) { msg.textContent = 'Café / restaurant name is required.'; msg.className = 'msg msg-err'; return; }
+  if (!owner) { msg.textContent = 'Owner name is required.'; msg.className = 'msg msg-err'; return; }
+  if (!phone) { msg.textContent = 'Phone number is required.'; msg.className = 'msg msg-err'; return; }
+  if (!location) { msg.textContent = 'Location is required.'; msg.className = 'msg msg-err'; return; }
   msg.textContent = 'Saving…'; msg.className = 'msg';
   try{
     const r = await fetch('/api/crm-leads', { method:'POST', headers:{'Content-Type':'application/json',...authHdr()}, body: JSON.stringify({ cafe_name:name, phone, owner_name:owner, location }) });
@@ -333,10 +336,10 @@ async function renderLeadsView(){
         <button class="btn btn-gold" onclick="toggleAddForm()">+ Add Lead</button>
       </div>
       <div class="card hidden" id="add-lead-form">
-        <div class="field"><label>Café name *</label><input class="input" id="add-cafe-name" placeholder="e.g. The Roasted Bean"></div>
-        <div class="field"><label>Phone</label><input class="input" id="add-phone" placeholder="Optional"></div>
-        <div class="field"><label>Owner name</label><input class="input" id="add-owner" placeholder="Optional"></div>
-        <div class="field"><label>Location</label><input class="input" id="add-location" placeholder="Optional"></div>
+        <div class="field"><label>Café / restaurant name *</label><input class="input" id="add-cafe-name" placeholder="e.g. The Roasted Bean"></div>
+        <div class="field"><label>Owner name *</label><input class="input" id="add-owner" placeholder="e.g. Priya Sharma"></div>
+        <div class="field"><label>Phone number *</label><input class="input" id="add-phone" placeholder="e.g. 9876543210"></div>
+        <div class="field"><label>Location *</label><input class="input" id="add-location" placeholder="e.g. Koramangala, Bengaluru"></div>
         <button class="btn btn-gold" onclick="submitAddLead()">Create Lead</button>
         <button class="btn btn-ghost" onclick="toggleAddForm()">Cancel</button>
         <div class="msg" id="add-lead-msg"></div>
