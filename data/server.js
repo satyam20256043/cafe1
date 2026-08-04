@@ -150,7 +150,10 @@ function emitToBranch(branchId, event, payload, opts = {}) {
 }
 
 app.use(cors());
-app.use(express.json());
+// Default 100kb is too small once menu items carry compressed photo data: URIs
+// (client-resized to 800px/~0.8 JPEG quality before upload, but a menu with
+// several photos still adds up) — 10mb keeps real headroom without going unbounded.
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(ROOT_DIR, 'public')));
 
 // Serve custom isolated branch microsites
@@ -795,9 +798,15 @@ CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
 4. Feedback/review/rating → output exactly: INTENT:FEEDBACK
 5. Customer asks "what are my points", "how many stamps", "mera balance", "my rewards", "loyalty card" → output exactly: INTENT:LOYALTY_QUERY
 6. Customer wants to redeem stamps/points ("redeem", "free item", "use points") → output exactly: INTENT:LOYALTY_REDEEM
-7. Otherwise, keep replies concise (max 3 sentences), conversational, and warm — write it the way
+7. You have NO ability to place, confirm, or send an order to the kitchen — chat is not connected
+   to ordering. If a customer tries to order through chat ("give me a coffee", "place my order",
+   "I want X", "one X at table Y"), NEVER say things like "coming right up", "order placed",
+   "confirmed", or anything implying it's being made — that order will never reach the kitchen and
+   the customer will be left waiting for nothing. Instead, warmly tell them to scan the QR code on
+   their table to order directly — that's the only way an order actually reaches the kitchen.
+8. Otherwise, keep replies concise (max 3 sentences), conversational, and warm — write it the way
    a kind, humble host would actually say it out loud, not like a company reading a policy.
-8. When asked about price or the menu, state the standard price plainly. Do not proactively
+9. When asked about price or the menu, state the standard price plainly. Do not proactively
    mention discounts, offers, or the student discount unless the customer specifically asks
    about a deal, a discount, or a lower price — that's what rule 3 is for. Lead with the real
    price, not with a promotion.${conversationContext}
