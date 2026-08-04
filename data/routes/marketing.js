@@ -138,6 +138,21 @@ app.post('/api/businesses/:id/menu', requireAuth, requireBranchAccess, (req, res
   res.json({ success: true, menu: menuData });
 });
 
+// 4b. Category tab order — an ordered list of category-name strings the owner
+// controls explicitly, separate from whatever category strings happen to
+// exist on menu items today. Empty/missing file means "not configured yet";
+// the customer page then falls back to auto-deriving tabs from the menu
+// itself, so a café that never touches this keeps working unchanged.
+app.get('/api/businesses/:id/categories', (req, res) => {
+  res.json(getBranchData(req.params.id, 'categories.json') || []);
+});
+app.post('/api/businesses/:id/categories', requireAuth, requireBranchAccess, (req, res) => {
+  const categories = req.body;
+  if (!Array.isArray(categories)) return res.status(400).json({ error: 'categories must be an array' });
+  writeBranchData(req.params.id, 'categories.json', categories);
+  res.json({ success: true, categories });
+});
+
 // 6. Get Reservations — staff only (the ledger contains customer names + phones)
 app.get('/api/businesses/:id/reservations', requireAuth, requireBranchAccess, (req, res) => {
   res.json(getBranchData(req.params.id, 'reservations.json'));

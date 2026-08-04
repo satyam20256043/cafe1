@@ -19,6 +19,11 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:15px}
 body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-height:100vh;padding-bottom:120px}
+.hero{position:relative;height:172px;background:linear-gradient(135deg,var(--coffee),var(--espresso));background-size:cover;background-position:center;overflow:hidden}
+.hero-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(26,22,18,0.1) 0%,rgba(26,22,18,0.8) 100%)}
+.hero-content{position:absolute;left:0;right:0;bottom:0;padding:16px 20px 14px}
+.hero-name{font-family:var(--font-display);font-size:23px;line-height:1.15;color:#fff;text-shadow:0 2px 10px rgba(0,0,0,0.35)}
+.hero-sub{font-size:11.5px;color:rgba(255,255,255,0.82);margin-top:4px;letter-spacing:0.2px}
 .header{background:var(--espresso);color:#fff;padding:16px 20px;position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between}
 .header-left .cafe-name{font-family:var(--font-display);font-size:18px}
 .header-left .table-tag{font-size:11px;background:rgba(196,127,58,0.3);color:var(--caramel);padding:3px 10px;border-radius:20px;margin-top:4px;display:inline-block;letter-spacing:0.5px}
@@ -41,6 +46,13 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 .item-price{font-weight:700;font-size:14px;color:var(--caramel);margin-top:6px}
 .item-price .orig{font-size:11px;color:#bbb;text-decoration:line-through;margin-left:4px;font-weight:400}
 .discount-badge{position:absolute;top:8px;right:8px;background:var(--rose);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px}
+.bestseller-badge{position:absolute;top:8px;right:8px;background:var(--caramel);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.menu-card{cursor:pointer}
+.veg-mark{display:inline-block;width:10px;height:10px;border:1.5px solid;border-radius:2px;position:relative;margin-right:5px;vertical-align:middle;flex-shrink:0}
+.veg-mark.veg{border-color:#2e7d32}
+.veg-mark.veg::after{content:'';position:absolute;inset:2px;background:#2e7d32;border-radius:50%}
+.veg-mark.nonveg{border-color:#b71c1c}
+.veg-mark.nonveg::after{content:'';position:absolute;inset:2px;background:#b71c1c;border-radius:50%}
 .item-add-btn{display:flex;align-items:center;justify-content:center;width:100%;margin-top:10px;padding:7px;border-radius:9px;border:1.5px solid var(--caramel);background:#fff;color:var(--caramel);font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer}
 .item-qty-ctrl{display:flex;align-items:center;justify-content:space-between;margin-top:10px;border:1.5px solid var(--caramel);border-radius:9px;overflow:hidden}
 .qty-btn{flex:1;border:none;background:transparent;padding:7px 0;font-size:16px;cursor:pointer;color:var(--caramel);font-weight:700}
@@ -60,7 +72,7 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 .cart-qty-btn{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border-strong);background:#fff;color:var(--espresso);font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:600}
 .cart-footer{padding:16px 20px;border-top:1px solid var(--border)}
 .cart-totals{font-size:13px;color:#888;margin-bottom:10px;line-height:1.8}
-.cart-totals .total-line{color:var(--espresso);font-weight:700;font-size:15px;margin-top:4px}
+.cart-totals .total-line{color:var(--espresso);font-weight:700;font-size:15px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-strong)}
 .btn-place{width:100%;padding:14px;background:var(--espresso);color:#fff;border:none;border-radius:12px;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer}
 .btn-place:disabled{opacity:0.5;cursor:not-allowed}
 .notes-input{width:100%;border:1px solid var(--border-strong);border-radius:9px;padding:9px 12px;font-family:var(--font-body);font-size:13px;color:var(--ink);background:var(--cream);resize:none;outline:none;margin-bottom:12px}
@@ -105,6 +117,13 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 </style>
 </head>
 <body>
+<div class="hero" id="hero">
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-name" id="hero-name">Loading…</div>
+    <div class="hero-sub" id="hero-sub"></div>
+  </div>
+</div>
 <div class="header">
   <div class="header-left">
     <div class="cafe-name" id="cafe-name">Loading…</div>
@@ -117,6 +136,11 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 <div class="categories" id="cat-pills"><button class="cat-btn active" onclick="filterCat('all',this)">All</button></div>
 <div id="menu-container"><div style="padding:60px 20px;text-align:center;color:#bbb">Loading menu…</div></div>
 <div style="text-align:center;padding:20px 16px 8px;font-size:11px;color:#ccc">Powered by Zordical ☕</div>
+<div class="cart-overlay" id="detail-overlay" onclick="closeItemDetail()"></div>
+<div class="cart-drawer" id="detail-sheet" style="max-height:88vh">
+  <div class="cart-handle"></div>
+  <div id="detail-body" style="overflow-y:auto"></div>
+</div>
 <div class="cart-overlay" id="cart-overlay" onclick="closeCart()"></div>
 <div class="cart-drawer" id="cart-drawer">
   <div class="cart-handle"></div>
@@ -164,18 +188,50 @@ const bizId=params.get('branch')||params.get('id')||
   (_rawPath.indexOf('order')>=0?_rawPath[_rawPath.indexOf('order')+1]:null)||
   _rawPath[_rawPath.length-1]||'';
 const tableNo=params.get('table')||'1';
-let menu=[],cart={},currentOrder=null;
+let menu=[],cart={},currentOrder=null,categoryOrder=[];
 let socket=null;try{socket=io({transports:['websocket','polling']});socket.on('connect',()=>socket.emit('join_business',{businessId:bizId}));}catch(e){console.warn('Socket unavailable',e);}
 
 async function init(){
   document.getElementById('table-tag').textContent='Table '+tableNo;
-  try{const b=await fetch('/api/businesses/'+bizId).then(r=>r.json());document.getElementById('cafe-name').textContent=b.name||'Café';document.title='Order — '+(b.name||'Café');if(b.brandColor)document.documentElement.style.setProperty('--caramel',b.brandColor);}catch(e){}
-  try{menu=await fetch('/api/businesses/'+bizId+'/menu').then(r=>r.json());renderCategoryPills();renderMenu('all');}
+  try{
+    const b=await fetch('/api/businesses/'+bizId).then(r=>r.json());
+    document.getElementById('cafe-name').textContent=b.name||'Café';
+    document.title='Order — '+(b.name||'Café');
+    if(b.brandColor)document.documentElement.style.setProperty('--caramel',b.brandColor);
+    document.getElementById('hero-name').textContent=b.name||'Café';
+    document.getElementById('hero-sub').textContent=b.location||'';
+    if(b.heroImageUrl){
+      const hero=document.getElementById('hero');
+      hero.style.backgroundImage=`url("${b.heroImageUrl}")`;
+    }
+  }catch(e){}
+  try{
+    const [menuRes,catRes]=await Promise.all([
+      fetch('/api/businesses/'+bizId+'/menu').then(r=>r.json()),
+      fetch('/api/businesses/'+bizId+'/categories').then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]);
+    menu=menuRes;
+    categoryOrder=Array.isArray(catRes)?catRes:[];
+    renderCategoryPills();renderMenu('all');
+  }
   catch(e){document.getElementById('menu-container').innerHTML='<div style="padding:40px;text-align:center;color:#bbb">Menu unavailable. Please ask staff.</div>';}
 }
 
+// Single source of truth for category order — used by both the tab pills
+// and the "All" view's section headers, so they never disagree.
+function getOrderedCategories(){
+  const present=new Set(menu.map(i=>i.category).filter(Boolean));
+  if(!categoryOrder.length) return [...present]; // not configured — today's auto-derive order, unchanged
+  // Owner-configured order, but only for categories that currently have items
+  // (an empty staged category isn't shown to a real customer as a dead-end
+  // tab) — then append anything with items that isn't in the configured list
+  // yet, so a new/unlisted category is never silently lost.
+  const ordered=categoryOrder.filter(c=>present.has(c));
+  present.forEach(c=>{ if(!ordered.includes(c)) ordered.push(c); });
+  return ordered;
+}
 function renderCategoryPills(){
-  const cats=['all',...new Set(menu.map(i=>i.category).filter(Boolean))];
+  const cats=['all',...getOrderedCategories()];
   document.getElementById('cat-pills').innerHTML=cats.map(c=>`<button class="cat-btn${c==='all'?' active':''}" onclick="filterCat('${c}',this)">${c==='all'?'All':c}</button>`).join('');
 }
 function filterCat(cat,btn){document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderMenu(cat);}
@@ -186,9 +242,18 @@ function getCatEmoji(cat){
   const k=Object.keys(m).find(k=>cat.toLowerCase().includes(k));return k?m[k]:'🍽️';
 }
 
+function vegBadgeHtml(item){
+  // Only rendered when explicitly set — never guess veg/non-veg for a real café.
+  if(item.isVeg===true)return'<span class="veg-mark veg" title="Vegetarian"></span>';
+  if(item.isVeg===false)return'<span class="veg-mark nonveg" title="Non-vegetarian"></span>';
+  return'';
+}
+function bestsellerBadgeHtml(item){
+  return item.bestseller?'<div class="bestseller-badge">⭐ Bestseller</div>':'';
+}
 function renderMenu(cat){
   const items=cat==='all'?menu:menu.filter(i=>i.category===cat);
-  const cats=cat==='all'?[...new Set(menu.map(i=>i.category).filter(Boolean))]:[cat];
+  const cats=cat==='all'?getOrderedCategories():[cat];
   let html='';
   cats.forEach(c=>{
     const ci=items.filter(i=>i.category===c);if(!ci.length)return;
@@ -198,15 +263,75 @@ function renderMenu(cat){
       const inCart=cart[item.id]||0;const disc=item.discount||0;const price=Math.round(item.price*(1-disc/100));
       const origHtml=disc>0?`<span class="orig">₹${item.price}</span>`:'';
       const discBadge=disc>0?`<div class="discount-badge">${disc}% OFF</div>`:'';
+      const topBadge=bestsellerBadgeHtml(item)||discBadge;
       const imgHtml=item.image
         ?`<div class="item-img-placeholder" style="padding:0;overflow:hidden"><img src="${item.image}" alt="${item.name}" style="width:100%;height:100%;object-fit:cover"/></div>`
         :`<div class="item-img-placeholder">${getCatEmoji(item.category)}</div>`;
-      const ctrlHtml=inCart>0?`<div class="item-qty-ctrl"><button class="qty-btn" onclick="updateQty('${item.id}',-1)">−</button><span class="qty-num">${inCart}</span><button class="qty-btn" onclick="updateQty('${item.id}',1)">+</button></div>`:`<button class="item-add-btn" onclick="addToCart('${item.id}')">+ Add</button>`;
-      html+=`<div class="menu-card${item.available===false?' unavailable':''}" id="card-${item.id}">${discBadge}${imgHtml}<div class="item-body"><div class="item-name">${item.name}</div>${item.description?`<div class="item-desc">${item.description}</div>`:''}<div class="item-cat">${item.category||''}</div><div class="item-price">₹${price}${origHtml}</div>${ctrlHtml}</div></div>`;
+      const ctrlHtml=inCart>0?`<div class="item-qty-ctrl"><button class="qty-btn" onclick="event.stopPropagation();updateQty('${item.id}',-1)">−</button><span class="qty-num">${inCart}</span><button class="qty-btn" onclick="event.stopPropagation();updateQty('${item.id}',1)">+</button></div>`:`<button class="item-add-btn" onclick="event.stopPropagation();addToCart('${item.id}')">+ Add</button>`;
+      html+=`<div class="menu-card${item.available===false?' unavailable':''}" id="card-${item.id}" onclick="openItemDetail('${item.id}')">${topBadge}${imgHtml}<div class="item-body">${vegBadgeHtml(item)}<div class="item-name">${item.name}</div>${item.description?`<div class="item-desc">${item.description}</div>`:''}<div class="item-cat">${item.category||''}</div><div class="item-price">₹${price}${origHtml}</div>${ctrlHtml}</div></div>`;
     });
     html+=`</div>`;
   });
   document.getElementById('menu-container').innerHTML=html||'<div style="padding:40px;text-align:center;color:#bbb">No items.</div>';
+}
+
+// ── Item detail sheet — reuses .cart-overlay/.cart-drawer's exact slide-up
+// mechanics (same classes, different ids) so it feels like one design system,
+// not a bolted-on modal. ──
+let _detailItemId=null,_detailQty=1;
+function openItemDetail(id){
+  const item=menu.find(m=>String(m.id)===String(id));
+  if(!item||item.available===false)return;
+  _detailItemId=id;
+  _detailQty=Math.max(1,cart[id]||1);
+  renderItemDetail();
+  document.getElementById('detail-overlay').classList.add('open');
+  document.getElementById('detail-sheet').classList.add('open');
+}
+function closeItemDetail(){
+  document.getElementById('detail-overlay').classList.remove('open');
+  document.getElementById('detail-sheet').classList.remove('open');
+}
+function detailQtyChange(delta){
+  const item=menu.find(m=>String(m.id)===String(_detailItemId));
+  if(!item)return;
+  _detailQty=Math.max(1,_detailQty+delta);
+  const qtyEl=document.getElementById('detail-qty-num');if(qtyEl)qtyEl.textContent=_detailQty;
+  const disc=item.discount||0;const price=Math.round(item.price*(1-disc/100));
+  const btnEl=document.getElementById('detail-add-btn');if(btnEl)btnEl.textContent='Add to Cart — ₹'+(price*_detailQty);
+}
+function renderItemDetail(){
+  const item=menu.find(m=>String(m.id)===String(_detailItemId));
+  if(!item)return;
+  const disc=item.discount||0;const price=Math.round(item.price*(1-disc/100));
+  const origHtml=disc>0?`<span class="orig">₹${item.price}</span>`:'';
+  const imgHtml=item.image
+    ?`<img src="${item.image}" alt="${item.name}" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block"/>`
+    :`<div style="width:100%;aspect-ratio:4/3;background:linear-gradient(135deg,var(--foam),var(--caramel)20%);display:flex;align-items:center;justify-content:center;font-size:52px">${getCatEmoji(item.category)}</div>`;
+  const bestsellerHtml=item.bestseller?'<div style="display:inline-block;background:var(--caramel);color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;margin-bottom:8px">⭐ Bestseller</div>':'';
+  document.getElementById('detail-body').innerHTML=`${imgHtml}
+    <div style="padding:18px 20px 24px">
+      ${bestsellerHtml}
+      <div style="display:flex;align-items:center;gap:2px">${vegBadgeHtml(item)}<div style="font-family:var(--font-display);font-size:19px;color:var(--espresso)">${item.name}</div></div>
+      ${item.description?`<div style="font-size:13px;color:#888;line-height:1.5;margin-top:6px">${item.description}</div>`:''}
+      <div style="font-weight:700;font-size:18px;color:var(--caramel);margin-top:12px">₹${price}${origHtml}</div>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:20px">
+        <div class="item-qty-ctrl" style="width:120px;flex-shrink:0">
+          <button class="qty-btn" onclick="detailQtyChange(-1)">−</button>
+          <span class="qty-num" id="detail-qty-num">${_detailQty}</span>
+          <button class="qty-btn" onclick="detailQtyChange(1)">+</button>
+        </div>
+        <button class="btn-place" id="detail-add-btn" style="flex:1;margin-top:0" onclick="addFromDetail()">Add to Cart — ₹${price*_detailQty}</button>
+      </div>
+    </div>`;
+}
+function addFromDetail(){
+  if(!_detailItemId)return;
+  cart[_detailItemId]=_detailQty;
+  refreshCardCtrl(_detailItemId);
+  updateCartCount();
+  showToast('Added to cart!');
+  closeItemDetail();
 }
 
 function addToCart(id){cart[id]=(cart[id]||0)+1;refreshCardCtrl(id);updateCartCount();showToast('Added to cart!');}
@@ -218,7 +343,7 @@ function refreshCardCtrl(id){
   ctrl.outerHTML=inCart>0?`<div class="item-qty-ctrl"><button class="qty-btn" onclick="updateQty('${id}',-1)">−</button><span class="qty-num">${inCart}</span><button class="qty-btn" onclick="updateQty('${id}',1)">+</button></div>`:`<button class="item-add-btn" onclick="addToCart('${id}')">+ Add</button>`;
 }
 function updateCartCount(){document.getElementById('cart-count').textContent=Object.values(cart).reduce((a,b)=>a+b,0);}
-function cartItems(){return Object.entries(cart).map(([id,qty])=>{const item=menu.find(m=>String(m.id)===String(id));return item?{id,name:item.name,price:item.price,discount:item.discount||0,qty}:null;}).filter(Boolean);}
+function cartItems(){return Object.entries(cart).map(([id,qty])=>{const item=menu.find(m=>String(m.id)===String(id));return item?{id,name:item.name,price:item.price,discount:item.discount||0,qty,image:item.image,category:item.category}:null;}).filter(Boolean);}
 function cartTotals(){let s=0,d=0;cartItems().forEach(({price,discount:disc,qty})=>{s+=price*qty;d+=price*qty*disc/100;});const t=(s-d)*0.05;return{subtotal:s,discount:d,tax:t,total:s-d+t};}
 
 function openCart(){renderCartBody();document.getElementById('cart-overlay').classList.add('open');document.getElementById('cart-drawer').classList.add('open');}
@@ -228,7 +353,13 @@ function renderCartBody(){
   const items=cartItems();const body=document.getElementById('cart-body');const footer=document.getElementById('cart-footer');
   if(!items.length){body.innerHTML='<div class="empty-cart"><div class="icon">🛒</div>Your cart is empty</div>';footer.style.display='none';return;}
   footer.style.display='block';
-  body.innerHTML=items.map(({id,name,price,discount:disc,qty})=>{const lp=Math.round(price*(1-disc/100)*qty);return`<div class="cart-row"><div class="cart-item-name">${name}</div><div class="cart-qty-ctrl"><button class="cart-qty-btn" onclick="updateQty('${id}',-1)">−</button><span style="min-width:20px;text-align:center;font-weight:600">${qty}</span><button class="cart-qty-btn" onclick="updateQty('${id}',1)">+</button></div><div class="cart-item-price">₹${lp}</div></div>`;}).join('');
+  body.innerHTML=items.map(({id,name,price,discount:disc,qty,image,category})=>{
+    const lp=Math.round(price*(1-disc/100)*qty);
+    const thumb=image
+      ?`<img src="${image}" style="width:36px;height:36px;border-radius:8px;object-fit:cover;flex-shrink:0"/>`
+      :`<div style="width:36px;height:36px;border-radius:8px;background:var(--foam);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${getCatEmoji(category)}</div>`;
+    return`<div class="cart-row">${thumb}<div class="cart-item-name">${name}</div><div class="cart-qty-ctrl"><button class="cart-qty-btn" onclick="updateQty('${id}',-1)">−</button><span style="min-width:20px;text-align:center;font-weight:600">${qty}</span><button class="cart-qty-btn" onclick="updateQty('${id}',1)">+</button></div><div class="cart-item-price">₹${lp}</div></div>`;
+  }).join('');
   const{subtotal,discount,tax,total}=cartTotals();
   document.getElementById('cart-totals').innerHTML=`<div>Subtotal: ₹${subtotal.toFixed(0)}</div>${discount>0?'<div>Discount: −₹'+discount.toFixed(0)+'</div>':''}<div>GST (5%): ₹${tax.toFixed(0)}</div><div class="total-line">Total: ₹${total.toFixed(0)}</div>`;
 }

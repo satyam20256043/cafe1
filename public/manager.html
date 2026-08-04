@@ -592,15 +592,32 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           </div>
         </div>
         <div class="panel-body">
-          <div class="menu-head-row" style="display:grid;grid-template-columns:1fr 90px 70px 60px 64px 120px 36px auto;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px">
+          <div class="menu-head-row" style="display:grid;grid-template-columns:1fr 90px 70px 60px 64px 110px 120px 36px auto;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px">
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Item Name</span>
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Category</span>
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Price ₹</span>
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Disc %</span>
             <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600" title="Max % the AI may offer on this item when a customer asks for a deal (0 = use the café-wide limit below)">AI Max %</span>
+            <span style="font-size:10.5px;letter-spacing:0.7px;text-transform:uppercase;color:#aaa;font-weight:600">Tags</span>
             <span></span><span></span><span></span>
           </div>
           <div id="menu-editor"></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:14px;border-left:3px solid var(--caramel)">
+        <div class="panel-head">
+          <div><div class="panel-title">Category Order</div>
+          <div class="panel-sub">Controls the order of category tabs customers see when they scan the QR code. Leave untouched and tabs are ordered automatically from your menu items.</div></div>
+          <div class="panel-action"><button class="btn primary" onclick="saveCategoryOrder()">Save Order</button></div>
+        </div>
+        <div class="panel-body">
+          <div id="category-order-list" style="display:flex;flex-direction:column;gap:6px"></div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <input class="form-input" id="new-category-input" placeholder="New category name (e.g. Breakfast)" style="max-width:260px"/>
+            <button class="btn" onclick="addCategoryToOrder()">+ Add Category</button>
+          </div>
+          <div id="category-order-msg" style="font-size:12px;margin-top:8px;min-height:14px"></div>
         </div>
       </div>
 
@@ -2180,9 +2197,78 @@ async function loadMenu(){
     menuData=await r.json();
     renderMenuEditor();
     loadAiDiscount();
+    loadCategoryOrder();
   } catch(e) {
     console.error('[loadMenu]', e);
     if(typeof toast==='function') toast('loadMenu failed — check console','error');
+  }
+}
+
+// ── Category tab order (owner-controlled, separate from item.category
+// strings) — the customer ordering page reads this to order its tabs; a
+// café that never touches this panel keeps getting tabs auto-derived from
+// menu items, unchanged (see /api/businesses/:id/categories fallback). ──
+let categoryOrder = [];
+async function loadCategoryOrder(){
+  try{
+    const r = await fetch(`/api/businesses/${branchId}/categories`);
+    let cats = r.ok ? await r.json() : [];
+    if(!Array.isArray(cats) || !cats.length){
+      cats = [...new Set(menuData.map(i=>i.category).filter(Boolean))];
+    }
+    categoryOrder = cats;
+    renderCategoryOrderList();
+  }catch(e){
+    console.error('[loadCategoryOrder]', e);
+  }
+}
+function renderCategoryOrderList(){
+  const el = document.getElementById('category-order-list');
+  if(!el) return;
+  if(!categoryOrder.length){
+    el.innerHTML = '<div style="color:#bbb;font-size:13px">No categories yet — add items or a category below.</div>';
+    return;
+  }
+  el.innerHTML = categoryOrder.map((c,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--cream);border-radius:8px">
+      <span style="flex:1;font-size:13px;font-weight:500">${esc(c)}</span>
+      <button class="btn" style="padding:4px 8px;font-size:12px" onclick="moveCategory(${i},-1)" ${i===0?'disabled':''}>▲</button>
+      <button class="btn" style="padding:4px 8px;font-size:12px" onclick="moveCategory(${i},1)" ${i===categoryOrder.length-1?'disabled':''}>▼</button>
+      <button onclick="removeCategoryFromOrder(${i})" title="Remove from this list (does not delete any menu items)" style="background:none;border:none;cursor:pointer;color:var(--rose);font-size:14px;padding:2px 6px">✕</button>
+    </div>`).join('');
+}
+function moveCategory(i, delta){
+  const j = i + delta;
+  if(j<0 || j>=categoryOrder.length) return;
+  [categoryOrder[i], categoryOrder[j]] = [categoryOrder[j], categoryOrder[i]];
+  renderCategoryOrderList();
+}
+function removeCategoryFromOrder(i){
+  categoryOrder.splice(i,1);
+  renderCategoryOrderList();
+}
+function addCategoryToOrder(){
+  const inp = document.getElementById('new-category-input');
+  const name = inp.value.trim();
+  const msg = document.getElementById('category-order-msg');
+  if(!name){ if(msg){msg.textContent='Enter a category name.';msg.style.color='var(--rose)';} return; }
+  if(categoryOrder.includes(name)){ if(msg){msg.textContent='That category is already in the list.';msg.style.color='var(--rose)';} return; }
+  categoryOrder.push(name);
+  inp.value='';
+  if(msg) msg.textContent='';
+  renderCategoryOrderList();
+}
+async function saveCategoryOrder(){
+  const msg = document.getElementById('category-order-msg');
+  if(msg){msg.textContent='Saving…';msg.style.color='#aaa';}
+  try{
+    const r = await fetch(`/api/businesses/${branchId}/categories`,{method:'POST',headers:getAuthHeaders(),body:JSON.stringify(categoryOrder)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    if(msg){msg.textContent='✅ Saved';msg.style.color='var(--sage)';}
+    setTimeout(()=>{ if(msg) msg.textContent=''; }, 2000);
+  }catch(e){
+    console.error('[saveCategoryOrder]', e);
+    if(msg){msg.textContent='❌ Could not save';msg.style.color='var(--rose)';}
   }
 }
 
@@ -2251,7 +2337,7 @@ function renderMenuEditor(){
   }
   el.innerHTML=menuData.map((item,i)=>{
     const avail = item.available !== false;
-    return `<div class="menu-item-row" style="grid-template-columns:1fr 90px 70px 60px 64px 120px 36px auto;${!avail?'opacity:0.5':''}">
+    return `<div class="menu-item-row" style="grid-template-columns:1fr 90px 70px 60px 64px 110px 120px 36px auto;${!avail?'opacity:0.5':''}">
       <div style="display:flex;flex-direction:column;gap:4px">
         <input class="form-input" value="${esc(item.name)}" onchange="menuData[${i}].name=this.value" placeholder="Item name" style="font-weight:600"/>
         <input class="form-input" value="${esc(item.description||'')}" onchange="menuData[${i}].description=this.value" placeholder="Description (shown to customer)" style="font-size:12px"/>
@@ -2271,6 +2357,17 @@ function renderMenuEditor(){
       <input class="form-input" type="number" value="${item.price}" onchange="menuData[${i}].price=+this.value" placeholder="₹"/>
       <input class="form-input" type="number" value="${item.discount||0}" onchange="menuData[${i}].discount=+this.value" placeholder="%" title="Standard discount shown to customers"/>
       <input class="form-input" type="number" min="0" max="100" value="${item.aiMaxDiscount||0}" onchange="menuData[${i}].aiMaxDiscount=Math.max(0,Math.min(100,Math.round(+this.value||0)));this.value=menuData[${i}].aiMaxDiscount" placeholder="%" title="Max % the AI may offer on this item (0 = use café-wide limit)" style="border-color:var(--caramel)"/>
+      <div style="display:flex;flex-direction:column;gap:4px" title="Shown to customers on the ordering page">
+        <select class="form-input" style="font-size:11px;padding:6px 8px" onchange="menuData[${i}].isVeg=this.value===''?undefined:(this.value==='veg')">
+          <option value=""${item.isVeg===undefined?' selected':''}>— Veg/Non-veg —</option>
+          <option value="veg"${item.isVeg===true?' selected':''}>🌱 Veg</option>
+          <option value="nonveg"${item.isVeg===false?' selected':''}>🍗 Non-veg</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;white-space:nowrap">
+          <input type="checkbox" ${item.bestseller?'checked':''} onchange="menuData[${i}].bestseller=this.checked" style="width:13px;height:13px;accent-color:var(--caramel)"/>
+          ⭐ Bestseller
+        </label>
+      </div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;white-space:nowrap">
         <input type="checkbox" ${avail?'checked':''} onchange="menuData[${i}].available=this.checked;renderMenuEditor()" style="width:15px;height:15px;accent-color:var(--sage)"/>
         ${avail?'<span style="color:var(--sage)">Available</span>':'<span style="color:var(--rose)">86\'d</span>'}
@@ -2281,7 +2378,7 @@ function renderMenuEditor(){
 }
 
 function addMenuItem(){
-  menuData.push({id:'m_'+Date.now(),name:'New Item',category:'Coffee',price:100,discount:0,aiMaxDiscount:0,description:'',image:'',available:true});
+  menuData.push({id:'m_'+Date.now(),name:'New Item',category:'Coffee',price:100,discount:0,aiMaxDiscount:0,description:'',image:'',available:true,bestseller:false});
   renderMenuEditor();
 }
 
