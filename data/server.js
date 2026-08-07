@@ -685,10 +685,20 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
     let loyaltyStamps = 0;
     let stampsToFree = 10;
     let loyaltyCard = null;
+    let pointsExpiryDate = null;
+
+    // LS4: this café's configured loyalty economics + student discount — read
+    // once, used both to personalize this customer's context below and to
+    // build the "Standard offers" line further down. A café that hasn't
+    // configured something must never have the AI promise it (S4).
+    const loyaltySettings = getLoyaltySettings(branchId);
+    const loyaltyCfg = loyaltySettings.loyalty;
+    const studentCfg = loyaltySettings.studentDiscount;
 
     if (fromPhone && db) {
       try {
         const phone = fromPhone.replace(/[^0-9]/g, '').slice(-10);
+        db.expireStalePointsIfDue(branchId, phone, loyaltyCfg);
         loyaltyCard = db.getLoyaltyCard(branchId, phone);
         if (loyaltyCard) {
           customerName   = loyaltyCard.customer_name || loyaltyCard.name || 'Customer';
@@ -697,6 +707,15 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
           loyaltyPoints  = loyaltyCard.points  || 0;
           loyaltyStamps  = loyaltyCard.stamps  || 0;
           stampsToFree   = Math.max(0, 10 - loyaltyStamps);
+          if (loyaltyCfg.expiryMonths > 0 && loyaltyPoints > 0 && loyaltyCard.last_visit) {
+            const clockStart = Math.max(
+              new Date(loyaltyCard.last_visit + 'Z').getTime(),
+              loyaltyCfg.expiryStartedAt ? new Date(loyaltyCfg.expiryStartedAt).getTime() : 0
+            );
+            const expiry = new Date(clockStart);
+            expiry.setMonth(expiry.getMonth() + loyaltyCfg.expiryMonths);
+            pointsExpiryDate = expiry.toISOString().slice(0, 10);
+          }
         } else {
           // Fall back to JSON profile
           const profiles = getBranchData(branchId, 'customer_profiles.json');
@@ -722,7 +741,8 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
     const loyaltyContext = loyaltyCard
       ? `- Loyalty Points: ${loyaltyPoints} pts (${customerTier} tier)
 - Stamp Card: ${loyaltyStamps}/10 stamps collected (${stampsToFree} more for a FREE item!)
-- Total Visits: ${customerVisits}`
+- Total Visits: ${customerVisits}${pointsExpiryDate ? `
+- Points Expiry: ${loyaltyPoints} pts expire on ${pointsExpiryDate} if no visit before then` : ''}`
       : `- New customer (no loyalty card yet — invite them to register!)`;
 
     // Delivery/social platform links (Zomato, Swiggy, Instagram, …) the owner
@@ -745,6 +765,18 @@ function buildReceptionistPrompt(branchId, text, fromPhone) {
       : '';
     const knowledgeTopic = knowledgePairs.length ? ' the café facts listed above,' : '';
     const conversationContext = getRecentConversationContext(branchId, fromPhone);
+
+    // LS4: "worth mentioning" threshold. Reproduces today's flat 500-point
+    // mention exactly when a café hasn't set a minimum (default burn rate
+    // 10 × 50 = 500, same as the old hardcoded value), scales with a café's
+    // real burn rate otherwise, and defers outright to an explicit owner-set
+    // minimum.
+    const meaningfulPoints = loyaltyCfg.minRedeemPoints > 0
+      ? loyaltyCfg.minRedeemPoints
+      : Math.round(loyaltyCfg.redeemPointsPerRupee * 50);
+    const studentClause = (studentCfg.enabled && studentCfg.percent > 0)
+      ? `Students ${studentCfg.percent}% off with ID 🎓 | `
+      : '';
 
     const prompt = `You are a warm, kind, and humble human host at "${business.name}" café — think of the
 best staff member the café has: genuinely glad to hear from every customer, never scripted or
@@ -769,7 +801,7 @@ Personalization Instructions:
 - Greet returning customers (Regular/VIP/Elite) warmly by name.
 - Mention their points/stamps when relevant (e.g., if they ask about rewards or are close to a free item).
 - If they have 10+ stamps, remind them they have a FREE item waiting!
-- If they have 500+ points, mention they can redeem for a discount.
+- If they have ${meaningfulPoints}+ points, mention they can redeem for a discount.
 - Treat VIP/Elite members with premium hospitality.
 
 Café Context:
@@ -780,7 +812,7 @@ Café Context:
 - WiFi: ${business.wifi}
 - Google Review Link: ${business.review}
 - Menu:\n${menuStr}
-- Standard offers: Students 10% off with ID 🎓 | Loyalty: earn 1 point per ₹1 spent ☕${platformsContext}${knowledgeContext}
+- Standard offers: ${studentClause}Loyalty: earn ${loyaltyCfg.pointsPerRupee} point${loyaltyCfg.pointsPerRupee === 1 ? '' : 's'} per ₹1 spent ☕${platformsContext}${knowledgeContext}
 
 CRITICAL WORKFLOW RULES (check rule 1 first, before anything else):
 1. Only escalate instead of answering when the question needs a SPECIFIC, VERIFIABLE
@@ -1928,6 +1960,7 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
         if (!db) return (lang === 'hinglish' || lang === 'hindi') ? 'Abhi loyalty system available nahi hai, baad mein try karein! 😊' : 'Loyalty system is currently unavailable. Please try again shortly!';
         try {
           const phone = fromPhone.replace(/[^0-9]/g,'').slice(-10);
+          db.expireStalePointsIfDue(branchId, phone, getLoyaltySettings(branchId).loyalty);
           const card = db.getOrCreateCard(branchId, phone, userState.customerName || 'Customer');
           const stampsLeft = Math.max(0, 10 - (card.stamps||0));
           const business = businesses.find(b=>b.id===branchId)||businesses[0];
@@ -1944,18 +1977,27 @@ async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
         if (!db) return (lang==='hinglish'||lang==='hindi') ? 'Loyalty system abhi available nahi hai. Café mein aakar redeem karein!' : 'Loyalty system unavailable. Please visit us at the café to redeem!';
         try {
           const phone = fromPhone.replace(/[^0-9]/g,'').slice(-10);
+          const loyaltyCfg = getLoyaltySettings(branchId).loyalty;
+          db.expireStalePointsIfDue(branchId, phone, loyaltyCfg);
           const card = db.getLoyaltyCard(branchId, phone);
           if (!card) return (lang==='hinglish'||lang==='hindi') ? 'Aapka loyalty card nahi mila! Pehle ek visit karein. 😊' : 'No loyalty card found! Visit us to start earning stamps.';
           const stamps = card.stamps||0;
           const points = card.points||0;
+          // LS4: reproduces today's flat 500-point mention exactly at default
+          // settings (burn rate 10 × 50 = 500) — see the matching comment on
+          // `meaningfulPoints` in buildReceptionistPrompt.
+          const meaningfulPoints = loyaltyCfg.minRedeemPoints > 0
+            ? loyaltyCfg.minRedeemPoints
+            : Math.round(loyaltyCfg.redeemPointsPerRupee * 50);
           if (stamps >= 10) {
             return (lang==='hinglish'||lang==='hindi')
               ? `🎁 Aapke paas *${stamps} stamps* hain aur aap ek *FREE item* ke liye eligible hain! Café mein aaiye aur staff ko yeh message dikhayein. Hum khushi se redeem karenge! ☕`
               : `🎁 You have *${stamps} stamps* and qualify for a *FREE item*! Visit the café and show this message to our team — we'll redeem it with a smile! ☕`;
-          } else if (points >= 500) {
+          } else if (points >= meaningfulPoints) {
+            const worth = Math.floor(points / loyaltyCfg.redeemPointsPerRupee);
             return (lang==='hinglish'||lang==='hindi')
-              ? `💰 Aapke paas *${points} points* hain! 500 points = ₹50 discount. Café mein aaiye aur staff ko batayein aap points redeem karna chahte hain! 😊`
-              : `💰 You have *${points} points*! 500 points = ₹50 off your bill. Visit the café and let our team know you'd like to redeem — easy as that! 😊`;
+              ? `💰 Aapke paas *${points} points* hain — abhi ₹${worth} tak discount ban sakta hai! Café mein aaiye aur staff ko batayein aap points redeem karna chahte hain! 😊`
+              : `💰 You have *${points} points* — worth up to ₹${worth} off your bill right now! Visit the café and let our team know you'd like to redeem — easy as that! 😊`;
           } else {
             return (lang==='hinglish'||lang==='hindi')
               ? `Abhi redeem karne ke liye stamps/points kam hain! Aapke paas ${stamps}/10 stamps aur ${points} points hain. Jaldi ho jayega! ☕`
@@ -2367,7 +2409,7 @@ const routeCtx = {
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
   runTrialReminders,
-  sendWhatsAppToCustomer, getWaConfig, writeWaConfig, getRazorpayConfig, GEMINI_MODEL,
+  sendWhatsAppToCustomer, getWaConfig, writeWaConfig, getRazorpayConfig, getLoyaltySettings, GEMINI_MODEL,
   startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   waweb, startQrClientForBranch, qrBulkBlocked,
   opsAlerts,
@@ -2553,6 +2595,34 @@ function getRazorpayConfig(branchId) {
     if (!s || Array.isArray(s) || !s.razorpay) return { keyId: '', keySecret: '' };
     return { keyId: s.razorpay.keyId || '', keySecret: s.razorpay.keySecret || '' };
   } catch (e) { return { keyId: '', keySecret: '' }; }
+}
+
+// LS2: café-configurable loyalty economics + student discount. ALWAYS returns
+// a complete object merged over these defaults — every field present even when
+// branch-settings.json has none of this yet — so callers never need to guard
+// against partial/missing keys. Defaults are read from db.js's own constants
+// (not re-hardcoded here) so there is exactly one source of truth for what
+// "today's behavior" means — see the LS1 coupling-bug fix this guide starts
+// from (data/db.js POINTS_PER_RUPEE / REDEEM_POINTS_PER_RUPEE).
+function getLoyaltySettings(branchId) {
+  const defaults = {
+    loyalty: {
+      pointsPerRupee: db ? db.POINTS_PER_RUPEE : 1,
+      redeemPointsPerRupee: db ? db.REDEEM_POINTS_PER_RUPEE : 10,
+      minRedeemPoints: 0,
+      expiryMonths: 0,       // 0 = never expire (must stay the default — S2)
+      expiryStartedAt: null,
+    },
+    studentDiscount: { enabled: false, percent: 0 },
+  };
+  try {
+    const s = getBranchData(branchId, 'branch-settings.json');
+    if (!s || Array.isArray(s)) return defaults;
+    return {
+      loyalty: { ...defaults.loyalty, ...(s.loyalty || {}) },
+      studentDiscount: { ...defaults.studentDiscount, ...(s.studentDiscount || {}) },
+    };
+  } catch (e) { return defaults; }
 }
 
 // ── QR-mode WhatsApp (whatsapp-web.js) ────────────────────────────────────────

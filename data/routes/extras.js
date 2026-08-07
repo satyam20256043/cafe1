@@ -10,7 +10,7 @@ module.exports = function register(ctx) {
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
-    db,
+    db, getLoyaltySettings,
   } = ctx;
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -530,12 +530,19 @@ function saveBranchSettings(businessId, data) {
 // GET /api/businesses/:id/settings — manager/owner/admin
 app.get('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, res) => {
   const s = loadBranchSettings(req.params.id);
+  // loyalty/studentDiscount come from getLoyaltySettings (LS2) rather than
+  // reading s.loyalty directly, so this response always carries the complete,
+  // defaulted shape — same single source of truth the AI prompt and
+  // award/redeem calls use, never a partial object the UI has to guard against.
+  const loyaltySettings = getLoyaltySettings(req.params.id);
   res.json({
     razorpay: {
       keyId:     s.razorpay?.keyId     || '',
       keySecret: maskSecret(s.razorpay?.keySecret),
     },
     aiMaxDiscount: Number.isFinite(s.aiMaxDiscount) ? s.aiMaxDiscount : 0,
+    loyalty: loyaltySettings.loyalty,
+    studentDiscount: loyaltySettings.studentDiscount,
     updatedAt: s.updatedAt || null,
     updatedBy: s.updatedBy || null,
   });
@@ -556,6 +563,39 @@ app.put('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, 
 
   if (b.aiMaxDiscount !== undefined) {
     s.aiMaxDiscount = Math.max(0, Math.min(100, Math.round(Number(b.aiMaxDiscount) || 0)));
+  }
+
+  if (b.loyalty) {
+    s.loyalty = s.loyalty || {};
+    const cur = s.loyalty;
+    if (b.loyalty.pointsPerRupee !== undefined) {
+      cur.pointsPerRupee = Math.max(0.1, Math.min(100, Number(b.loyalty.pointsPerRupee) || 1));
+    }
+    if (b.loyalty.redeemPointsPerRupee !== undefined) {
+      cur.redeemPointsPerRupee = Math.max(0.1, Math.min(1000, Number(b.loyalty.redeemPointsPerRupee) || 10));
+    }
+    if (b.loyalty.minRedeemPoints !== undefined) {
+      cur.minRedeemPoints = Math.max(0, Math.round(Number(b.loyalty.minRedeemPoints) || 0));
+    }
+    if (b.loyalty.expiryMonths !== undefined) {
+      const newMonths = Math.max(0, Math.min(60, Math.round(Number(b.loyalty.expiryMonths) || 0)));
+      const wasOff = !cur.expiryMonths || cur.expiryMonths <= 0;
+      cur.expiryMonths = newMonths;
+      // expiryStartedAt is SERVER-SET ONLY — never taken from the client — and
+      // only stamped the moment expiry transitions off→on, never on every save
+      // (that would keep resetting the grandfather window for no reason).
+      // Switching back off clears it, so a future re-enable is a fresh start.
+      if (newMonths > 0 && wasOff) cur.expiryStartedAt = new Date().toISOString();
+      else if (newMonths === 0) cur.expiryStartedAt = null;
+    }
+  }
+
+  if (b.studentDiscount) {
+    s.studentDiscount = s.studentDiscount || {};
+    if (b.studentDiscount.enabled !== undefined) s.studentDiscount.enabled = !!b.studentDiscount.enabled;
+    if (b.studentDiscount.percent !== undefined) {
+      s.studentDiscount.percent = Math.max(0, Math.min(100, Math.round(Number(b.studentDiscount.percent) || 0)));
+    }
   }
 
   s.updatedAt = new Date().toISOString();

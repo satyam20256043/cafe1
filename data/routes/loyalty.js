@@ -6,7 +6,7 @@ module.exports = function register(ctx) {
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
     updateCustomerProfile, processCafeBotReply, toIsoZ,
-    waApi, genAI, razorpay, whatsappConnectionStatus,
+    waApi, genAI, razorpay, getLoyaltySettings, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
@@ -27,6 +27,7 @@ app.post('/api/businesses/:id/loyalty/lookup', (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const { phone, name } = req.body;
   if (!phone) return res.status(400).json({ error: 'phone required' });
+  db.expireStalePointsIfDue(req.params.id, phone, getLoyaltySettings(req.params.id).loyalty);
   const card = db.getOrCreateCard(req.params.id, phone, name);
   const history = db.getLoyaltyHistory(req.params.id, phone, 5);
   res.json({ card, history });
@@ -38,7 +39,7 @@ app.post('/api/businesses/:id/loyalty/award', requireAuth, requireBranchAccess, 
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const { phone, name, amountSpent, orderId } = req.body;
   if (!phone || !amountSpent) return res.status(400).json({ error: 'phone and amountSpent required' });
-  const card = db.awardPoints(req.params.id, phone, name, parseFloat(amountSpent), orderId);
+  const card = db.awardPoints(req.params.id, phone, name, parseFloat(amountSpent), orderId, getLoyaltySettings(req.params.id).loyalty);
   db.logEvent(req.params.id, 'loyalty.earned', { customerPhone: phone, actor: 'system', metadata: { amountSpent: parseFloat(amountSpent), orderId, points: card.points } });
   emitToBranch(req.params.id, 'loyalty_update', { businessId: req.params.id, card });
   res.json({ card });
@@ -62,7 +63,7 @@ app.post('/api/businesses/:id/loyalty/redeem-points', requireAuth, requireBranch
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const { phone, points } = req.body;
   if (!phone || !points) return res.status(400).json({ error: 'phone and points required' });
-  const result = db.redeemPoints(req.params.id, phone, parseInt(points));
+  const result = db.redeemPoints(req.params.id, phone, parseInt(points), getLoyaltySettings(req.params.id).loyalty);
   if (result.success) db.logEvent(req.params.id, 'loyalty.redeemed', { customerPhone: phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { type: 'points', points: parseInt(points) } });
   res.json(result);
 });
@@ -142,6 +143,7 @@ app.get('/api/businesses/:id/loyalty/activity', requireAuth, requireBranchAccess
 // by anyone who knew a businessId+phone pair with zero auth.
 app.get('/api/businesses/:id/loyalty/:phone', requireAuth, requireBranchAccess, (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  db.expireStalePointsIfDue(req.params.id, req.params.phone, getLoyaltySettings(req.params.id).loyalty);
   const card = db.getLoyaltyCard(req.params.id, req.params.phone);
   if (!card) return res.status(404).json({ error: 'No loyalty card found' });
   const history = db.getLoyaltyHistory(req.params.id, req.params.phone, 5);

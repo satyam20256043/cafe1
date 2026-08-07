@@ -877,7 +877,18 @@ db.exec(`
 `);
 
 // ── Loyalty helpers ───────────────────────────────────────────────────────────
-const POINTS_PER_RUPEE = 1;      // 1 point per ₹1 spent
+// ── Loyalty economics — platform defaults ────────────────────────────────────
+// These are DEFAULTS ONLY. Each café can override the two rate values in its
+// Settings (branch-settings.json → loyalty{}), passed in via the optional
+// `opts` argument on awardPoints/redeemPoints below. A café that has never
+// touched Settings keeps exactly this behaviour.
+//
+// ⚠️ Earn and burn are INDEPENDENT levers and must stay decoupled. They used to
+// share one constant (`discount = points / (POINTS_PER_RUPEE * 10)`), which
+// meant raising the earn rate silently *reduced* each point's redemption value
+// by the same factor — an owner "being generous" handed back identical rupees.
+const POINTS_PER_RUPEE = 1;        // earn: 1 point per ₹1 spent
+const REDEEM_POINTS_PER_RUPEE = 10; // burn: 10 points per ₹1 off (500 pts = ₹50)
 const STAMPS_PER_VISIT = 1;      // 1 stamp per visit
 const STAMPS_FOR_FREE  = 10;     // 10 stamps = free item
 const POINTS_FOR_FREE  = 500;    // 500 points = ₹50 off
@@ -928,9 +939,59 @@ function getOrCreateCard(businessId, phone, name) {
   return card;
 }
 
-function awardPoints(businessId, phone, name, amountSpent, orderId) {
-  const card   = getOrCreateCard(businessId, phone, name);
-  const earned = Math.floor(amountSpent * POINTS_PER_RUPEE);
+// ── Rolling-inactivity point expiry ──────────────────────────────────────────
+// The whole balance lapses after `expiryMonths` with no visit; any visit resets
+// the clock (last_visit is bumped by awardPoints). Applied lazily on read/write
+// rather than by a cron sweep — no scheduler to drift or miss.
+//
+// GRANDFATHERING (non-negotiable): the clock starts at whichever is LATER —
+// the customer's last visit, or the moment this café first switched expiry on
+// (`expiryStartedAt`). So enabling expiry never destroys a balance somebody
+// already earned under "points never expire"; everyone gets a full fresh window
+// from the switch-on date. Silently voiding earned points is a trust problem,
+// not a technical one.
+//
+// No-ops entirely when expiryMonths is 0/absent, which is the default.
+function expireStalePointsIfDue(businessId, phone, opts = {}) {
+  const months = Number(opts.expiryMonths) > 0 ? Number(opts.expiryMonths) : 0;
+  if (!months) return null;
+  const card = getLoyaltyCard(businessId, phone);
+  if (!card || !card.points || card.points <= 0) return null;
+
+  const lastVisit = card.last_visit ? new Date(card.last_visit + 'Z') : null;
+  const startedAt = opts.expiryStartedAt ? new Date(opts.expiryStartedAt) : null;
+  // Later of the two — see grandfathering note above.
+  const times = [lastVisit, startedAt].filter(d => d && !isNaN(d));
+  if (!times.length) return null;
+  const clockStart = new Date(Math.max(...times.map(d => d.getTime())));
+
+  const deadline = new Date(clockStart);
+  deadline.setMonth(deadline.getMonth() + months);
+  if (Date.now() < deadline.getTime()) return null;
+
+  const lost = card.points;
+  // Zero points only — stamps/visits/total_spent are a separate reward track.
+  db.prepare('UPDATE loyalty_points SET points=0 WHERE business_id=? AND phone=?')
+    .run(businessId, phone);
+  const txId = `ltx_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+  db.prepare(`INSERT INTO loyalty_transactions
+    (id,business_id,phone,type,points,description) VALUES (?,?,?,?,?,?)`)
+    .run(txId, businessId, phone, 'expired', -lost,
+      `${lost} pts expired after ${months} month(s) of no visit`);
+  return { expired: lost };
+}
+
+// `opts` is optional and additive — every pre-existing caller keeps today's
+// platform defaults. Pass { pointsPerRupee } (and expiry opts, see
+// expireStalePointsIfDue) to honour a café's own configured rate.
+function awardPoints(businessId, phone, name, amountSpent, orderId, opts = {}) {
+  getOrCreateCard(businessId, phone, name);
+  // Expire BEFORE reading the balance, so a lapsed balance isn't topped up and
+  // silently kept alive. Re-read after, or `card.points` would be pre-expiry.
+  expireStalePointsIfDue(businessId, phone, opts);
+  const card   = getLoyaltyCard(businessId, phone);
+  const rate   = Number(opts.pointsPerRupee) > 0 ? Number(opts.pointsPerRupee) : POINTS_PER_RUPEE;
+  const earned = Math.floor(amountSpent * rate);
   const newPts = card.points + earned;
   const newVis = card.visits + 1;
   const newStamps = Math.min(card.stamps + STAMPS_PER_VISIT, 99);
@@ -998,14 +1059,23 @@ function redeemStamps(businessId, phone) {
   return { success: true, message: '🎉 Free item unlocked!' };
 }
 
-function redeemPoints(businessId, phone, pointsToRedeem) {
+function redeemPoints(businessId, phone, pointsToRedeem, opts = {}) {
+  // Expire before checking the balance — never let a lapsed balance be spent.
+  expireStalePointsIfDue(businessId, phone, opts);
   const card = getLoyaltyCard(businessId, phone);
+  const minRedeem = Number(opts.minRedeemPoints) > 0 ? Number(opts.minRedeemPoints) : 0;
+  if (minRedeem && pointsToRedeem < minRedeem) {
+    return { success: false, message: `You need at least ${minRedeem} points to redeem. You're trying to use ${pointsToRedeem}.` };
+  }
   if (!card || card.points < pointsToRedeem) {
     return { success: false, message: `Not enough points. Have ${card?.points||0}, need ${pointsToRedeem}.` };
   }
   db.prepare('UPDATE loyalty_points SET points=points-? WHERE business_id=? AND phone=?')
     .run(pointsToRedeem, businessId, phone);
-  const discount = Math.floor(pointsToRedeem / (POINTS_PER_RUPEE * 10));
+  // Burn rate is INDEPENDENT of the earn rate (see the constants block) — this
+  // deliberately no longer derives from POINTS_PER_RUPEE.
+  const burn = Number(opts.redeemPointsPerRupee) > 0 ? Number(opts.redeemPointsPerRupee) : REDEEM_POINTS_PER_RUPEE;
+  const discount = Math.floor(pointsToRedeem / burn);
   const txId = `ltx_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
   db.prepare(`INSERT INTO loyalty_transactions
     (id,business_id,phone,type,points,description) VALUES (?,?,?,?,?,?)`)
@@ -1056,9 +1126,9 @@ function getLoyaltyHistory(businessId, phone, limit=10) {
 
 Object.assign(module.exports, {
   getLoyaltyCard, getOrCreateCard, awardPoints, awardBonusPoints, getLoyaltyTransactions,
-  redeemStamps, redeemPoints, updateBirthday,
+  redeemStamps, redeemPoints, updateBirthday, expireStalePointsIfDue,
   getLoyaltyLeaderboard, getUpcomingBirthdays, getLoyaltyHistory,
-  STAMPS_FOR_FREE, POINTS_FOR_FREE,
+  STAMPS_FOR_FREE, POINTS_FOR_FREE, POINTS_PER_RUPEE, REDEEM_POINTS_PER_RUPEE,
 });
 
 // ── Business Intelligence event log ───────────────────────────────────────────

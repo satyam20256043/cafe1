@@ -6,7 +6,7 @@ module.exports = function register(ctx) {
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
     updateCustomerProfile, processCafeBotReply, toIsoZ,
-    waApi, genAI, getRazorpayConfig, whatsappConnectionStatus,
+    waApi, genAI, getRazorpayConfig, getLoyaltySettings, whatsappConnectionStatus,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
@@ -176,7 +176,7 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
   if (db && customerPhone && (status === 'served' || status === 'delivered')) {
     try {
       const phone = customerPhone.replace(/[^0-9]/g,'').slice(-10);
-      const card  = db.awardPoints(bizId, phone, customerName, orderTotal, orderId);
+      const card  = db.awardPoints(bizId, phone, customerName, orderTotal, orderId, getLoyaltySettings(bizId).loyalty);
       emitToBranch(bizId, 'loyalty_update', { businessId: bizId, card });
 
       // Send WhatsApp confirmation with updated card

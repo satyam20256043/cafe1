@@ -1376,6 +1376,52 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
               </div>
             </div>
           </div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">🎁 Loyalty &amp; Discounts</div>
+                <div class="panel-sub">How customers earn and redeem points, and whether you offer a student discount</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Points earned per ₹1 spent</label>
+                  <input class="form-input" id="loy-earn-rate" type="number" min="0.1" max="100" step="0.1" value="1" oninput="updateLoyaltyEconomicsPreview()"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Points needed for ₹1 off</label>
+                  <input class="form-input" id="loy-redeem-rate" type="number" min="0.1" max="1000" step="0.1" value="10" oninput="updateLoyaltyEconomicsPreview()"/>
+                </div>
+              </div>
+              <div id="loy-economics" style="font-size:13px;font-weight:600;color:var(--sage);margin:-4px 0 14px"></div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Minimum points to redeem <span style="font-weight:400;color:#888">(0 = no minimum)</span></label>
+                  <input class="form-input" id="loy-min-redeem" type="number" min="0" step="1" value="0"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Points expire after <span style="font-weight:400;color:#888">(months of no visit, 0 = never)</span></label>
+                  <input class="form-input" id="loy-expiry-months" type="number" min="0" max="60" step="1" value="0"/>
+                </div>
+              </div>
+              <div style="font-size:11.5px;color:#9A8870;margin:-4px 0 14px;line-height:1.5">
+                Turning expiry on for the first time never removes points already earned — every customer gets a full fresh window starting today.
+              </div>
+              <div style="border-top:1px solid var(--border,#e5ddd0);padding-top:14px;margin-bottom:14px">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer">
+                  <input type="checkbox" id="loy-student-enabled" onchange="document.getElementById('loy-student-percent-row').style.display=this.checked?'flex':'none'" style="width:16px;height:16px"/>
+                  Offer a student discount
+                </label>
+                <div id="loy-student-percent-row" style="display:none;align-items:center;gap:8px;margin-top:8px">
+                  <input class="form-input" id="loy-student-percent" type="number" min="0" max="100" step="1" value="10" style="width:80px"/>
+                  <span style="font-weight:600">% off with valid student ID</span>
+                </div>
+              </div>
+              <button class="btn primary" onclick="saveLoyaltySettings()">Save Loyalty Settings</button>
+              <span id="loy-settings-msg" style="font-size:12.5px;margin-left:8px"></span>
+            </div>
+          </div>
           <div class="panel">
             <div class="panel-head"><div class="panel-title">My Account</div><div class="panel-sub">Change your own login password</div></div>
             <div class="panel-body">
@@ -2304,6 +2350,79 @@ async function saveAiDiscount(){
   }
 }
 
+async function loadLoyaltySettings(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/settings`,{headers:getAuthHeaders()});
+    if(!r.ok) return;
+    const s=await r.json();
+    const loy=s.loyalty||{}, stu=s.studentDiscount||{};
+    document.getElementById('loy-earn-rate').value=loy.pointsPerRupee ?? 1;
+    document.getElementById('loy-redeem-rate').value=loy.redeemPointsPerRupee ?? 10;
+    document.getElementById('loy-min-redeem').value=loy.minRedeemPoints ?? 0;
+    document.getElementById('loy-expiry-months').value=loy.expiryMonths ?? 0;
+    document.getElementById('loy-student-enabled').checked=!!stu.enabled;
+    document.getElementById('loy-student-percent').value=stu.percent ?? 10;
+    document.getElementById('loy-student-percent-row').style.display=stu.enabled?'flex':'none';
+    updateLoyaltyEconomicsPreview();
+  } catch(e){ console.error('[loadLoyaltySettings]', e); }
+}
+
+function updateLoyaltyEconomicsPreview(){
+  const earn=Math.max(0.1, Number(document.getElementById('loy-earn-rate').value)||1);
+  const redeem=Math.max(0.1, Number(document.getElementById('loy-redeem-rate').value)||10);
+  const rupeesBack=(earn*100)/redeem;
+  const el=document.getElementById('loy-economics');
+  if(el) el.textContent=`Customers earn ₹${rupeesBack.toFixed(2)} back per ₹100 spent (${rupeesBack.toFixed(1)}%)`;
+}
+
+async function saveLoyaltySettings(){
+  const msg=document.getElementById('loy-settings-msg');
+  const earn=Math.max(0.1,Math.min(100, Number(document.getElementById('loy-earn-rate').value)||1));
+  const redeem=Math.max(0.1,Math.min(1000, Number(document.getElementById('loy-redeem-rate').value)||10));
+  const minRedeem=Math.max(0,Math.round(Number(document.getElementById('loy-min-redeem').value)||0));
+  const expiryMonths=Math.max(0,Math.min(60,Math.round(Number(document.getElementById('loy-expiry-months').value)||0)));
+  const studentEnabled=document.getElementById('loy-student-enabled').checked;
+  const studentPercent=Math.max(0,Math.min(100,Math.round(Number(document.getElementById('loy-student-percent').value)||0)));
+  document.getElementById('loy-earn-rate').value=earn;
+  document.getElementById('loy-redeem-rate').value=redeem;
+  document.getElementById('loy-min-redeem').value=minRedeem;
+  document.getElementById('loy-expiry-months').value=expiryMonths;
+  document.getElementById('loy-student-percent').value=studentPercent;
+
+  // Warn before a genuine off→on flip only — check the currently-saved value,
+  // not the just-typed one, so this matches exactly what the server treats as
+  // the grandfathering trigger (extras.js PUT /settings).
+  if(expiryMonths>0){
+    try{
+      const cur=await(await fetch(`/api/businesses/${branchId}/settings`,{headers:getAuthHeaders()})).json();
+      const wasOff=!cur.loyalty || !cur.loyalty.expiryMonths || cur.loyalty.expiryMonths<=0;
+      if(wasOff && !confirm(`Turning on point expiry: every customer's current balance gets a full fresh ${expiryMonths}-month window starting today — nobody loses points they've already earned. Continue?`)){
+        return;
+      }
+    } catch(e){ /* if this check fails, proceed — the server enforces grandfathering regardless */ }
+  }
+
+  msg.textContent='Saving…'; msg.style.color='#9A8870';
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/settings`,{
+      method:'PUT',headers:{'Content-Type':'application/json',...getAuthHeaders()},
+      body:JSON.stringify({
+        loyalty:{ pointsPerRupee:earn, redeemPointsPerRupee:redeem, minRedeemPoints:minRedeem, expiryMonths },
+        studentDiscount:{ enabled:studentEnabled, percent:studentPercent },
+      })
+    });
+    const d=await r.json();
+    if(d.success){
+      msg.textContent='✓ Saved'; msg.style.color='var(--sage)';
+      updateLoyaltyEconomicsPreview();
+      setTimeout(()=>{ if(msg) msg.textContent=''; }, 2500);
+    } else { msg.textContent='✕ '+(d.error||'Failed'); msg.style.color='var(--rose)'; }
+  } catch(e){
+    console.error('[saveLoyaltySettings]', e);
+    msg.textContent='✕ Error — check console'; msg.style.color='var(--rose)';
+  }
+}
+
 // Common café/restaurant categories offered in the dropdown. Any category already
 // used in this café's menu is merged in, so nothing is ever lost; "+ Custom…" lets
 // the owner type a brand-new one.
@@ -2789,6 +2908,7 @@ async function loadSettings(){
     const campaigns=(analytics.settings&&analytics.settings.lowTrafficCampaigns)||[];
     renderCampaignSettings(campaigns);
     loadBranchApiKeys();
+    loadLoyaltySettings();
 
   } catch(e) {
     console.error('[loadSettings]', e);
