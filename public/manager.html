@@ -549,7 +549,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           <div class="panel-body" id="cafe-info-panel" style="font-size:13.5px;line-height:2"></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><div><div class="panel-title">Traffic This Week</div><div class="panel-sub">Hourly inquiry volume</div></div></div>
+          <div class="panel-head"><div><div class="panel-title">When You're Busy</div><div class="panel-sub" id="traffic-sub">Today vs your 7-day average — orders, messages &amp; bookings</div></div></div>
           <div class="panel-body"><canvas id="traffic-chart" height="160"></canvas></div>
         </div>
       </div>
@@ -2160,38 +2160,65 @@ async function loadOverviewKPIs(){
   }catch(e){console.error(e)}
 }
 
+// Real hourly customer activity — orders + inbound messages + reservations,
+// straight from SQLite. Replaces the old chart, which read a JSON file seeded
+// with invented numbers and accumulated per-weekday forever.
+//
+// Two series: today, and the 7-day average at that hour. The average is what
+// makes today readable — a bar of 3 means nothing until you know whether 3 is
+// a normal Tuesday lunch or double it.
 async function loadTrafficChart(){
   try{
-    const r=await fetch(`/api/businesses/${branchId}/analytics`);
-    const data=await r.json();
-    const traffic=data.traffic||{};
-    const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const fullDays=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    const hours=['9am','11am','1pm','3pm','5pm','7pm','9pm','11pm'];
-    const today=new Date().toLocaleDateString('en-US',{weekday:'long'});
-    const todayData=traffic[today]||Array(8).fill(0);
+    const r=await fetch(`/api/businesses/${branchId}/traffic?days=7`,{headers:getAuthHeaders()});
+    if(!r.ok) return;
+    const t=await r.json();
     const ctx=document.getElementById('traffic-chart');
     if(!ctx) return;
+
+    // Trim to the café's real operating window instead of always drawing 24
+    // hours: find the earliest and latest hour with any activity across both
+    // series and pad by one. An empty café falls back to a sensible 8am-11pm.
+    const busy=[];
+    for(let h=0;h<24;h++){ if((t.today[h]||0)>0||(t.avg[h]||0)>0) busy.push(h); }
+    const from=busy.length?Math.max(0,busy[0]-1):8;
+    const to  =busy.length?Math.min(23,busy[busy.length-1]+1):23;
+    const hours=[];for(let h=from;h<=to;h++)hours.push(h);
+    const fmt=h=>h===0?'12am':h===12?'12pm':h<12?h+'am':(h-12)+'pm';
+
+    const sub=document.getElementById('traffic-sub');
+    if(sub){
+      sub.textContent = t.total>0
+        ? `Today vs your 7-day average — ${t.total} customer action${t.total===1?'':'s'} this week`
+        : 'No customer activity yet this week — orders, messages and bookings will show here';
+    }
+
     if(trafficChart) trafficChart.destroy();
     trafficChart=new Chart(ctx,{
       type:'line',
       data:{
-        labels:hours,
-        datasets:[{
-          label:'Today',data:todayData,
-          borderColor:'#c47f3a',backgroundColor:'rgba(196,127,58,0.1)',
-          borderWidth:2,tension:0.4,pointRadius:4,pointBackgroundColor:'#c47f3a',fill:true
-        }]
+        labels:hours.map(fmt),
+        datasets:[
+          { label:'7-day average',data:hours.map(h=>t.avg[h]||0),
+            borderColor:'rgba(154,136,112,0.55)',backgroundColor:'transparent',
+            borderWidth:1.5,borderDash:[4,3],tension:0.4,pointRadius:0,fill:false },
+          { label:'Today',data:hours.map(h=>t.today[h]||0),
+            borderColor:'#c47f3a',backgroundColor:'rgba(196,127,58,0.12)',
+            borderWidth:2,tension:0.4,pointRadius:3,pointBackgroundColor:'#c47f3a',fill:true }
+        ]
       },
       options:{
-        responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:true,position:'bottom',labels:{boxWidth:12,boxHeight:2,font:{family:'DM Sans',size:11},color:'#9A8870'}},
+          tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y}`}}
+        },
         scales:{
-          x:{grid:{display:false},ticks:{font:{family:'DM Sans',size:11}}},
-          y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{family:'DM Sans',size:11},stepSize:1}}
+          x:{grid:{display:false},ticks:{font:{family:'DM Sans',size:10},maxRotation:0,autoSkipPadding:8}},
+          y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{family:'DM Sans',size:11},precision:0}}
         }
       }
     });
-  }catch(e){console.error(e)}
+  }catch(e){console.error('[loadTrafficChart]',e)}
 }
 
 // Reservations
@@ -3626,30 +3653,61 @@ function renderRevenueChart(daily) {
     return;
   }
   if (revenueChartInstance) { revenueChartInstance.destroy(); revenueChartInstance = null; }
-  if (!daily.length) {
+  // The series is now zero-filled server-side, so it's always 14 rows \u2014 a quiet
+  // day is a real zero bar rather than a missing one (bars used to sit next to
+  // each other regardless of the gap between them, hiding slow stretches).
+  // "Nothing yet" therefore means no revenue in the window, not no rows.
+  const hasAny = daily.some(d => (d.revenue || 0) > 0 || (d.orders || 0) > 0);
+  if (!daily.length || !hasAny) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.fillStyle = '#bbb'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('No revenue data yet', canvas.width/2, 60);
+    ctx.fillText('No orders in the last 14 days', canvas.width/2, 60);
     return;
   }
   const labels = daily.map(d => {
     const dt = new Date(d.day + 'T00:00:00');
     return dt.toLocaleDateString('en-IN',{month:'short',day:'numeric'});
   });
+  // Split each bar into money already confirmed vs money still waiting on a
+  // staff "Confirm Payment" tap. Cash orders sit unconfirmed by default, so
+  // without this split the owner either loses that revenue entirely (the old
+  // paid-only behaviour) or can't tell collection is lagging. Stacked, so total
+  // bar height is still the day's real takings.
+  const confirmed = daily.map(d => Math.max(0, (d.revenue||0) - (d.unconfirmed||0)));
+  const pending   = daily.map(d => d.unconfirmed || 0);
+  const anyPending = pending.some(v => v > 0);
+
   revenueChartInstance = new Chart(canvas, {
     type: 'bar',
     data: {
       labels,
-      datasets: [{ label: 'Revenue', data: daily.map(d=>d.revenue),
-        backgroundColor:'rgba(196,127,58,0.25)', borderColor:'#C47F3A',
-        borderWidth:1.5, borderRadius:3 }]
+      datasets: [
+        { label:'Payment confirmed', data:confirmed, stack:'rev',
+          backgroundColor:'rgba(196,127,58,0.30)', borderColor:'#C47F3A',
+          borderWidth:1.5, borderRadius:3 },
+        { label:'Awaiting confirmation', data:pending, stack:'rev',
+          backgroundColor:'rgba(154,136,112,0.18)', borderColor:'rgba(154,136,112,0.55)',
+          borderWidth:1, borderRadius:3 }
+      ]
     },
     options: {
-      responsive:true, plugins:{legend:{display:false}},
+      responsive:true,
+      plugins:{
+        legend:{ display:anyPending, position:'bottom',
+                 labels:{boxWidth:10,boxHeight:10,font:{size:10},color:'#9A8870'} },
+        tooltip:{ callbacks:{
+          label: c => c.dataset.label + ': \u20b9' + Math.round(c.parsed.y),
+          footer: items => {
+            const i = items[0].dataIndex;
+            const d = daily[i] || {};
+            return 'Total \u20b9' + Math.round(d.revenue||0) + '  \u00b7  ' + (d.orders||0) + ' order' + ((d.orders||0)===1?'':'s');
+          }
+        }}
+      },
       scales:{
-        y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'},ticks:{callback:v=>'\u20b9'+v,font:{size:10}}},
-        x:{grid:{display:false},ticks:{font:{size:9}}}
+        y:{stacked:true,beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'},ticks:{callback:v=>'\u20b9'+v,font:{size:10}}},
+        x:{stacked:true,grid:{display:false},ticks:{font:{size:9}}}
       }
     }
   });

@@ -308,20 +308,13 @@ function initializeBusinessFiles(id) {
     fs.writeFileSync(customerProfilesFile, JSON.stringify(defaultProfiles, null, 2));
   }
 
-  const trafficStatsFile = path.join(branchDir, 'traffic_stats.json');
-  if (!fs.existsSync(trafficStatsFile)) {
-    // Generate realistic multi-day hourly traffic
-    const defaultTraffic = {
-      Monday: [5, 3, 2, 4, 8, 12, 10, 5],
-      Tuesday: [4, 2, 3, 5, 7, 10, 9, 4],
-      Wednesday: [6, 4, 3, 5, 8, 11, 12, 6],
-      Thursday: [5, 4, 4, 6, 9, 13, 11, 7],
-      Friday: [12, 9, 8, 15, 22, 28, 30, 24],
-      Saturday: [18, 14, 15, 20, 32, 45, 42, 35],
-      Sunday: [15, 12, 11, 18, 28, 38, 35, 28]
-    };
-    fs.writeFileSync(trafficStatsFile, JSON.stringify(defaultTraffic, null, 2));
-  }
+  // traffic_stats.json is gone. It used to be seeded here with invented hourly
+  // numbers ("Saturday: [18,14,15,20,32,45,42,35]") that a brand-new café with
+  // zero customers would see as its own traffic — fabricated business data shown
+  // to a real owner. It was also keyed by weekday with no date, so it summed
+  // every Monday ever into one bucket and only ever grew. The Overview chart now
+  // reads db.getHourlyTraffic(), derived live from real orders, chat messages
+  // and reservations, so it cannot be seeded, stale, or double-counted.
 
   const settingsFile = path.join(branchDir, 'settings.json');
   if (!fs.existsSync(settingsFile)) {
@@ -478,28 +471,12 @@ function detectLanguage(text) {
   return 'english';
 }
 
-function updateTrafficStats(branchId) {
-  const stats = getBranchData(branchId, 'traffic_stats.json');
-  const now = new Date();
-  const day = now.toLocaleDateString('en-US', { weekday: 'long' });
-  const hour = now.getHours();
-  // Map 24h into our 8 buckets: [9-11am, 11am-1pm, 1-3pm, 3-5pm, 5-7pm, 7-9pm, 9-11pm, 11pm-1am]
-  let bucket = 0;
-  if (hour >= 9 && hour < 11) bucket = 0;
-  else if (hour >= 11 && hour < 13) bucket = 1;
-  else if (hour >= 13 && hour < 15) bucket = 2;
-  else if (hour >= 15 && hour < 17) bucket = 3;
-  else if (hour >= 17 && hour < 19) bucket = 4;
-  else if (hour >= 19 && hour < 21) bucket = 5;
-  else if (hour >= 21 && hour < 23) bucket = 6;
-  else bucket = 7;
-
-  if (stats[day]) {
-    stats[day][bucket] = (stats[day][bucket] || 0) + 1;
-    writeBranchData(branchId, 'traffic_stats.json', stats);
-    emitToBranch(branchId, 'traffic_update', { branchId, stats });
-  }
-}
+// updateTrafficStats() removed. It incremented a weekday-keyed counter in
+// traffic_stats.json on every inbound chat message — so it never reset (each
+// Monday added to the same bucket forever), never counted orders or
+// reservations, and dumped every hour from 11pm to 9am into a single "11pm"
+// bucket. Traffic is now computed on demand from real timestamped rows in
+// db.getHourlyTraffic(); there is nothing to increment.
 
 function getLoyaltyTier(visits) {
   if (visits >= 10) return 'Elite';
@@ -1507,8 +1484,6 @@ async function processCafeBotReply(branchId, fromPhone, incomingMessage, opts = 
 }
 
 async function processCafeBotReplyInner(branchId, fromPhone, incomingMessage) {
-  updateTrafficStats(branchId);
-
   // AI3: while a "Teach your AI" interview is active, the OWNER's messages are
   // interview answers — handle them before any customer flow. Returns null for
   // everyone else (and for the owner when no interview is running).

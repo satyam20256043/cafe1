@@ -753,30 +753,143 @@ function confirmOrderPayment(id) {
   return getOrderById(id);
 }
 
+// Same two corrections as getDailyRevenue below: revenue is food actually sold
+// (non-cancelled orders, not payment-confirmed ones — cash sits 'pending' until
+// staff tap Confirm Payment), and cancelled orders no longer inflate the order
+// counts. Local-day boundaries via LOCAL_TZ_OFFSET so "today" means the café's
+// today, not UTC's. `today_unconfirmed` surfaces how much is still awaiting a
+// payment tap so the collection gap stays visible.
 function getRevenueStats(businessId) {
+  const T = LOCAL_TZ_OFFSET;
   const row = db.prepare(`
     SELECT
-      COALESCE(SUM(CASE WHEN date(created_at)=date('now') AND payment_status='paid' THEN total ELSE 0 END),0)          AS today_revenue,
-      COUNT(CASE WHEN date(created_at)=date('now') THEN 1 END)                                                          AS today_orders,
-      COALESCE(SUM(CASE WHEN date(created_at)>=date('now','-7 days') AND payment_status='paid' THEN total ELSE 0 END),0) AS week_revenue,
-      COUNT(CASE WHEN date(created_at)>=date('now','-7 days') THEN 1 END)                                               AS week_orders,
-      COALESCE(SUM(CASE WHEN strftime('%Y-%m',created_at)=strftime('%Y-%m','now') AND payment_status='paid' THEN total ELSE 0 END),0) AS month_revenue,
-      COUNT(CASE WHEN strftime('%Y-%m',created_at)=strftime('%Y-%m','now') THEN 1 END)                                  AS month_orders,
-      COUNT(CASE WHEN status='pending' THEN 1 END)                                                                       AS pending_count,
-      COUNT(CASE WHEN status='preparing' THEN 1 END)                                                                     AS preparing_count
-    FROM orders WHERE business_id=?
-  `).get(businessId);
+      COALESCE(SUM(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status!='cancelled' THEN total ELSE 0 END),0)  AS today_revenue,
+      COUNT(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status!='cancelled' THEN 1 END)                        AS today_orders,
+      COALESCE(SUM(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status!='cancelled' AND payment_status!='paid' THEN total ELSE 0 END),0) AS today_unconfirmed,
+      COALESCE(SUM(CASE WHEN date(created_at,@tz)>=date('now',@tz,'-6 days') AND status!='cancelled' THEN total ELSE 0 END),0) AS week_revenue,
+      COUNT(CASE WHEN date(created_at,@tz)>=date('now',@tz,'-6 days') AND status!='cancelled' THEN 1 END)             AS week_orders,
+      COALESCE(SUM(CASE WHEN strftime('%Y-%m',created_at,@tz)=strftime('%Y-%m','now',@tz) AND status!='cancelled' THEN total ELSE 0 END),0) AS month_revenue,
+      COUNT(CASE WHEN strftime('%Y-%m',created_at,@tz)=strftime('%Y-%m','now',@tz) AND status!='cancelled' THEN 1 END) AS month_orders,
+      COUNT(CASE WHEN status='pending' THEN 1 END)                                                                     AS pending_count,
+      COUNT(CASE WHEN status='preparing' THEN 1 END)                                                                   AS preparing_count
+    FROM orders WHERE business_id=@biz
+  `).get({ tz: T, biz: businessId });
   return row;
 }
 
+// All timestamps are stored UTC (SQLite datetime('now')), and everything
+// user-facing converts in the browser via toIsoZ. Chart bucketing is the one
+// place that can't defer: "how busy am I at 9am" and "what did I take on
+// Tuesday" are questions about LOCAL time, so a UTC bucket would file a 9am IST
+// order under 03:30 and a late-evening order under the previous day. Zordical is
+// India-only (₹ pricing, GST, Indian cafés), so a fixed IST offset is correct
+// here — if the platform ever ships outside India this becomes a per-café field.
+// NB: must be a SINGLE SQLite modifier. '+5 hours 30 minutes' is not valid —
+// SQLite silently returns NULL for it rather than erroring, which would turn
+// every chart blank with no clue why. '+330 minutes' is the working form.
+const LOCAL_TZ_OFFSET = '+330 minutes';
+
+// Daily revenue for the chart in Orders & Revenue.
+//
+// Two deliberate choices, both fixing charts that used to misrepresent a real
+// café's week:
+//
+// 1. ZERO-FILLED. A plain GROUP BY emits no row for a day with no orders, so the
+//    chart drew quiet days as if they never existed — two bars a week apart
+//    rendered side by side and a slump looked like steady business. Every day in
+//    the window is returned, present or not.
+// 2. REVENUE = FOOD SOLD, not payment-confirmed. Revenue used to require
+//    payment_status='paid', but cash orders stay 'pending' until staff tap
+//    Confirm Payment in the kitchen — so a cash-heavy café showed ₹0 for a week
+//    it actually earned well. Non-cancelled orders count; `unconfirmed` reports
+//    how much of that is still awaiting a payment tap, so the gap stays visible
+//    rather than silently deflating the number.
 function getDailyRevenue(businessId, days=14) {
-  return db.prepare(`
-    SELECT date(created_at) AS day,
+  const rows = db.prepare(`
+    SELECT date(created_at, ?) AS day,
            COUNT(*) AS orders,
-           COALESCE(SUM(CASE WHEN payment_status='paid' THEN total ELSE 0 END),0) AS revenue
-    FROM orders WHERE business_id=? AND date(created_at)>=date('now','-'||?||' days')
-    GROUP BY date(created_at) ORDER BY day ASC
-  `).all(businessId, days);
+           COALESCE(SUM(total),0) AS revenue,
+           COALESCE(SUM(CASE WHEN payment_status!='paid' THEN total ELSE 0 END),0) AS unconfirmed
+    FROM orders
+    WHERE business_id=? AND status!='cancelled'
+      AND date(created_at, ?) >= date('now', ?, '-'||?||' days')
+    GROUP BY day
+  `).all(LOCAL_TZ_OFFSET, businessId, LOCAL_TZ_OFFSET, LOCAL_TZ_OFFSET, days - 1);
+
+  const byDay = new Map(rows.map(r => [r.day, r]));
+  // days-1 above and here: a "14 day" window means today plus the 13 before it,
+  // not 15 buckets (the old `-14 days` with >= quietly returned 15).
+  //
+  // Date maths stays in UTC end to end. Building `new Date('YYYY-MM-DDT00:00:00')`
+  // yields LOCAL midnight, and toISOString() then converts back to UTC — which
+  // rolls the date back a day in any positive-offset zone (IST included), so
+  // every bucket would be labelled one day early. Date.UTC + whole-day
+  // arithmetic avoids the round trip entirely.
+  const [y, m, d0] = byDayToday(LOCAL_TZ_OFFSET).split('-').map(Number);
+  const base = Date.UTC(y, m - 1, d0);
+  const out = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const key = new Date(base - i * 86400000).toISOString().slice(0, 10);
+    const hit = byDay.get(key);
+    out.push(hit
+      ? { day: key, orders: hit.orders, revenue: hit.revenue, unconfirmed: hit.unconfirmed }
+      : { day: key, orders: 0, revenue: 0, unconfirmed: 0 });
+  }
+  return out;
+}
+
+// Today's date in the café's local zone, as 'YYYY-MM-DD'.
+function byDayToday(tz) {
+  return db.prepare(`SELECT date('now', ?) AS d`).get(tz).d;
+}
+
+// Hourly customer activity for the Overview "Traffic" chart.
+//
+// Replaces data/<branch>/traffic_stats.json, which was seeded with invented
+// numbers at café creation, keyed by weekday with no date (so it accumulated
+// every Monday ever into one bucket and never decreased), and only counted
+// inbound chat — leaving QR-ordering cafés with a flat line. Derived live from
+// real rows instead, so it cannot drift or be stale.
+//
+// "Activity" = anything a customer actually did: placed an order, messaged the
+// café, or booked a table. Cancelled orders don't count as activity.
+function getHourlyTraffic(businessId, days=7) {
+  const rows = db.prepare(`
+    SELECT date(created_at, ?) AS day,
+           CAST(strftime('%H', created_at, ?) AS INTEGER) AS hour,
+           COUNT(*) AS n
+    FROM (
+      SELECT created_at FROM orders
+        WHERE business_id=? AND status!='cancelled'
+      UNION ALL
+      SELECT created_at FROM chat_messages
+        WHERE business_id=? AND direction='in'
+      UNION ALL
+      SELECT created_at FROM reservations
+        WHERE business_id=?
+    )
+    WHERE date(created_at, ?) >= date('now', ?, '-'||?||' days')
+    GROUP BY day, hour
+  `).all(LOCAL_TZ_OFFSET, LOCAL_TZ_OFFSET, businessId, businessId, businessId,
+         LOCAL_TZ_OFFSET, LOCAL_TZ_OFFSET, days - 1);
+
+  const todayKey = byDayToday(LOCAL_TZ_OFFSET);
+  const today = Array(24).fill(0);
+  const totals = Array(24).fill(0);
+  const daysSeen = new Set();
+  let total = 0;
+
+  for (const r of rows) {
+    totals[r.hour] += r.n;
+    total += r.n;
+    daysSeen.add(r.day);
+    if (r.day === todayKey) today[r.hour] += r.n;
+  }
+  // Average over the whole window, not just days that happened to have activity
+  // — dividing by daysSeen would make one busy day look like the normal day.
+  const avg = totals.map(n => Math.round((n / days) * 10) / 10);
+
+  return { today, avg, total, days, activeDays: daysSeen.size };
 }
 
 // Average paid revenue per weekday over the last N days — the basis for the
@@ -836,7 +949,7 @@ function getTopItems(businessId, limit=5) {
 Object.assign(module.exports, {
   createOrder, getOrderById, listOrders,
   updateOrderStatus, updateOrderPayment, confirmOrderPayment,
-  getRevenueStats, getDailyRevenue, getWeekdayRevenue, getTopItems,
+  getRevenueStats, getDailyRevenue, getWeekdayRevenue, getTopItems, getHourlyTraffic,
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

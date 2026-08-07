@@ -239,13 +239,24 @@ app.get('/api/businesses/:id/crm', requireAuth, requireBranchAccess, (req, res) 
 });
 
 // 9. Get analytics
+// `traffic` used to come from traffic_stats.json — seeded with invented numbers
+// and accumulated per-weekday forever. That file is gone; real hourly traffic
+// now lives at GET /api/businesses/:id/traffic (below), computed from actual
+// orders/messages/reservations.
 app.get('/api/businesses/:id/analytics', requireAuth, requireBranchAccess, (req, res) => {
-  const traffic = getBranchData(req.params.id, 'traffic_stats.json');
   const profiles = getBranchData(req.params.id, 'customer_profiles.json');
   const reservations = getBranchData(req.params.id, 'reservations.json');
   const settings = getBranchData(req.params.id, 'settings.json');
-  
-  res.json({ traffic, profiles, reservations, settings });
+
+  res.json({ profiles, reservations, settings });
+});
+
+// 9b. Real hourly customer activity for the Overview traffic chart.
+// Orders + inbound chat + reservations, bucketed by local hour over `days`.
+app.get('/api/businesses/:id/traffic', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  const days = Math.max(1, Math.min(30, parseInt(req.query.days) || 7));
+  res.json(db.getHourlyTraffic(req.params.id, days));
 });
 
 // 10. Update campaigns
