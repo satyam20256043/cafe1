@@ -150,8 +150,10 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
     <div class="customer-form">
       <label class="cform-label">Your Name *</label>
       <input class="cform-input" id="cust-name" placeholder="e.g. Rahul" autocomplete="given-name"/>
-      <label class="cform-label">Phone (optional)</label>
+      <label class="cform-label" id="cust-phone-label">Phone (optional)</label>
       <input class="cform-input" id="cust-phone" placeholder="+91 98765 43210" type="tel" autocomplete="tel"/>
+      <label class="cform-label" id="cust-address-label" style="display:none">Delivery Address *</label>
+      <textarea class="cform-input" id="cust-address" rows="2" placeholder="House/flat no., street, landmark, area…" style="display:none;resize:none"></textarea>
     </div>
     <textarea class="notes-input" id="order-notes" rows="2" placeholder="Special requests? (no sugar, extra shot…)"></textarea>
     <div class="cart-totals" id="cart-totals"></div>
@@ -175,7 +177,7 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
     <div class="tracking-sub">How would you like to pay?</div>
     <div class="payment-amount" id="payment-amount"></div>
     <button class="pay-btn pay-btn-online" id="pay-online-btn" onclick="payOnline()">💳 Pay Online Now</button>
-    <button class="pay-btn pay-btn-cash" onclick="payAtCounter()">💵 Pay at Counter</button>
+    <button class="pay-btn pay-btn-cash" id="pay-cash-btn" onclick="payAtCounter()">💵 Pay at Counter</button>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -188,11 +190,22 @@ const bizId=params.get('branch')||params.get('id')||
   (_rawPath.indexOf('order')>=0?_rawPath[_rawPath.indexOf('order')+1]:null)||
   _rawPath[_rawPath.length-1]||'';
 const tableNo=params.get('table')||'1';
+const isDelivery=params.get('mode')==='delivery';
+let deliveryConfig={enabled:false,fee:0,freeAbove:0,minOrderValue:0,areaNote:''};
 let menu=[],cart={},currentOrder=null,categoryOrder=[];
 let socket=null;try{socket=io({transports:['websocket','polling']});socket.on('connect',()=>socket.emit('join_business',{businessId:bizId}));}catch(e){console.warn('Socket unavailable',e);}
 
 async function init(){
-  document.getElementById('table-tag').textContent='Table '+tableNo;
+  if(isDelivery){
+    document.getElementById('table-tag').textContent='🛵 Delivery';
+    document.getElementById('cust-phone-label').textContent='Phone *';
+    document.getElementById('cust-address-label').style.display='block';
+    document.getElementById('cust-address').style.display='block';
+    const cashBtn=document.getElementById('pay-cash-btn');
+    if(cashBtn)cashBtn.textContent='💵 Pay on Delivery';
+  }else{
+    document.getElementById('table-tag').textContent='Table '+tableNo;
+  }
   try{
     const b=await fetch('/api/businesses/'+bizId).then(r=>r.json());
     document.getElementById('cafe-name').textContent=b.name||'Café';
@@ -205,6 +218,23 @@ async function init(){
       hero.style.backgroundImage=`url("${b.heroImageUrl}")`;
     }
   }catch(e){}
+
+  if(isDelivery){
+    // Read the café's delivery config BEFORE loading the menu — a café that
+    // hasn't turned delivery on must never show a half-working cart (the
+    // customer could add items, fill in an address, and hit a 400 at the
+    // last step). Gate here instead.
+    try{ deliveryConfig=await fetch('/api/delivery-config/'+bizId).then(r=>r.json()); }
+    catch(e){ deliveryConfig={enabled:false,fee:0,freeAbove:0,minOrderValue:0,areaNote:''}; }
+    if(!deliveryConfig.enabled){
+      document.getElementById('menu-container').innerHTML='<div style="padding:60px 20px;text-align:center;color:#bbb">This café isn\'t taking delivery orders right now.<br><span style="font-size:12px">Please check back later, or contact the café directly.</span></div>';
+      document.getElementById('cat-pills').style.display='none';
+      const cartBtn=document.querySelector('.cart-btn');
+      if(cartBtn)cartBtn.style.display='none';
+      return; // never load the menu/cart machinery for a café that isn't delivering
+    }
+  }
+
   try{
     const [menuRes,catRes]=await Promise.all([
       fetch('/api/businesses/'+bizId+'/menu').then(r=>r.json()),
@@ -344,7 +374,22 @@ function refreshCardCtrl(id){
 }
 function updateCartCount(){document.getElementById('cart-count').textContent=Object.values(cart).reduce((a,b)=>a+b,0);}
 function cartItems(){return Object.entries(cart).map(([id,qty])=>{const item=menu.find(m=>String(m.id)===String(id));return item?{id,name:item.name,price:item.price,discount:item.discount||0,qty,image:item.image,category:item.category}:null;}).filter(Boolean);}
-function cartTotals(){let s=0,d=0;cartItems().forEach(({price,discount:disc,qty})=>{s+=price*qty;d+=price*qty*disc/100;});const t=(s-d)*0.05;return{subtotal:s,discount:d,tax:t,total:s-d+t};}
+// Fee logic mirrors the server's (data/routes/orders.js POST /orders) exactly
+// — same freeAbove/fee formula — so what the customer sees here always
+// matches what they're actually charged. The server recomputes independently
+// and never trusts a client-supplied fee, so a mismatch here is a display bug
+// only, never a money bug.
+function cartTotals(){
+  let s=0,d=0;
+  cartItems().forEach(({price,discount:disc,qty})=>{s+=price*qty;d+=price*qty*disc/100;});
+  const t=(s-d)*0.05;
+  let fee=0;
+  if(isDelivery&&deliveryConfig.enabled){
+    const goods=s-d;
+    fee=(deliveryConfig.freeAbove>0&&goods>=deliveryConfig.freeAbove)?0:(deliveryConfig.fee||0);
+  }
+  return{subtotal:s,discount:d,tax:t,fee,total:s-d+t+fee};
+}
 
 function openCart(){renderCartBody();document.getElementById('cart-overlay').classList.add('open');document.getElementById('cart-drawer').classList.add('open');}
 function closeCart(){document.getElementById('cart-overlay').classList.remove('open');document.getElementById('cart-drawer').classList.remove('open');}
@@ -360,19 +405,43 @@ function renderCartBody(){
       :`<div style="width:36px;height:36px;border-radius:8px;background:var(--foam);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${getCatEmoji(category)}</div>`;
     return`<div class="cart-row">${thumb}<div class="cart-item-name">${name}</div><div class="cart-qty-ctrl"><button class="cart-qty-btn" onclick="updateQty('${id}',-1)">−</button><span style="min-width:20px;text-align:center;font-weight:600">${qty}</span><button class="cart-qty-btn" onclick="updateQty('${id}',1)">+</button></div><div class="cart-item-price">₹${lp}</div></div>`;
   }).join('');
-  const{subtotal,discount,tax,total}=cartTotals();
-  document.getElementById('cart-totals').innerHTML=`<div>Subtotal: ₹${subtotal.toFixed(0)}</div>${discount>0?'<div>Discount: −₹'+discount.toFixed(0)+'</div>':''}<div>GST (5%): ₹${tax.toFixed(0)}</div><div class="total-line">Total: ₹${total.toFixed(0)}</div>`;
+  const{subtotal,discount,tax,fee,total}=cartTotals();
+  let extraHtml='';
+  const placeBtn=document.getElementById('place-btn');
+  if(isDelivery){
+    const goods=subtotal-discount;
+    if(deliveryConfig.areaNote)extraHtml+=`<div style="font-size:11.5px;color:#999;margin-bottom:8px">🛵 ${deliveryConfig.areaNote}</div>`;
+    if(deliveryConfig.minOrderValue>0&&goods<deliveryConfig.minOrderValue){
+      const short=Math.ceil(deliveryConfig.minOrderValue-goods);
+      extraHtml+=`<div style="font-size:12px;color:var(--rose);margin-bottom:8px">Add ₹${short} more to reach the ₹${deliveryConfig.minOrderValue} minimum for delivery.</div>`;
+      if(placeBtn)placeBtn.disabled=true;
+    }else if(placeBtn){
+      placeBtn.disabled=false;
+    }
+  }
+  document.getElementById('cart-totals').innerHTML=extraHtml+`<div>Subtotal: ₹${subtotal.toFixed(0)}</div>${discount>0?'<div>Discount: −₹'+discount.toFixed(0)+'</div>':''}<div>GST (5%): ₹${tax.toFixed(0)}</div>${fee>0?'<div>Delivery: ₹'+fee.toFixed(0)+'</div>':''}<div class="total-line">Total: ₹${total.toFixed(0)}</div>`;
 }
 
 async function placeOrder(){
   const name=document.getElementById('cust-name').value.trim();
   const phone=document.getElementById('cust-phone').value.trim();
   const notes=document.getElementById('order-notes').value.trim();
+  const address=isDelivery?document.getElementById('cust-address').value.trim():'';
   if(!name){showToast('Please enter your name');return;}
+  // Phone is optional for dine-in (staff can just walk to the table) but it's
+  // how a delivery café actually reaches this customer, so it's required here.
+  if(isDelivery&&!phone){showToast('Please enter your phone number — the café needs it to reach you');return;}
+  if(isDelivery&&!address){showToast('Please enter your delivery address');return;}
   const items=cartItems();if(!items.length){showToast('Cart is empty');return;}
   const btn=document.getElementById('place-btn');btn.disabled=true;btn.textContent='Placing…';
   try{
-    const resp=await fetch('/api/businesses/'+bizId+'/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerName:name,customerPhone:phone,tableNo:tableNo,orderType:'dine_in',items:items.map(i=>({id:i.id,qty:i.qty,name:i.name,price:i.price})),notes,paymentMethod:'cash'})});
+    // S2: never send a fee — the server reads it from the café's own settings.
+    // Anything sent here would just be ignored, but sending it at all would
+    // wrongly suggest the client has a say in the price.
+    const body={customerName:name,customerPhone:phone,orderType:isDelivery?'delivery':'dine_in',
+      items:items.map(i=>({id:i.id,qty:i.qty,name:i.name,price:i.price})),notes,paymentMethod:'cash'};
+    if(isDelivery)body.deliveryAddress=address; else body.tableNo=tableNo;
+    const resp=await fetch('/api/businesses/'+bizId+'/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const order=await resp.json();if(!resp.ok)throw new Error(order.error||'Failed');
     currentOrder=order;closeCart();cart={};updateCartCount();
     if(phone) subscribePushForOrder(phone).catch(()=>{/* non-fatal */});
@@ -492,32 +561,53 @@ async function subscribePushForOrder(phone){
   }catch(e){console.warn('[PWA] Push subscribe failed:',e.message);}
 }
 
-const STEPS=[
+// Two ladders (S6) — a dine-in customer never sees delivery-only language and
+// vice versa. DINE_STEPS is untouched from before this feature existed.
+const DINE_STEPS=[
   {key:'pending',icon:'📋',label:'Order Received',desc:'Your order has been received.'},
   {key:'confirmed',icon:'✅',label:'Confirmed',desc:'Staff confirmed your order.'},
   {key:'preparing',icon:'👨‍🍳',label:'Being Prepared',desc:'Your items are being freshly made.'},
   {key:'ready',icon:'🔔',label:'Ready!',desc:'Your order is ready — please collect or wait at your table.'},
   {key:'served',icon:'🎉',label:'Served',desc:'Enjoy your meal!'},
 ];
-function statusIndex(s){return STEPS.findIndex(x=>x.key===s);}
+const DELIVERY_STEPS=[
+  {key:'pending_approval',icon:'🕐',label:'Awaiting Confirmation',desc:'The café is reviewing your order.'},
+  {key:'pending',icon:'📋',label:'Order Received',desc:'Your order has been received.'},
+  {key:'confirmed',icon:'✅',label:'Confirmed',desc:'The café confirmed your order.'},
+  {key:'preparing',icon:'👨‍🍳',label:'Being Prepared',desc:'Your items are being freshly made.'},
+  {key:'ready',icon:'🔔',label:'Packed & Ready',desc:'Your order is packed and about to head out.'},
+  {key:'out_for_delivery',icon:'🛵',label:'Out for Delivery',desc:'Your order is on its way!'},
+  {key:'delivered',icon:'📦',label:'Delivered',desc:'Enjoy your order!'},
+];
+// currentOrder.order_type never changes for the lifetime of a tracking
+// session, so re-deriving the ladder from it on every render (rather than
+// threading an extra parameter through) is safe and keeps renderStepper's
+// signature unchanged for the live socket handler below.
+function stepsFor(){return(currentOrder&&currentOrder.order_type==='delivery')?DELIVERY_STEPS:DINE_STEPS;}
+function statusIndex(steps,s){return steps.findIndex(x=>x.key===s);}
 
 function showTrackingScreen(order){currentOrder=order;document.getElementById('tracking-screen').classList.add('active');renderStepper(order.status||'pending');renderTrackingOrderBox(order);}
 
 function renderStepper(currentStatus){
-  const idx=Math.max(0,statusIndex(currentStatus));let html='';
-  STEPS.forEach((step,i)=>{
+  const steps=stepsFor();
+  const idx=Math.max(0,statusIndex(steps,currentStatus));let html='';
+  steps.forEach((step,i)=>{
     const done=i<idx,active=i===idx,cls=done?'done':active?'active':'';
-    html+=`<div class="step"><div style="display:flex;flex-direction:column;align-items:center"><div class="step-icon ${cls}">${done?'✓':step.icon}</div>${i<STEPS.length-1?`<div class="step-connector ${done?'done':''}"></div>`:''}</div><div class="step-content"><div class="step-label" style="${active?'color:var(--caramel)':''}">${step.label}</div><div class="step-desc">${active?step.desc:(done?'Done':step.desc)}</div></div></div>`;
+    html+=`<div class="step"><div style="display:flex;flex-direction:column;align-items:center"><div class="step-icon ${cls}">${done?'✓':step.icon}</div>${i<steps.length-1?`<div class="step-connector ${done?'done':''}"></div>`:''}</div><div class="step-content"><div class="step-label" style="${active?'color:var(--caramel)':''}">${step.label}</div><div class="step-desc">${active?step.desc:(done?'Done':step.desc)}</div></div></div>`;
   });
   document.getElementById('stepper').innerHTML=html;
-  const cur=STEPS[idx];
+  const cur=steps[idx];
   document.getElementById('tracking-icon').textContent=cur.icon;
   document.getElementById('tracking-sub').textContent=cur.desc;
 }
 
 function renderTrackingOrderBox(order){
   const items=typeof order.items==='string'?JSON.parse(order.items):(order.items||[]);
-  document.getElementById('tracking-order-box').innerHTML=`<h4>📋 Order #${(order.id||'').toString().slice(-6).toUpperCase()} · Table ${tableNo}</h4>${items.map(i=>`<div class="tracking-item-row"><span>${i.name} × ${i.qty}</span><span>₹${Math.round(i.lineTotal||i.price*i.qty)}</span></div>`).join('')}<div class="tracking-total">Total: ₹${parseFloat(order.total||0).toFixed(0)}</div>`;
+  const isDeliveryOrder=order.order_type==='delivery';
+  const contextLabel=isDeliveryOrder?'Delivery':('Table '+tableNo);
+  const addressLine=(isDeliveryOrder&&order.delivery_address)?`<div style="font-size:12px;color:#999;margin-bottom:8px">🛵 ${order.delivery_address}</div>`:'';
+  const feeLine=(order.delivery_fee>0)?`<div class="tracking-item-row"><span>Delivery Fee</span><span>₹${Math.round(order.delivery_fee)}</span></div>`:'';
+  document.getElementById('tracking-order-box').innerHTML=`<h4>📋 Order #${(order.id||'').toString().slice(-6).toUpperCase()} · ${contextLabel}</h4>${addressLine}${items.map(i=>`<div class="tracking-item-row"><span>${i.name} × ${i.qty}</span><span>₹${Math.round(i.lineTotal||i.price*i.qty)}</span></div>`).join('')}${feeLine}<div class="tracking-total">Total: ₹${parseFloat(order.total||0).toFixed(0)}</div>`;
 }
 
 socket&&socket.on('order_status_update',({businessId,orderId,status})=>{
@@ -527,6 +617,8 @@ socket&&socket.on('order_status_update',({businessId,orderId,status})=>{
   currentOrder.status=status;renderStepper(status);
   if(status==='ready'){showToast('🔔 Your order is ready!');if('vibrate'in navigator)navigator.vibrate([200,100,200]);}
   else if(status==='served')showToast('🎉 Enjoy your meal!');
+  else if(status==='out_for_delivery'){showToast('🛵 Your order is on its way!');if('vibrate'in navigator)navigator.vibrate([200,100,200]);}
+  else if(status==='delivered')showToast('📦 Delivered! Enjoy your order!');
 });
 
 function resetToMenu(){currentOrder=null;document.getElementById('tracking-screen').classList.remove('active');}

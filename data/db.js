@@ -359,6 +359,8 @@ db.exec(`
     ['orders', 'staff_confirmed',     'INTEGER DEFAULT 0'],
     ['orders', 'notes',               'TEXT'],
     ['orders', 'updated_at',          'DATETIME DEFAULT CURRENT_TIMESTAMP'],
+    ['orders', 'delivery_address',    'TEXT'],
+    ['orders', 'delivery_fee',        'REAL DEFAULT 0'],
     // Loyalty Phase 3 columns (for DBs created before Phase 3)
     ['loyalty_points', 'customer_name',    'TEXT'],
     ['loyalty_points', 'stamps',           'INTEGER DEFAULT 0'],
@@ -685,6 +687,8 @@ db.exec(`
     razorpay_payment_id TEXT,
     staff_confirmed INTEGER DEFAULT 0,
     notes         TEXT,
+    delivery_address TEXT,
+    delivery_fee  REAL DEFAULT 0,
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(business_id) REFERENCES businesses(id)
@@ -695,15 +699,21 @@ db.exec(`
 `);
 
 // ── Order helpers ─────────────────────────────────────────────────────────────
-function createOrder({ businessId, customerName, customerPhone, tableNo, orderType, items, subtotal, discount, tax, total, notes, paymentMethod }) {
+// deliveryAddress/deliveryFee default to ''/0 and `status` defaults to
+// 'pending' — every existing call site (which passes none of these) inserts a
+// byte-identical row to before. `status` exists so a delivery order gated on
+// manager approval can be born at 'pending_approval' instead (see DL2); no
+// caller uses that yet.
+function createOrder({ businessId, customerName, customerPhone, tableNo, orderType, items, subtotal, discount, tax, total, notes, paymentMethod, deliveryAddress, deliveryFee, status }) {
   const id = `ord_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
   db.prepare(`
     INSERT INTO orders
-      (id,business_id,customer_name,customer_phone,table_no,order_type,items,subtotal,discount,tax,total,notes,payment_method,status,payment_status,created_at,updated_at)
+      (id,business_id,customer_name,customer_phone,table_no,order_type,items,subtotal,discount,tax,total,notes,payment_method,delivery_address,delivery_fee,status,payment_status,created_at,updated_at)
     VALUES
-      (?,?,?,?,?,?,?,?,?,?,?,?,?,'pending','pending',datetime('now'),datetime('now'))
+      (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',datetime('now'),datetime('now'))
   `).run(id, businessId, customerName, customerPhone||'', tableNo||'', orderType||'dine_in',
-         JSON.stringify(items), subtotal, discount||0, tax, total, notes||'', paymentMethod||'cash');
+         JSON.stringify(items), subtotal, discount||0, tax, total, notes||'', paymentMethod||'cash',
+         deliveryAddress||'', deliveryFee||0, status||'pending');
   return getOrderById(id);
 }
 

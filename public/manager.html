@@ -321,6 +321,9 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 .badge-ready     { background:#D4EDDA; color:#155724; }
 .badge-served    { background:#E2E3E5; color:#383D41; }
 .badge-cancelled { background:#F8D7DA; color:#721C24; }
+.badge-pending_approval { background:#FDE68A; color:#92400E; }
+.badge-out_for_delivery { background:#EDE9FE; color:#5B21B6; }
+.badge-delivered        { background:#DCFCE7; color:#166534; }
 .order-items-list { font-size:12px; color:#777; line-height:1.8; margin-bottom:10px; }
 .order-total { font-family:var(--font-display); font-size:14px; color:var(--espresso); }
 .status-btns { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
@@ -846,11 +849,14 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           <div style="display:flex;gap:10px;align-items:center">
             <select id="order-filter" onchange="loadOrders()" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff">
               <option value="">All Orders</option>
+              <option value="pending_approval">Awaiting Approval</option>
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
               <option value="preparing">Preparing</option>
               <option value="ready">Ready</option>
+              <option value="out_for_delivery">Out for Delivery</option>
               <option value="served">Served</option>
+              <option value="delivered">Delivered</option>
               <option value="cancelled">Cancelled</option>
             </select>
             <button class="btn sm primary" onclick="openNewOrderModal()">+ New Order</button>
@@ -880,6 +886,15 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
             <div style="font-family:var(--font-display);font-size:26px;color:var(--espresso)" id="kpi-active">—</div>
             <div style="font-size:12px;color:#bbb;margin-top:4px">pending + preparing</div>
           </div>
+        </div>
+
+        <!-- Delivery approval queue — only ever has content when a café has
+             Settings → Delivery → "Require approval" on; hidden otherwise. -->
+        <div class="panel" id="approval-queue-panel" style="display:none;margin-bottom:20px;border-color:#F59E0B">
+          <div class="panel-head">
+            <div><div class="panel-title">🕐 Awaiting Approval</div><div class="panel-sub">Delivery orders waiting for your go-ahead before the kitchen sees them</div></div>
+          </div>
+          <div class="panel-body" id="approval-queue-list" style="display:flex;flex-direction:column;gap:12px"></div>
         </div>
 
         <!-- Two-column: order queue + top items -->
@@ -931,6 +946,19 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
             <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px">Open on the cook's screen to see live order tickets in real-time</div>
           </div>
           <button class="btn" style="background:var(--caramel);color:#fff;border-color:var(--caramel)" onclick="openKitchen()">Open Kitchen Display ↗</button>
+        </div>
+
+        <!-- Delivery ordering link — no QR needed, this is a plain link a
+             café shares on their own channels (no physical table to scan at). -->
+        <div style="background:var(--espresso);border-radius:14px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-family:var(--font-display);font-size:15px;color:#fff">🛵 Delivery Ordering Link</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px">Share on your website, Instagram bio or WhatsApp — customers order delivery directly, no table needed</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <code id="delivery-link-text" style="background:rgba(255,255,255,0.1);color:#fff;padding:6px 12px;border-radius:8px;font-size:11.5px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></code>
+            <button class="btn" style="background:var(--caramel);color:#fff;border-color:var(--caramel)" onclick="copyDeliveryLink()">📋 Copy Link</button>
+          </div>
         </div>
 
         <div id="qr-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px">
@@ -1422,6 +1450,57 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
               <span id="loy-settings-msg" style="font-size:12.5px;margin-left:8px"></span>
             </div>
           </div>
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">🛵 Delivery</div>
+                <div class="panel-sub">Let customers order delivery online, set your fee, and decide whether orders need your approval first</div>
+              </div>
+            </div>
+            <div class="panel-body">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px">
+                <input type="checkbox" id="dlv-enabled" onchange="document.getElementById('dlv-settings-body').style.display=this.checked?'block':'none'" style="width:16px;height:16px"/>
+                Offer delivery ordering
+              </label>
+              <div id="dlv-settings-body" style="display:none">
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">
+                  <input type="checkbox" id="dlv-require-approval" style="width:16px;height:16px"/>
+                  Require my approval before the kitchen sees a delivery order
+                </label>
+                <div style="font-size:11.5px;color:#9A8870;margin:0 0 14px;line-height:1.5">
+                  When on, new delivery orders wait in the "Awaiting Approval" queue on the Orders &amp; Revenue tab until you approve or reject them — they never reach the kitchen until then.
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Delivery fee (₹)</label>
+                    <input class="form-input" id="dlv-fee" type="number" min="0" max="2000" step="1" value="0" oninput="updateDeliveryEconomicsPreview()"/>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Waive fee above <span style="font-weight:400;color:#888">(₹, 0 = never waive)</span></label>
+                    <input class="form-input" id="dlv-free-above" type="number" min="0" step="1" value="0" oninput="updateDeliveryEconomicsPreview()"/>
+                  </div>
+                </div>
+                <div id="dlv-economics" style="font-size:13px;font-weight:600;color:var(--sage);margin:-4px 0 14px"></div>
+                <div class="form-group">
+                  <label class="form-label">Minimum order value for delivery <span style="font-weight:400;color:#888">(₹, 0 = no minimum)</span></label>
+                  <input class="form-input" id="dlv-min-order" type="number" min="0" step="1" value="0"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Delivery area note <span style="font-weight:400;color:#888">(shown to customers)</span></label>
+                  <input class="form-input" id="dlv-area-note" type="text" maxlength="200" placeholder="e.g. We deliver within 5km of MG Road"/>
+                </div>
+                <div style="margin:14px 0;padding:12px 14px;background:var(--cream,#faf6f1);border-radius:9px">
+                  <div style="font-size:11px;color:#9A8870;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:4px">Customer ordering link</div>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <code id="dlv-settings-link" style="font-size:11.5px;color:var(--espresso);word-break:break-all"></code>
+                    <button class="btn sm" type="button" onclick="copyDeliveryLink('dlv-settings-link')">📋 Copy</button>
+                  </div>
+                </div>
+              </div>
+              <button class="btn primary" onclick="saveDeliverySettings()">Save Delivery Settings</button>
+              <span id="dlv-settings-msg" style="font-size:12.5px;margin-left:8px"></span>
+            </div>
+          </div>
           <div class="panel">
             <div class="panel-head"><div class="panel-title">My Account</div><div class="panel-sub">Change your own login password</div></div>
             <div class="panel-body">
@@ -1860,20 +1939,44 @@ const ESCALATION_LABELS = {
   payment_dispute:  { emoji:'💳', text:'Payment Dispute', color:'var(--sky)' },
   unanswerable:     { emoji:'❓', text:"Couldn't Answer", color:'#999' },
 };
+// Escalations and delivery approvals share the same "Needs You" card, so
+// they're fetched together and rendered in one pass — two independent loaders
+// each writing to the same body.innerHTML would race, with whichever finished
+// last silently wiping out the other's items.
 async function loadEscalations(){
   try {
-    const r = await fetch(`/api/businesses/${branchId}/escalations?status=pending`, { headers: getAuthHeaders() });
-    if (!r.ok) return;
-    const rows = await r.json();
-    renderEscalations(rows);
+    const [escRes, apprRes] = await Promise.all([
+      fetch(`/api/businesses/${branchId}/escalations?status=pending`, { headers: getAuthHeaders() }),
+      fetch(`/api/businesses/${branchId}/orders?status=pending_approval&limit=50`, { headers: getAuthHeaders() }),
+    ]);
+    const rows = escRes.ok ? await escRes.json() : [];
+    const pendingDeliveries = apprRes.ok ? await apprRes.json() : [];
+    renderEscalations(rows, Array.isArray(pendingDeliveries) ? pendingDeliveries : []);
   } catch(e) { console.error('[loadEscalations]', e); }
 }
-function renderEscalations(rows){
+function renderEscalations(rows, pendingDeliveries){
+  pendingDeliveries = pendingDeliveries || [];
   const card = document.getElementById('escalations-card');
   const body = document.getElementById('escalations-body');
-  if (!rows || !rows.length) { card.style.display = 'none'; return; }
+  const hasAny = (rows && rows.length) || pendingDeliveries.length;
+  if (!hasAny) { card.style.display = 'none'; return; }
   card.style.display = 'block';
-  body.innerHTML = rows.map(r => {
+  // A single aggregate summary row, not one card per order — the full
+  // per-order Approve/Reject experience lives in the Orders & Revenue tab
+  // (the "🕐 Awaiting Approval" panel); this is a pointer to it, matching how
+  // Overview elsewhere nudges toward the tab that has the real controls.
+  const deliveryBlock = pendingDeliveries.length ? `
+    <div style="border:1px solid var(--z-border,#eee);border-radius:10px;padding:14px 16px;background:#FFFBEB">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#92400E">🛵 Delivery Approval</span>
+        <span style="font-size:11.5px;color:#999">${pendingDeliveries.length} order${pendingDeliveries.length===1?'':'s'} waiting</span>
+      </div>
+      <div style="font-size:13px;color:var(--ink,#333);margin-bottom:10px">
+        ${pendingDeliveries.length} delivery order${pendingDeliveries.length===1?'':'s'} need${pendingDeliveries.length===1?'s':''} your approval before the kitchen sees ${pendingDeliveries.length===1?'it':'them'}.
+      </div>
+      <button class="btn sm" onclick="showTab('orders', null)">Review in Orders &amp; Revenue →</button>
+    </div>` : '';
+  body.innerHTML = deliveryBlock + rows.map(r => {
     const lbl = ESCALATION_LABELS[r.category] || { emoji:'⚠️', text:r.category, color:'#999' };
     const waLink = r.customer_phone ? `https://wa.me/91${esc(r.customer_phone)}` : '#';
     return `
@@ -2450,6 +2553,76 @@ async function saveLoyaltySettings(){
   }
 }
 
+async function loadDeliverySettings(){
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/settings`,{headers:getAuthHeaders()});
+    if(!r.ok) return;
+    const s=await r.json();
+    const d=s.delivery||{};
+    document.getElementById('dlv-enabled').checked=!!d.enabled;
+    document.getElementById('dlv-settings-body').style.display=d.enabled?'block':'none';
+    document.getElementById('dlv-require-approval').checked=!!d.requireApproval;
+    document.getElementById('dlv-fee').value=d.fee ?? 0;
+    document.getElementById('dlv-free-above').value=d.freeAbove ?? 0;
+    document.getElementById('dlv-min-order').value=d.minOrderValue ?? 0;
+    document.getElementById('dlv-area-note').value=d.areaNote ?? '';
+    const linkEl=document.getElementById('dlv-settings-link');
+    if(linkEl) linkEl.textContent=location.origin+'/order/'+branchId+'?mode=delivery';
+    updateDeliveryEconomicsPreview();
+  } catch(e){ console.error('[loadDeliverySettings]', e); }
+}
+
+// Worked example rather than a rate/percentage — a flat fee is a plain rupee
+// amount, so "you get X% back" framing (like the loyalty panel) doesn't apply
+// here the way it does to points. Uses the same freeAbove formula as
+// cartTotals() in table-order.html and the server, so this preview never
+// promises something a real order wouldn't actually charge.
+function updateDeliveryEconomicsPreview(){
+  const fee=Math.max(0, Number(document.getElementById('dlv-fee').value)||0);
+  const freeAbove=Math.max(0, Number(document.getElementById('dlv-free-above').value)||0);
+  const sample=300;
+  const gst=Math.round(sample*0.05);
+  const waived=freeAbove>0 && sample>=freeAbove;
+  const effectiveFee=waived?0:fee;
+  const el=document.getElementById('dlv-economics');
+  if(!el) return;
+  el.textContent=waived
+    ? `A ₹${sample} order pays ₹${gst} GST — delivery fee waived (order ≥ your ₹${freeAbove} free-delivery threshold).`
+    : `A ₹${sample} order pays ₹${gst} GST + ₹${effectiveFee} delivery = ₹${sample+gst+effectiveFee}.`;
+}
+
+async function saveDeliverySettings(){
+  const msg=document.getElementById('dlv-settings-msg');
+  const enabled=document.getElementById('dlv-enabled').checked;
+  const requireApproval=document.getElementById('dlv-require-approval').checked;
+  const fee=Math.max(0,Math.min(2000, Math.round(Number(document.getElementById('dlv-fee').value)||0)));
+  const freeAbove=Math.max(0, Math.round(Number(document.getElementById('dlv-free-above').value)||0));
+  const minOrderValue=Math.max(0, Math.round(Number(document.getElementById('dlv-min-order').value)||0));
+  const areaNote=document.getElementById('dlv-area-note').value.slice(0,200);
+  document.getElementById('dlv-fee').value=fee;
+  document.getElementById('dlv-free-above').value=freeAbove;
+  document.getElementById('dlv-min-order').value=minOrderValue;
+
+  msg.textContent='Saving…'; msg.style.color='#9A8870';
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/settings`,{
+      method:'PUT',headers:{'Content-Type':'application/json',...getAuthHeaders()},
+      body:JSON.stringify({
+        delivery:{ enabled, requireApproval, fee, freeAbove, minOrderValue, areaNote },
+      })
+    });
+    const d=await r.json();
+    if(d.success){
+      msg.textContent='✓ Saved'; msg.style.color='var(--sage)';
+      updateDeliveryEconomicsPreview();
+      setTimeout(()=>{ if(msg) msg.textContent=''; }, 2500);
+    } else { msg.textContent='✕ '+(d.error||'Failed'); msg.style.color='var(--rose)'; }
+  } catch(e){
+    console.error('[saveDeliverySettings]', e);
+    msg.textContent='✕ Error — check console'; msg.style.color='var(--rose)';
+  }
+}
+
 // Common café/restaurant categories offered in the dropdown. Any category already
 // used in this café's menu is merged in, so nothing is ever lost; "+ Custom…" lets
 // the owner type a brand-new one.
@@ -2936,6 +3109,7 @@ async function loadSettings(){
     renderCampaignSettings(campaigns);
     loadBranchApiKeys();
     loadLoyaltySettings();
+    loadDeliverySettings();
 
   } catch(e) {
     console.error('[loadSettings]', e);
@@ -3401,7 +3575,58 @@ async function loadOrders() {
     const orders = await fetch(url).then(r => r.json());
     renderOrdersList(orders);
     loadRevenue();
+    loadApprovalQueue();
   } catch(e) { console.error('Orders load error', e); }
+}
+
+// Delivery orders gated by Settings → Delivery → "Require approval" — a
+// separate fetch (always status=pending_approval, independent of whatever the
+// #order-filter dropdown is currently set to) so the panel stays accurate no
+// matter what the main list is filtered to.
+async function loadApprovalQueue() {
+  try {
+    const orders = await fetch(`/api/businesses/${branchId}/orders?status=pending_approval&limit=50`, { headers: getAuthHeaders() }).then(r => r.json());
+    renderApprovalQueue(Array.isArray(orders) ? orders : []);
+  } catch(e) { console.error('[loadApprovalQueue]', e); }
+}
+
+function renderApprovalQueue(orders) {
+  const panel = document.getElementById('approval-queue-panel');
+  const list  = document.getElementById('approval-queue-list');
+  if (!panel || !list) return;
+  if (!orders.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  list.innerHTML = orders.map(o => {
+    const items = (o.items||[]).map(i => i.name + ' x' + i.qty).join(', ');
+    const feeLine = (o.delivery_fee > 0) ? ` <span style="color:#999;font-weight:400">(incl. ₹${o.delivery_fee} delivery)</span>` : '';
+    const dt = new Date(o.created_at).toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'});
+    return '<div class="order-card" id="approval-'+o.id+'">'+
+      '<div class="order-card-top">'+
+        '<div>'+
+          '<div class="order-id">#'+o.id.slice(-6).toUpperCase()+' — '+(o.customer_name||'Customer')+'</div>'+
+          '<div class="order-meta">'+dt+' · '+(o.customer_phone||'no phone')+' · '+(o.delivery_address||'no address given')+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="order-items-list">'+items+'</div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'+
+        '<div class="order-total">₹'+(o.total||0).toFixed(0)+feeLine+'</div>'+
+        '<div class="status-btns">'+
+          '<button class="status-btn" style="color:#2d7a2d;border-color:#c6e6c6" onclick="approveOrder(\''+o.id+'\')">✅ Approve</button>'+
+          '<button class="status-btn" style="color:#c0392b;border-color:#f5c6cb" onclick="updateOrderStatus(\''+o.id+'\',\'cancelled\')">✕ Reject</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+async function approveOrder(orderId) {
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/orders/${orderId}/approve`, { method: 'POST', headers: getAuthHeaders() });
+    const d = await r.json();
+    if (!r.ok) { if (typeof toast === 'function') toast(d.error || 'Could not approve', 'error'); return; }
+    if (typeof toast === 'function') toast('✅ Approved — sent to the kitchen', 'ok');
+    loadOrders();
+  } catch(e) { console.error('[approveOrder]', e); if (typeof toast === 'function') toast('approveOrder failed — check console', 'error'); }
 }
 
 function renderOrdersList(orders) {
@@ -3411,17 +3636,32 @@ function renderOrdersList(orders) {
     container.innerHTML = '<div style="padding:40px;text-align:center;color:#bbb;font-size:14px">No orders yet.<br><span style="font-size:12px">Orders placed from the customer portal appear here.</span></div>';
     return;
   }
-  const statusFlow = ['pending','confirmed','preparing','ready','served','cancelled'];
+  // A delivery order's terminal step is 'delivered', a dine-in/takeaway order's
+  // is 'served' — two different ladders, picked per order (S6: dine-in/takeaway
+  // must never see delivery-only steps and vice versa). pending_approval is
+  // delivery-only, at the front of that ladder.
+  const DINE_FLOW     = ['pending','confirmed','preparing','ready','served','cancelled'];
+  const DELIVERY_FLOW = ['pending_approval','pending','confirmed','preparing','ready','out_for_delivery','delivered','cancelled'];
+  const nextStatusLabel = (toStatus, fromStatus) => {
+    // The dedicated "Awaiting Approval" panel (DL4) is the primary place to
+    // approve — but the flow array mechanically offers this same jump-ahead
+    // button here too, so it needs a label that reads as what it does rather
+    // than a bare, confusing "Pending".
+    if (fromStatus === 'pending_approval' && toStatus === 'pending') return 'Approve';
+    const LABELS = { out_for_delivery: 'Out for Delivery', delivered: 'Delivered' };
+    return LABELS[toStatus] || (toStatus.charAt(0).toUpperCase() + toStatus.slice(1));
+  };
   container.innerHTML = orders.map(o => {
-    const badge = '<span class="order-badge badge-' + o.status + '">' + o.status + '</span>';
+    const badge = '<span class="order-badge badge-' + o.status + '">' + o.status.replace(/_/g,' ') + '</span>';
     const items = (o.items||[]).map(i => i.name + ' x' + i.qty).join(', ');
     const dt = new Date(o.created_at).toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'});
+    const statusFlow = (o.order_type === 'delivery') ? DELIVERY_FLOW : DINE_FLOW;
     const idx = statusFlow.indexOf(o.status);
     const nextStatuses = idx >= 0 ? statusFlow.slice(idx+1).filter(s=>s!=='cancelled') : [];
     const btns = nextStatuses.map(s =>
-      '<button class="status-btn" onclick="updateOrderStatus(\''+o.id+'\',\''+s+'\')">'+s.charAt(0).toUpperCase()+s.slice(1)+'</button>'
+      '<button class="status-btn" onclick="updateOrderStatus(\''+o.id+'\',\''+s+'\')">'+nextStatusLabel(s, o.status)+'</button>'
     ).join('');
-    const cancelBtn = (o.status!=='served'&&o.status!=='cancelled')
+    const cancelBtn = !['served','delivered','cancelled'].includes(o.status)
       ? '<button class="status-btn" style="color:#c0392b;border-color:#f5c6cb" onclick="updateOrderStatus(\''+o.id+'\',\'cancelled\')">Cancel</button>' : '';
     const tableInfo = (o.table_no||o.tableNo) ? ' · Table ' + (o.table_no||o.tableNo) : '';
     return '<div class="order-card" id="ocard-'+o.id+'">'+
@@ -3727,6 +3967,18 @@ socket.on('new_order', function(data) {
 socket.on('order_status_update', function(data) {
   if (data.businessId !== branchId) return;
   if (document.getElementById('tab-orders') && document.getElementById('tab-orders').style.display !== 'none') loadOrders();
+});
+
+// A gated delivery order (Settings -> Delivery -> "Require approval") — never
+// fired 'new_order' (S4), so it needs its own live-update path into both the
+// Overview "Needs You" card and the Orders tab's approval panel.
+socket.on('order_awaiting_approval', function(data) {
+  if (data.businessId !== branchId) return;
+  loadEscalations();
+  if (document.getElementById('tab-orders') && document.getElementById('tab-orders').style.display !== 'none') loadApprovalQueue();
+  const cname = (data.order && (data.order.customer_name||data.order.customerName)) || 'Customer';
+  if (typeof showToast === 'function') showToast('🛵 Delivery order from ' + cname + ' needs your approval');
+  showBrowserNotif('🛵 Approval Needed', cname + '\'s delivery order is awaiting your approval', 'order_awaiting_approval');
 });
 
 socket.on('escalation_new', function(data) {
@@ -4549,6 +4801,8 @@ function renderQRGrid() {
   const qrBranchId = typeof branchId !== 'undefined' ? branchId : (location.pathname.split('/').pop());
   const count   = parseInt(document.getElementById('qr-table-count')?.value) || 10;
   const baseUrl = location.origin;
+  const linkEl = document.getElementById('delivery-link-text');
+  if (linkEl) linkEl.textContent = baseUrl + '/order/' + qrBranchId + '?mode=delivery';
   const grid    = document.getElementById('qr-grid');
   if (!grid) return;
   grid.innerHTML = '';
@@ -4567,6 +4821,15 @@ function renderQRGrid() {
       '</div>';
     grid.appendChild(card);
   }
+}
+
+function copyDeliveryLink(sourceId) {
+  const linkEl = document.getElementById(sourceId || 'delivery-link-text');
+  const link = linkEl ? linkEl.textContent : '';
+  if (!link) return;
+  navigator.clipboard.writeText(link)
+    .then(() => { if (typeof toast === 'function') toast('✅ Delivery link copied', 'ok'); })
+    .catch(() => { if (typeof toast === 'function') toast('Could not copy — long-press to select and copy manually', 'error'); });
 }
 
 function downloadQR(tableNo) {

@@ -2384,7 +2384,7 @@ const routeCtx = {
   emitToBranch, runAutoPilotCampaign, getLoyaltyTier,
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
   runTrialReminders,
-  sendWhatsAppToCustomer, getWaConfig, writeWaConfig, getRazorpayConfig, getLoyaltySettings, GEMINI_MODEL,
+  sendWhatsAppToCustomer, getWaConfig, writeWaConfig, getRazorpayConfig, getLoyaltySettings, getDeliverySettings, GEMINI_MODEL,
   startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   waweb, startQrClientForBranch, qrBulkBlocked,
   opsAlerts,
@@ -2597,6 +2597,27 @@ function getLoyaltySettings(branchId) {
       loyalty: { ...defaults.loyalty, ...(s.loyalty || {}) },
       studentDiscount: { ...defaults.studentDiscount, ...(s.studentDiscount || {}) },
     };
+  } catch (e) { return defaults; }
+}
+
+// DL1: café-configurable delivery settings — same contract as
+// getLoyaltySettings above: merge over defaults, ALWAYS return a complete
+// object (never partial, never throw), so callers never guard against missing
+// keys. `enabled: false` is the default — a café that never opens this panel
+// gets no delivery option and no behavior change (S3).
+function getDeliverySettings(branchId) {
+  const defaults = {
+    enabled: false,
+    requireApproval: false,
+    fee: 0,
+    freeAbove: 0,
+    minOrderValue: 0,
+    areaNote: '',
+  };
+  try {
+    const s = getBranchData(branchId, 'branch-settings.json');
+    if (!s || Array.isArray(s)) return defaults;
+    return { ...defaults, ...(s.delivery || {}) };
   } catch (e) { return defaults; }
 }
 

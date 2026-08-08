@@ -10,7 +10,7 @@ module.exports = function register(ctx) {
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
-    db, getLoyaltySettings,
+    db, getLoyaltySettings, getDeliverySettings,
   } = ctx;
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -543,6 +543,7 @@ app.get('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, 
     aiMaxDiscount: Number.isFinite(s.aiMaxDiscount) ? s.aiMaxDiscount : 0,
     loyalty: loyaltySettings.loyalty,
     studentDiscount: loyaltySettings.studentDiscount,
+    delivery: getDeliverySettings(req.params.id),
     updatedAt: s.updatedAt || null,
     updatedBy: s.updatedBy || null,
   });
@@ -595,6 +596,29 @@ app.put('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, 
     if (b.studentDiscount.enabled !== undefined) s.studentDiscount.enabled = !!b.studentDiscount.enabled;
     if (b.studentDiscount.percent !== undefined) {
       s.studentDiscount.percent = Math.max(0, Math.min(100, Math.round(Number(b.studentDiscount.percent) || 0)));
+    }
+  }
+
+  // DL1: delivery settings. `enabled` gates the whole feature off by default
+  // (S3) — a café that never opens this panel gets no delivery option and no
+  // change to today's behaviour. `fee` is capped at ₹2000 as a sanity bound,
+  // not a real business limit.
+  if (b.delivery) {
+    s.delivery = s.delivery || {};
+    const cur = s.delivery;
+    if (b.delivery.enabled         !== undefined) cur.enabled         = !!b.delivery.enabled;
+    if (b.delivery.requireApproval !== undefined) cur.requireApproval = !!b.delivery.requireApproval;
+    if (b.delivery.fee !== undefined) {
+      cur.fee = Math.max(0, Math.min(2000, Math.round(Number(b.delivery.fee) || 0)));
+    }
+    if (b.delivery.freeAbove !== undefined) {
+      cur.freeAbove = Math.max(0, Math.round(Number(b.delivery.freeAbove) || 0));
+    }
+    if (b.delivery.minOrderValue !== undefined) {
+      cur.minOrderValue = Math.max(0, Math.round(Number(b.delivery.minOrderValue) || 0));
+    }
+    if (b.delivery.areaNote !== undefined) {
+      cur.areaNote = String(b.delivery.areaNote).slice(0, 200);
     }
   }
 

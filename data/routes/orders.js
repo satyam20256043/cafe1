@@ -6,12 +6,11 @@ module.exports = function register(ctx) {
     DATA_DIR, BUSINESSES_FILE, businesses,
     getBranchData, writeBranchData,
     updateCustomerProfile, processCafeBotReply, toIsoZ,
-    waApi, genAI, getRazorpayConfig, getLoyaltySettings, whatsappConnectionStatus,
+    waApi, genAI, getRazorpayConfig, getLoyaltySettings, getDeliverySettings, sendWhatsAppToCustomer,
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
     db,
-    whatsappClient,
     emitToBranch,
   } = ctx;
 
@@ -28,7 +27,7 @@ function orderWithIsoTimes(o) {
 // POST /api/businesses/:id/orders
 app.post('/api/businesses/:id/orders', async (req, res) => {
   const businessId = req.params.id;
-  const { customerName, customerPhone, tableNo, orderType, items, notes, paymentMethod, couponCode } = req.body;
+  const { customerName, customerPhone, tableNo, orderType, items, notes, paymentMethod, couponCode, deliveryAddress } = req.body;
 
   if (!customerName || !items || !items.length) {
     return res.status(400).json({ error: 'customerName and items are required' });
@@ -68,14 +67,38 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
       else if (c.discount_type === 'flat') discount += c.discount_value;
     }
 
-    const tax   = parseFloat(((subtotal - discount) * 0.05).toFixed(2));  // 5% GST
-    const total = parseFloat((subtotal - discount + tax).toFixed(2));
+    const tax = parseFloat(((subtotal - discount) * 0.05).toFixed(2));  // 5% GST
+
+    // S2: the fee is read from the café's own settings, never from the request
+    // body — a client-supplied delivery fee would be exactly the same class of
+    // tampering the menu-price refetch above already guards against. Applied
+    // after tax as its own line — a service charge on the delivery, not on the
+    // food, so it never shifts the GST any café already reports today (S3).
+    // dcfg is read once and reused for both the fee and the approval decision.
+    let deliveryFee = 0, needsApproval = false;
+    if ((orderType || 'dine_in') === 'delivery') {
+      const dcfg = getDeliverySettings(businessId);
+      if (!dcfg.enabled) {
+        return res.status(400).json({ error: 'This café is not accepting delivery orders right now.' });
+      }
+      const goods = subtotal - discount;
+      if (dcfg.minOrderValue > 0 && goods < dcfg.minOrderValue) {
+        return res.status(400).json({ error: `Minimum order for delivery is ₹${dcfg.minOrderValue}.` });
+      }
+      deliveryFee   = (dcfg.freeAbove > 0 && goods >= dcfg.freeAbove) ? 0 : dcfg.fee;
+      needsApproval = !!dcfg.requireApproval;
+    }
+    const total = parseFloat((subtotal - discount + tax + deliveryFee).toFixed(2));
 
     let order;
     if (db) {
+      // S4: a delivery order gated on approval is born at 'pending_approval',
+      // never 'pending' — the kitchen board only ever queries pending+, so this
+      // is what keeps it invisible until a manager approves it (see DL4).
       order = db.createOrder({ businessId, customerName, customerPhone, tableNo,
         orderType: orderType || 'dine_in', items: validatedItems,
-        subtotal, discount, tax, total, notes, paymentMethod: paymentMethod || 'cash' });
+        subtotal, discount, tax, total, notes, paymentMethod: paymentMethod || 'cash',
+        deliveryAddress, deliveryFee, status: needsApproval ? 'pending_approval' : 'pending' });
     } else {
       // Legacy JSON fallback
       const orders = getBranchData(businessId, 'orders.json') || [];
@@ -93,7 +116,15 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
 
     if (db) db.logEvent(businessId, 'order.placed',
       { customerPhone: customerPhone, actor: 'customer', metadata: { orderId: order.id, total, itemCount: validatedItems.length, orderType: orderType || 'dine_in', couponCode: couponCode || null } });
-    emitToBranch(businessId, 'new_order', { businessId, order: orderWithIsoTimes(order) });
+
+    // S4: a 'pending_approval' order must never reach the kitchen board — it
+    // only ever listens for 'new_order'. Fire a separate event instead; DL4's
+    // approval action fires the real 'new_order' itself once approved.
+    if (order.status === 'pending_approval') {
+      emitToBranch(businessId, 'order_awaiting_approval', { businessId, order: orderWithIsoTimes(order) });
+    } else {
+      emitToBranch(businessId, 'new_order', { businessId, order: orderWithIsoTimes(order) });
+    }
     res.status(201).json(orderWithIsoTimes(order));
   } catch (err) {
     console.error('[orders] Failed to create order:', err.message);
@@ -136,7 +167,10 @@ app.get('/api/businesses/:id/orders', requireAuth, requireBranchAccess, (req, re
 app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranchAccess, (req, res) => {
   const { orderId } = req.params;
   const { status }  = req.body;
-  const validStatuses = ['pending','confirmed','preparing','ready','served','cancelled'];
+  // pending_approval/out_for_delivery/delivered are delivery-only stages (DL3).
+  // 'delivered' was already referenced below at the loyalty-award and status-
+  // notify branches before this change — it was simply unreachable until now.
+  const validStatuses = ['pending_approval','pending','confirmed','preparing','ready','out_for_delivery','delivered','served','cancelled'];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
@@ -173,51 +207,88 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
     if (ctx.sendPushToPhone) ctx.sendPushToPhone(req.params.id, customerPhone, pushPayload).catch(()=>{});
   }
 
+  // Closing message — ALL order types (dine-in, takeaway, delivery). One
+  // message at the end of a completed order carrying the customer's updated
+  // loyalty card: a receipt and a retention nudge, not status spam, so the
+  // per-conversation Cloud API cost is a defensible spend regardless of type.
   if (db && customerPhone && (status === 'served' || status === 'delivered')) {
     try {
       const phone = customerPhone.replace(/[^0-9]/g,'').slice(-10);
       const card  = db.awardPoints(bizId, phone, customerName, orderTotal, orderId, getLoyaltySettings(bizId).loyalty);
       emitToBranch(bizId, 'loyalty_update', { businessId: bizId, card });
 
-      // Send WhatsApp confirmation with updated card
-      if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-        const business = businesses.find(b=>b.id===bizId)||{name:'Café'};
-        const stampsLeft = Math.max(0, 10-(card.stamps||0));
-        const waMsg = `✅ *Order Served!* Thank you, ${customerName}! 🙏\n\n` +
-          `Your loyalty card has been updated:\n` +
-          `☕ Stamps: *${card.stamps||0}/10*${(card.stamps||0)>=10?' 🎁 FREE item ready!':'('+stampsLeft+' more for a free item!)'}\n` +
-          `💰 Points: *${card.points||0} pts* (+${Math.round(orderTotal)} earned today)\n` +
-          `🏅 Tier: *${card.tier||'New'}*\n\n` +
-          `See you soon at ${business.name}! ☕✨`;
-        const wid = phone + '@c.us';
-        whatsappClient.sendMessage(wid, waMsg).catch(e=>console.error('[WA loyalty notify]',e.message));
-      }
+      const business = businesses.find(b=>b.id===bizId)||{name:'Café'};
+      const stampsLeft = Math.max(0, 10-(card.stamps||0));
+      const verb = status === 'delivered' ? 'Delivered' : 'Served';
+      const waMsg = `✅ *Order ${verb}!* Thank you, ${customerName}! 🙏\n\n` +
+        `Your loyalty card has been updated:\n` +
+        `☕ Stamps: *${card.stamps||0}/10*${(card.stamps||0)>=10?' 🎁 FREE item ready!':'('+stampsLeft+' more for a free item!)'}\n` +
+        `💰 Points: *${card.points||0} pts* (+${Math.round(orderTotal)} earned today)\n` +
+        `🏅 Tier: *${card.tier||'New'}*\n\n` +
+        `See you soon at ${business.name}! ☕✨`;
+      sendWhatsAppToCustomer(bizId, phone, waMsg).catch(e=>console.error('[WA loyalty notify]',e.message||e));
     } catch(e) { console.error('[Phase4 auto-stamp error]', e.message); }
   }
 
-  // ── Phase 4C: WhatsApp order status notification ──────────────────────────
-  if (whatsappClient && whatsappConnectionStatus === 'Connected' && customerPhone && status !== 'served' && status !== 'delivered') {
+  // ── Per-status WhatsApp updates — DELIVERY ORDERS ONLY ─────────────────────
+  // A dine-in/takeaway customer is in the café with the live tracking stepper
+  // already open and staff about to hand them the food — a "being prepared"
+  // WhatsApp tells them nothing they can't see, and Cloud API bills per
+  // conversation, so sending this on every status change of every dine-in
+  // order would be a real recurring cost across every café for no benefit.
+  // A delivery customer isn't watching a screen, so the same updates carry
+  // real value there.
+  const isDeliveryOrder = (order.order_type || order.orderType) === 'delivery';
+  if (isDeliveryOrder && customerPhone && status !== 'delivered') {
     try {
       const phone = customerPhone.replace(/[^0-9]/g,'').slice(-10);
       const business = businesses.find(b=>b.id===bizId)||{name:'Café'};
-      const statusEmoji = { pending:'⏳', confirmed:'✅', preparing:'👨‍🍳', ready:'🔔', cancelled:'❌' };
+      const statusEmoji = { pending_approval:'🕐', pending:'⏳', confirmed:'✅', preparing:'👨‍🍳', ready:'📦', out_for_delivery:'🛵', cancelled:'❌' };
       const statusMsg   = {
+        pending_approval: "Thanks for your order! We're reviewing it and will confirm shortly.",
         pending:   'Your order has been received and is pending confirmation.',
         confirmed: "Your order is confirmed! We're getting started.",
         preparing: 'Your order is being freshly prepared right now! 👨‍🍳',
-        ready:     '🔔 Your order is READY! Please collect it from the counter.',
+        ready:     'Packed and ready — your rider is on the way shortly!',
+        out_for_delivery: '🛵 Your order is on its way!',
         cancelled: 'Your order has been cancelled. Please contact us if this was a mistake.'
       };
       const waMsg = `${statusEmoji[status]||'📋'} *Order Update — ${business.name}*\n\n` +
         `${statusMsg[status]||'Status: '+status}\n\n` +
         `Order: *#${orderId.slice(-6).toUpperCase()}* | ₹${orderTotal.toFixed(0)}\n` +
         `For help: ${business.contact||'contact us'}`;
-      whatsappClient.sendMessage(phone+'@c.us', waMsg).catch(e=>console.error('[WA status notify]',e.message));
+      sendWhatsAppToCustomer(bizId, phone, waMsg).catch(e=>console.error('[WA status notify]',e.message||e));
     } catch(e) { console.error('[Phase4 status notify error]', e.message); }
   }
   // ─────────────────────────────────────────────────────────────────────────
 
   res.json(orderWithIsoTimes(order));
+});
+
+// ── Approve a gated delivery order (staff) ────────────────────────────────────
+// POST /api/businesses/:id/orders/:orderId/approve
+// Distinct from the generic status endpoint above: a 'pending_approval' order
+// has never fired 'new_order' (that's the whole point of the gate — S4 keeps
+// it off the kitchen board), so a plain status update to 'pending' would leave
+// it invisible until the kitchen's next poll. This fires 'new_order' itself,
+// the exact event a genuinely-new order triggers, so it appears live.
+app.post('/api/businesses/:id/orders/:orderId/approve', requireAuth, requireBranchAccess, (req, res) => {
+  if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  const order = db.getOrderById(req.params.orderId);
+  if (!order || order.business_id !== req.params.id) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+  if (order.status !== 'pending_approval') {
+    return res.status(400).json({ error: 'This order is not awaiting approval.' });
+  }
+  const updated = db.updateOrderStatus(req.params.orderId, 'pending');
+  db.logEvent(req.params.id, 'order.approved', {
+    customerPhone: updated.customer_phone,
+    actor: req.staff ? `staff:${req.staff.id}` : 'staff',
+    metadata: { orderId: updated.id },
+  });
+  emitToBranch(req.params.id, 'new_order', { businessId: req.params.id, order: orderWithIsoTimes(updated) });
+  res.json(orderWithIsoTimes(updated));
 });
 
 // ── Confirm payment (staff) ───────────────────────────────────────────────────
@@ -335,6 +406,21 @@ app.get('/api/razorpay-config/:id', (req, res) => {
   res.json({
     enabled: !!(keyId && keySecret),
     keyId: keyId || null,
+  });
+});
+
+// GET /api/delivery-config/:id — public, unauthenticated: tells the customer
+// ordering page whether this café delivers, what it charges, and its minimum.
+// `requireApproval` is deliberately withheld — whether an order gets vetted is
+// the café's internal business, not something a customer needs to know.
+app.get('/api/delivery-config/:id', (req, res) => {
+  const d = getDeliverySettings(req.params.id);
+  res.json({
+    enabled: !!d.enabled,
+    fee: d.fee,
+    freeAbove: d.freeAbove,
+    minOrderValue: d.minOrderValue,
+    areaNote: d.areaNote,
   });
 });
 
