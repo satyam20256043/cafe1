@@ -2902,10 +2902,15 @@ async function submitReply(){
 
 async function syncGBP(){
   try{
-    await fetch(`/api/businesses/${branchId}/gbp/link`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({locationId:business.review||'linked'})});
     const r=await fetch(`/api/businesses/${branchId}/gbp/sync`,{method:'POST'});
     const d=await r.json();
-    toast(`Synced ${d.addedCount} Google review(s)`,'success');
+    if(r.status===409||d.code==='GOOGLE_NOT_CONNECTED'){
+      toast('Connect Google in Settings first','error');
+      return;
+    }
+    if(!r.ok) throw new Error(d.error||'Sync failed');
+    const msg=d.addedCount!=null?`Synced ${d.addedCount} Google review(s)`:d.message||'Synced';
+    toast(msg,'success');
     loadFeedback();
   }catch(e){ toast('Sync failed','error'); }
 }

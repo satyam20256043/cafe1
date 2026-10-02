@@ -412,6 +412,7 @@ app.post('/api/businesses/:id/autopilot/trigger', requireAuth, requireBranchAcce
 });
 
 // 10d. Link Google Business Profile
+// Legacy URL-only "link". Real connection: routes/google.js.
 app.post('/api/businesses/:id/gbp/link', requireAuth, requireBranchAccess, (req, res) => {
   const { id } = req.params;
   const { locationId } = req.body;
@@ -441,89 +442,18 @@ app.post('/api/businesses/:id/gbp/link', requireAuth, requireBranchAccess, (req,
 
 
 // 10e. Sync Google Business Profile reviews
+// GB0: fake hard-coded reviews removed. GB5 re-points this to the real sync once
+// routes/google.js is mounted. Until then, guide the owner to connect Google first.
 app.post('/api/businesses/:id/gbp/sync', requireAuth, requireBranchAccess, (req, res) => {
-  const { id } = req.params;
-  const settings = getBranchData(id, 'settings.json');
-  if (!settings.gbpLinked) {
-    return res.status(400).json({ error: 'Google Business Profile is not linked yet.' });
-  }
-
-  const feedback = getBranchData(id, 'feedback.json');
-  const alreadySynced = feedback.some(f => f.source === 'google');
-  
-  let addedCount = 0;
-  if (!alreadySynced) {
-    const googleReviews = [
-      {
-        id: 'g1',
-        customerName: 'Aditya Sen',
-        rating: 5,
-        comment: 'Best cold coffee in Indiranagar! The seating is cozy and WiFi is very fast. 5/5 stars from Google My Business! ⭐',
-        timestamp: new Date().toLocaleString(),
-        source: 'google'
-      },
-      {
-        id: 'g2',
-        customerName: 'Meera Kapoor',
-        rating: 4,
-        comment: 'Lovely ambiance. Perfect place to sit with a laptop. Peri Peri fries were delicious! Google Local Guide review.',
-        timestamp: new Date().toLocaleString(),
-        source: 'google'
-      },
-      {
-        id: 'g3',
-        customerName: 'Kabir Dev',
-        rating: 5,
-        comment: 'Staff is extremely polite. They helped us reserve a group table. Highly recommended! Sync review from GBP.',
-        timestamp: new Date().toLocaleString(),
-        source: 'google'
-      }
-    ];
-    
-    feedback.push(...googleReviews);
-    writeBranchData(id, 'feedback.json', feedback);
-    addedCount = googleReviews.length;
-    
-    // Check matches with CRM
-    const profiles = getBranchData(id, 'customer_profiles.json');
-    googleReviews.forEach(gr => {
-      // Find matching profile by name
-      const matchingProfile = profiles.find(p => p.name.toLowerCase() === gr.customerName.toLowerCase());
-      if (matchingProfile) {
-        // If it's a 5-star review, give them a coupon!
-        if (gr.rating === 5) {
-          const couponCode = 'REVIEW15';
-          matchingProfile.offersReceived = matchingProfile.offersReceived || [];
-          if (!matchingProfile.offersReceived.some(o => o.offer.includes(couponCode))) {
-            matchingProfile.offersReceived.push({
-              offer: `Google Review Reward: Coupon ${couponCode} (15% Off)`,
-              timestamp: new Date().toISOString()
-            });
-            
-            // Emit a chat notification to simulate that the bot sent them a WhatsApp message!
-            emitToBranch(id, 'inbound_chat', {
-              branchId: id,
-              phone: matchingProfile.phone,
-              text: `🎁 *[GOOGLE REVIEW REWARD]*: Hi ${matchingProfile.name}! Thank you for your 5-star review on Google! Here is your reward coupon: *${couponCode}* for 15% off on your next visit! ☕✨`,
-              sender: 'ai',
-              timestamp: new Date().toLocaleTimeString()
-            });
-            
-            // If WhatsApp client is connected, actually send it
-            if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-              const wid = matchingProfile.phone.includes('@') ? matchingProfile.phone : `${matchingProfile.phone}@c.us`;
-              whatsappClient.sendMessage(wid, `Hi ${matchingProfile.name}! Thank you for your 5-star review on Google! Here is your reward coupon: *${couponCode}* for 15% off on your next visit! ☕✨`).catch(e => console.error(e));
-            }
-          }
-        }
-      }
+  // Delegate to the real sync function if it's available (mounted by GB5).
+  if (ctx.syncGoogleReviews) {
+    ctx.syncGoogleReviews(req.params.id).then(result => res.json(result)).catch(err => {
+      console.error('[GBP sync delegate error]', err.message);
+      res.status(500).json({ error: 'Sync failed', message: err.message });
     });
-    writeBranchData(id, 'customer_profiles.json', profiles);
-    emitToBranch(id, 'crm_update', { branchId: id, profiles });
-    emitToBranch(id, 'feedback_update', { branchId: id, feedback });
+    return;
   }
-
-  res.json({ success: true, addedCount, total: feedback.length });
+  res.status(409).json({ error: 'Connect Google Business Profile first', code: 'GOOGLE_NOT_CONNECTED' });
 });
 
 // In-memory cache for campaign suggestions: branchId -> suggestions list
