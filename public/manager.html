@@ -1501,6 +1501,33 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
               <span id="dlv-settings-msg" style="font-size:12.5px;margin-left:8px"></span>
             </div>
           </div>
+          <!-- ── Google Business Profile card (GB4) ── -->
+          <div class="panel" id="gbp-settings-panel" style="margin-bottom:16px">
+            <div class="panel-head">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="panel-title">Google Business Profile</div>
+                <span id="gbp-mode-pill" style="display:none;font-size:10px;font-weight:700;background:var(--amber,#f59e0b);color:#fff;padding:2px 7px;border-radius:10px;letter-spacing:.5px">DEMO DATA</span>
+              </div>
+              <div class="panel-sub">Sync reviews, track insights, and post updates directly to your Google listing</div>
+            </div>
+            <div class="panel-body" id="gbp-settings-body">
+              <div style="color:#888;font-size:13px">Loading…</div>
+            </div>
+          </div>
+          <!-- Location picker modal (shown after OAuth callback with ?google=pick) -->
+          <div id="gbp-pick-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
+            <div style="background:var(--card,#fff);border-radius:12px;padding:28px;max-width:460px;width:calc(100%-32px);max-height:80vh;overflow-y:auto">
+              <div style="font-size:16px;font-weight:700;margin-bottom:4px">Select your Google listing</div>
+              <div style="font-size:13px;color:#888;margin-bottom:18px">Choose the location that matches this branch</div>
+              <div id="gbp-location-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px"></div>
+              <div id="gbp-pick-error" style="color:var(--rose,#ef4444);font-size:12.5px;margin-bottom:10px;display:none"></div>
+              <div style="display:flex;gap:10px;justify-content:flex-end">
+                <button class="btn" onclick="closeGbpPicker()">Cancel</button>
+                <button class="btn primary" id="gbp-pick-save-btn" onclick="saveGbpLocation()" disabled>Save</button>
+              </div>
+            </div>
+          </div>
+
           <div class="panel">
             <div class="panel-head"><div class="panel-title">My Account</div><div class="panel-sub">Change your own login password</div></div>
             <div class="panel-body">
@@ -3092,6 +3119,197 @@ async function saveTheme(){
 }
 
 // Settings
+// ── Google Business Profile Settings (GB4) ──────────────────────────────────
+
+let _gbpPickLocations = [];
+let _gbpSelectedLocation = null;
+
+async function loadGoogleStatus() {
+  const body = document.getElementById('gbp-settings-body');
+  if (!body) return;
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/google/status`);
+    const d = await r.json();
+    renderGbpCard(d);
+  } catch(e) {
+    if (body) body.innerHTML = '<div style="color:#888;font-size:13px">Could not load Google status</div>';
+  }
+}
+
+function renderGbpCard(d) {
+  const body = document.getElementById('gbp-settings-body');
+  const pill = document.getElementById('gbp-mode-pill');
+  if (!body) return;
+
+  if (pill) pill.style.display = (d.mode === 'mock') ? 'inline-block' : 'none';
+
+  if (!d.configured) {
+    body.innerHTML = '<div style="color:#888;font-size:13px">Google connection is not available yet.</div>';
+    return;
+  }
+
+  const status = d.status || 'disconnected';
+
+  if (status === 'disconnected') {
+    body.innerHTML = `
+      <div style="font-size:13px;color:#888;margin-bottom:14px">Connect your Google Business Profile to sync reviews and track insights.</div>
+      <button class="btn primary" onclick="startGbpConnect()">Connect Google</button>
+      <span id="gbp-connect-msg" style="font-size:12.5px;margin-left:8px"></span>`;
+    return;
+  }
+
+  if (status === 'needs_reconnect') {
+    const lastSync = d.lastSyncAt ? new Date(d.lastSyncAt).toLocaleString() : 'never';
+    body.innerHTML = `
+      <div style="background:var(--amber-light,#fffbeb);border:1px solid var(--amber,#f59e0b);border-radius:8px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:600;color:var(--amber,#f59e0b);margin-bottom:4px">Google connection needs attention</div>
+        <div style="font-size:12.5px;color:#888">Last successful sync: ${esc(lastSync)}</div>
+      </div>
+      <button class="btn primary" onclick="startGbpConnect()">Reconnect</button>`;
+    return;
+  }
+
+  if (status === 'pending_location') {
+    body.innerHTML = `
+      <div style="font-size:13px;color:#888;margin-bottom:14px">Almost there — select your Google listing to finish setup.</div>
+      <button class="btn primary" onclick="openGbpPicker()">Select Listing</button>`;
+    return;
+  }
+
+  // connected
+  const lastSync = d.lastSyncAt ? 'Last synced ' + new Date(d.lastSyncAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : 'Not synced yet';
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13.5px">${esc(d.locationTitle||'Connected')}</div>
+        <div style="font-size:11.5px;color:#888">${esc(lastSync)}${d.googleEmail?' · '+esc(d.googleEmail):''}</div>
+      </div>
+      ${d.mapsUri ? `<a href="${esc(d.mapsUri)}" target="_blank" class="btn" style="font-size:11.5px;text-decoration:none">View on Maps ↗</a>` : ''}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn primary" id="gbp-sync-now-btn" onclick="syncGBP()">Sync now</button>
+      <button class="btn" onclick="disconnectGbp()">Disconnect</button>
+    </div>
+    <div id="gbp-sync-msg" style="font-size:12.5px;margin-top:8px;color:#888"></div>`;
+}
+
+async function startGbpConnect() {
+  const msg = document.getElementById('gbp-connect-msg');
+  if (msg) { msg.textContent = 'Opening Google…'; msg.style.color = '#888'; }
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/google/connect`, { method: 'POST' });
+    const d = await r.json();
+    if (!r.ok) { if(msg) { msg.textContent = d.error || 'Failed'; msg.style.color = 'var(--rose)'; } return; }
+    window.location.href = d.url;
+  } catch(e) {
+    if (msg) { msg.textContent = 'Connection failed'; msg.style.color = 'var(--rose)'; }
+  }
+}
+
+async function disconnectGbp() {
+  if (!confirm('Disconnect Google Business Profile? Your synced reviews will be kept.')) return;
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/google/disconnect`, { method: 'POST' });
+    if (r.ok) { toast('Disconnected from Google','success'); loadGoogleStatus(); }
+    else toast('Disconnect failed','error');
+  } catch(e) { toast('Disconnect failed','error'); }
+}
+
+async function openGbpPicker() {
+  const overlay = document.getElementById('gbp-pick-overlay');
+  const list = document.getElementById('gbp-location-list');
+  const err = document.getElementById('gbp-pick-error');
+  const btn = document.getElementById('gbp-pick-save-btn');
+  _gbpSelectedLocation = null;
+  if (btn) btn.disabled = true;
+  if (err) err.style.display = 'none';
+  if (list) list.innerHTML = '<div style="color:#888;font-size:13px">Loading locations…</div>';
+  if (overlay) overlay.style.display = 'flex';
+
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/google/locations`);
+    const d = await r.json();
+    _gbpPickLocations = d.locations || [];
+    if (!_gbpPickLocations.length) {
+      list.innerHTML = '<div style="color:#888;font-size:13px">No locations found in your Google account.</div>';
+      return;
+    }
+    list.innerHTML = _gbpPickLocations.map((loc, i) => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border,#e5ddd0);border-radius:8px;cursor:pointer">
+        <input type="radio" name="gbp-loc" value="${i}" onchange="onGbpLocChange(${i})" style="width:16px;height:16px"/>
+        <div>
+          <div style="font-weight:600;font-size:13px">${esc(loc.title||loc.name)}</div>
+          ${loc.address ? `<div style="font-size:11.5px;color:#888">${esc(loc.address)}</div>` : ''}
+        </div>
+      </label>`).join('');
+  } catch(e) {
+    if (list) list.innerHTML = '<div style="color:var(--rose);font-size:13px">Failed to load locations. Please try again.</div>';
+  }
+}
+
+function onGbpLocChange(i) {
+  _gbpSelectedLocation = _gbpPickLocations[i];
+  const btn = document.getElementById('gbp-pick-save-btn');
+  if (btn) btn.disabled = false;
+}
+
+function closeGbpPicker() {
+  const overlay = document.getElementById('gbp-pick-overlay');
+  if (overlay) overlay.style.display = 'none';
+  _gbpSelectedLocation = null;
+  // Clean up URL param without reload
+  const url = new URL(window.location.href);
+  url.searchParams.delete('google');
+  window.history.replaceState({}, '', url.toString());
+}
+
+async function saveGbpLocation() {
+  if (!_gbpSelectedLocation) return;
+  const btn = document.getElementById('gbp-pick-save-btn');
+  const err = document.getElementById('gbp-pick-error');
+  if (btn) btn.disabled = true;
+  if (err) err.style.display = 'none';
+  try {
+    const r = await fetch(`/api/businesses/${branchId}/google/location`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountName: _gbpSelectedLocation.accountName, locationName: _gbpSelectedLocation.name }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      if (err) { err.textContent = d.error || 'Failed to save location'; err.style.display = 'block'; }
+      if (btn) btn.disabled = false;
+      return;
+    }
+    closeGbpPicker();
+    toast('Google Business Profile connected!', 'success');
+    loadGoogleStatus();
+  } catch(e) {
+    if (err) { err.textContent = 'Request failed — please try again'; err.style.display = 'block'; }
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Handle ?google=pick or ?google=error URL params on page load
+(function handleGoogleCallbackParam() {
+  const params = new URLSearchParams(window.location.search);
+  const gp = params.get('google');
+  if (!gp) return;
+  // Clean the URL immediately so refresh doesn't re-trigger
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete('google');
+  cleanUrl.searchParams.delete('reason');
+  window.history.replaceState({}, '', cleanUrl.toString());
+
+  if (gp === 'pick') {
+    // Wait for the page to finish initializing, then open the picker
+    window.addEventListener('gbp-ready', openGbpPicker, { once: true });
+  } else if (gp === 'error') {
+    const reason = params.get('reason') || 'unknown';
+    window.addEventListener('gbp-ready', () => toast('Google connection failed (' + reason + ')', 'error'), { once: true });
+  }
+})();
+
 async function loadSettings(){
   try {
     if(!business) return;
@@ -3115,6 +3333,8 @@ async function loadSettings(){
     loadBranchApiKeys();
     loadLoyaltySettings();
     loadDeliverySettings();
+    loadGoogleStatus();
+    window.dispatchEvent(new Event('gbp-ready'));
 
   } catch(e) {
     console.error('[loadSettings]', e);

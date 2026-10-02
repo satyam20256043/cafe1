@@ -2419,6 +2419,7 @@ require('./routes/activity')(routeCtx);
 require('./routes/feedback')(routeCtx);
 require('./routes/leads')(routeCtx);
 require('./routes/wa-qr')(routeCtx);
+require('./routes/google')(routeCtx);
 
 // Socket.io Real-time Event Handling
 // -------------------------------------------------------------
