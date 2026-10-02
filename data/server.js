@@ -47,6 +47,7 @@ try {
   console.warn('[Phase1] ⚠ Modules not found, running in legacy JSON mode:', e.message);
 }
 const opsAlerts = require('./ops-alerts');
+const { getGoogleAdapter } = require('./integrations');
 
 
 // Initialize Gemini API client if API key is provided.
@@ -2398,6 +2399,7 @@ const routeCtx = {
   auth,
   db,   // null in JSON mode; SQLite handle when available
   get whatsappClient() { return whatsappClient; }, // live reference
+  getGoogleAdapter,
 };
 
 // whatsappConnectionStatus is a mutable string — keep it live via property
