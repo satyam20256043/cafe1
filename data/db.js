@@ -338,6 +338,89 @@ db.exec(`
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_otp_staff ON password_reset_otps(staff_id, code);
+
+  -- ── Google Business Profile tables (GB1) ──────────────────────────────────
+  CREATE TABLE IF NOT EXISTS google_connections (
+    business_id        TEXT PRIMARY KEY,
+    status             TEXT NOT NULL DEFAULT 'pending_location',
+    google_email       TEXT,
+    account_name       TEXT,
+    location_name      TEXT,
+    location_title     TEXT,
+    maps_uri           TEXT,
+    access_token_enc   TEXT,
+    refresh_token_enc  TEXT,
+    token_expires_at   INTEGER,
+    last_sync_at       TEXT,
+    last_sync_error    TEXT,
+    connected_at       TEXT,
+    connected_by       TEXT,
+    updated_at         TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS google_reviews (
+    review_name     TEXT PRIMARY KEY,
+    business_id     TEXT NOT NULL,
+    reviewer_name   TEXT,
+    reviewer_photo  TEXT,
+    star_rating     INTEGER,
+    comment         TEXT,
+    create_time     TEXT,
+    update_time     TEXT,
+    reply_text      TEXT,
+    reply_time      TEXT,
+    sentiment       TEXT,
+    topics          TEXT,
+    ai_draft        TEXT,
+    draft_status    TEXT DEFAULT 'none',
+    publish_error   TEXT,
+    replied_by      TEXT,
+    synced_at       TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_greviews_biz_time   ON google_reviews(business_id, create_time);
+  CREATE INDEX IF NOT EXISTS idx_greviews_biz_status ON google_reviews(business_id, draft_status);
+
+  CREATE TABLE IF NOT EXISTS google_posts (
+    id               TEXT PRIMARY KEY,
+    business_id      TEXT NOT NULL,
+    topic_type       TEXT NOT NULL DEFAULT 'STANDARD',
+    summary          TEXT NOT NULL,
+    cta_type         TEXT,
+    cta_url          TEXT,
+    title            TEXT,
+    start_date       TEXT,
+    end_date         TEXT,
+    coupon_code      TEXT,
+    image_url        TEXT,
+    status           TEXT NOT NULL DEFAULT 'draft',
+    scheduled_for    TEXT,
+    google_post_name TEXT,
+    attempts         INTEGER DEFAULT 0,
+    last_error       TEXT,
+    ai_generated     INTEGER DEFAULT 0,
+    created_by       TEXT,
+    approved_by      TEXT,
+    created_at       TEXT DEFAULT (datetime('now')),
+    updated_at       TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_gposts_biz_status ON google_posts(business_id, status);
+  CREATE INDEX IF NOT EXISTS idx_gposts_due        ON google_posts(status, scheduled_for);
+
+  CREATE TABLE IF NOT EXISTS google_daily_metrics (
+    business_id  TEXT NOT NULL,
+    date         TEXT NOT NULL,
+    metric       TEXT NOT NULL,
+    value        INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (business_id, date, metric)
+  );
+
+  CREATE TABLE IF NOT EXISTS google_audits (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id  TEXT NOT NULL,
+    score        INTEGER NOT NULL,
+    findings     TEXT NOT NULL,
+    created_at   TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // ── Safe column migrations (handles existing DBs missing columns) ─────────────
@@ -1813,3 +1896,163 @@ function bumpClaudeUsage(businessId, date) {
   return bumpClaudeUsageStmt.get(businessId, date).claude_count;
 }
 Object.assign(module.exports, { getClaudeUsageToday, bumpClaudeUsage });
+
+// ── Google Business Profile accessors (GB1) ───────────────────────────────────
+
+function getGoogleConnection(businessId) {
+  return db.prepare('SELECT * FROM google_connections WHERE business_id = ?').get(businessId) || null;
+}
+
+function upsertGoogleConnection(businessId, fields) {
+  const now = new Date().toISOString();
+  const existing = getGoogleConnection(businessId);
+  if (!existing) {
+    const cols = ['business_id', 'updated_at', ...Object.keys(fields)];
+    const vals = [businessId, now, ...Object.values(fields)];
+    const placeholders = cols.map(() => '?').join(',');
+    db.prepare(`INSERT INTO google_connections (${cols.join(',')}) VALUES (${placeholders})`).run(...vals);
+  } else {
+    const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+    db.prepare(`UPDATE google_connections SET ${sets}, updated_at = ? WHERE business_id = ?`).run(...Object.values(fields), now, businessId);
+  }
+  return getGoogleConnection(businessId);
+}
+
+// Returns { inserted: boolean } — GB5 uses this to detect new-vs-updated rows.
+function upsertGoogleReview(review) {
+  const existing = db.prepare('SELECT review_name FROM google_reviews WHERE review_name = ?').get(review.review_name);
+  const now = new Date().toISOString();
+  if (!existing) {
+    const cols = ['synced_at', ...Object.keys(review)];
+    const vals = [now, ...Object.values(review)];
+    const placeholders = cols.map(() => '?').join(',');
+    db.prepare(`INSERT INTO google_reviews (${cols.join(',')}) VALUES (${placeholders})`).run(...vals);
+    return { inserted: true };
+  }
+  // On update: overwrite Google-owned fields; preserve our draft fields via updateGoogleReviewDraft.
+  const sets = Object.keys(review).map(k => `${k} = ?`).join(', ');
+  db.prepare(`UPDATE google_reviews SET ${sets}, synced_at = ? WHERE review_name = ?`).run(...Object.values(review), now, review.review_name);
+  return { inserted: false };
+}
+
+function updateGoogleReviewDraft(reviewName, patch) {
+  const col = { sentiment: 'sentiment', topics: 'topics', aiDraft: 'ai_draft',
+    draftStatus: 'draft_status', publishError: 'publish_error',
+    repliedBy: 'replied_by', replyText: 'reply_text', replyTime: 'reply_time' };
+  const fields = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (col[k] !== undefined && v !== undefined) {
+      fields[col[k]] = k === 'topics' && Array.isArray(v) ? JSON.stringify(v) : v;
+    }
+  }
+  if (Object.keys(fields).length === 0) return;
+  const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+  db.prepare(`UPDATE google_reviews SET ${sets} WHERE review_name = ?`).run(...Object.values(fields), reviewName);
+}
+
+function listGoogleReviews(businessId, { filter, limit, offset } = {}) {
+  const safeFilter = filter || 'needs_reply';
+  const safeLimit  = Math.min(Math.max(1, parseInt(limit)  || 20),  100);
+  const safeOffset = Math.max(0, parseInt(offset) || 0);
+  let extra = '';
+  if (safeFilter === 'needs_reply') extra = " AND (reply_text IS NULL OR reply_text = '')";
+  else if (safeFilter === 'negative') extra = ' AND star_rating <= 3';
+  else if (safeFilter === 'replied') extra = " AND reply_text IS NOT NULL AND reply_text != ''";
+  const rows = db.prepare(`SELECT * FROM google_reviews WHERE business_id = ?${extra} ORDER BY create_time DESC LIMIT ? OFFSET ?`).all(businessId, safeLimit, safeOffset);
+  return rows.map(r => ({ ...r, topics: r.topics ? JSON.parse(r.topics) : [] }));
+}
+
+function countGoogleReviewSummary(businessId) {
+  const total      = db.prepare('SELECT COUNT(*) as n FROM google_reviews WHERE business_id = ?').get(businessId).n;
+  const needsReply = db.prepare("SELECT COUNT(*) as n FROM google_reviews WHERE business_id = ? AND (reply_text IS NULL OR reply_text = '')").get(businessId).n;
+  const negativeNeedsReply = db.prepare("SELECT COUNT(*) as n FROM google_reviews WHERE business_id = ? AND star_rating <= 3 AND (reply_text IS NULL OR reply_text = '')").get(businessId).n;
+  const avgRow     = db.prepare('SELECT AVG(star_rating) as avg FROM google_reviews WHERE business_id = ?').get(businessId);
+  const avgRating  = avgRow && avgRow.avg ? Math.round(avgRow.avg * 10) / 10 : null;
+  const since90    = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const total90    = db.prepare('SELECT COUNT(*) as n FROM google_reviews WHERE business_id = ? AND create_time >= ?').get(businessId, since90).n;
+  const replied90  = db.prepare("SELECT COUNT(*) as n FROM google_reviews WHERE business_id = ? AND create_time >= ? AND reply_text IS NOT NULL AND reply_text != ''").get(businessId, since90).n;
+  const responseRate90d = total90 > 0 ? Math.round((replied90 / total90) * 100) : null;
+  return { total, needsReply, negativeNeedsReply, avgRating, responseRate90d };
+}
+
+// ── Google posts ──────────────────────────────────────────────────────────────
+
+function createGooglePost(fields) {
+  const id  = 'gp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  const now = new Date().toISOString();
+  const cols = ['id', 'created_at', 'updated_at', ...Object.keys(fields)];
+  const vals = [id, now, now, ...Object.values(fields)];
+  const ph   = cols.map(() => '?').join(',');
+  db.prepare(`INSERT INTO google_posts (${cols.join(',')}) VALUES (${ph})`).run(...vals);
+  return db.prepare('SELECT * FROM google_posts WHERE id = ?').get(id);
+}
+
+function updateGooglePost(id, fields) {
+  const now  = new Date().toISOString();
+  const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+  db.prepare(`UPDATE google_posts SET ${sets}, updated_at = ? WHERE id = ?`).run(...Object.values(fields), now, id);
+  return db.prepare('SELECT * FROM google_posts WHERE id = ?').get(id);
+}
+
+function getGooglePost(id) {
+  return db.prepare('SELECT * FROM google_posts WHERE id = ?').get(id) || null;
+}
+
+function listGooglePosts(businessId, { status, limit, offset } = {}) {
+  const safeLimit  = Math.min(Math.max(1, parseInt(limit)  || 20), 100);
+  const safeOffset = Math.max(0, parseInt(offset) || 0);
+  let where  = 'business_id = ?';
+  const params = [businessId];
+  if (status) { where += ' AND status = ?'; params.push(status); }
+  return db.prepare(`SELECT * FROM google_posts WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(...params, safeLimit, safeOffset);
+}
+
+// Atomic publish claim — returns true only if THIS call won the race.
+function claimGooglePostForPublishing(id) {
+  const result = db.prepare(
+    "UPDATE google_posts SET status='publishing', updated_at=datetime('now') WHERE id=? AND status IN ('draft','scheduled')"
+  ).run(id);
+  return result.changes === 1;
+}
+
+// ── Google daily metrics ──────────────────────────────────────────────────────
+
+function upsertGoogleMetric(businessId, date, metric, value) {
+  db.prepare(`
+    INSERT INTO google_daily_metrics (business_id, date, metric, value) VALUES (?, ?, ?, ?)
+    ON CONFLICT(business_id, date, metric) DO UPDATE SET value = excluded.value
+  `).run(businessId, date, metric, value);
+}
+
+function getGoogleMetrics(businessId, { days, metrics } = {}) {
+  const safeDays = parseInt(days) || 28;
+  const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  let q = 'SELECT date, metric, value FROM google_daily_metrics WHERE business_id = ? AND date >= ?';
+  const params = [businessId, since];
+  if (metrics && metrics.length) {
+    q += ' AND metric IN (' + metrics.map(() => '?').join(',') + ')';
+    params.push(...metrics);
+  }
+  return db.prepare(q + ' ORDER BY date ASC').all(...params);
+}
+
+// ── Google audits ─────────────────────────────────────────────────────────────
+
+function saveGoogleAudit(businessId, score, findings) {
+  db.prepare('INSERT INTO google_audits (business_id, score, findings) VALUES (?, ?, ?)').run(businessId, score, JSON.stringify(findings));
+}
+
+function getLatestGoogleAudits(businessId, limit) {
+  const n = parseInt(limit) || 2;
+  return db.prepare('SELECT * FROM google_audits WHERE business_id = ? ORDER BY created_at DESC LIMIT ?').all(businessId, n).map(r => ({
+    ...r, findings: JSON.parse(r.findings),
+  }));
+}
+
+Object.assign(module.exports, {
+  getGoogleConnection, upsertGoogleConnection,
+  upsertGoogleReview, updateGoogleReviewDraft, listGoogleReviews, countGoogleReviewSummary,
+  createGooglePost, updateGooglePost, getGooglePost, listGooglePosts, claimGooglePostForPublishing,
+  upsertGoogleMetric, getGoogleMetrics,
+  saveGoogleAudit, getLatestGoogleAudits,
+});
