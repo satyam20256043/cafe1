@@ -1805,8 +1805,16 @@ function showBrowserNotif(title, body, tag){
   setTimeout(()=>delete _notifShown[key], 10000);
 }
 
-// Escape HTML
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// Escape HTML — safe for text nodes and quoted attribute values (escapes & < > " ').
+// NOT enough for a JS string inside an inline handler (onclick="f('${esc(x)}')"): the
+// browser decodes the entities again before it parses the handler code. Pass such
+// values through data-* attributes (this.dataset.x) or look them up by index instead.
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+// For href="" — esc() stops attribute breakout but not javascript: URLs.
+function safeUrl(u){
+  try { return /^https?:$/.test(new URL(u, location.href).protocol) ? esc(u) : '#'; }
+  catch(e){ return '#'; }
+}
 
 // Skeleton loading placeholders (UI6) — table rows and list blocks
 function skelRows(cols, rows){
@@ -1928,9 +1936,9 @@ async function loadBranch(){
       <div>⏰ ${esc(business.timings)}</div>
       <div>📞 ${esc(business.contact)}</div>
       <div>📶 ${esc(business.wifi)}</div>
-      <div>🔗 <a href="${esc(business.map)}" target="_blank" style="color:var(--caramel)">Google Maps</a></div>
-      <div>⭐ <a href="${esc(business.review)}" target="_blank" style="color:var(--caramel)">Review Page</a></div>
-      ${business.website ? `<div>🌐 <a href="${esc(business.website)}" target="_blank" style="color:var(--caramel)">Website</a></div>` : ''}
+      <div>🔗 <a href="${safeUrl(business.map)}" target="_blank" style="color:var(--caramel)">Google Maps</a></div>
+      <div>⭐ <a href="${safeUrl(business.review)}" target="_blank" style="color:var(--caramel)">Review Page</a></div>
+      ${business.website ? `<div>🌐 <a href="${safeUrl(business.website)}" target="_blank" style="color:var(--caramel)">Website</a></div>` : ''}
     `;
     renderTrialBanner();
     await loadOverviewKPIs();
@@ -2093,7 +2101,7 @@ function renderChatConvos(list){
     const preview = esc((c.last_message || '').slice(0, 90));
     const arrow  = c.last_direction === 'out' ? '↗ ' : '↙ ';
     const icon   = CHAT_CHANNEL_ICONS[c.channel] || '💬';
-    return `<div class="convo-item" onclick="openChatThread('${esc(phone).replace(/'/g,'')}','${esc(name).replace(/'/g,'')}')">
+    return `<div class="convo-item" data-phone="${esc(phone)}" data-name="${esc(name)}" onclick="openChatThread(this.dataset.phone,this.dataset.name)">
       <div class="convo-avatar">${icon}</div>
       <div class="convo-info">
         <div class="convo-name">${name ? esc(name) : 'Customer'}</div>
@@ -2216,7 +2224,7 @@ async function loadSetupChecklist(){
       { key:'menuDone',    done: s.menuDone,          label:'Add your menu items',        action:`showTab('menu',document.querySelector('.nav-item[onclick*=menu]'))`,  cta:'Go to Menu' },
       { key:'qrDone',      done: s.qrDone,             label:'Print your table QR codes',  action:"markQrDoneAndGo()",  cta:'Go to QR Codes' },
       { key:'whatsapp',    done: s.whatsappConnected,  label:'Connect WhatsApp',            action:`showTab('settings',document.querySelector('.nav-item[onclick*=settings]'))`, cta:'Go to Settings' },
-      { key:'firstOrder',  done: s.hasFirstOrder,      label:'Place a test order',          action:`window.open('/order/${branchId}?table=test','_blank')`, cta:'Open Order Page' },
+      { key:'firstOrder',  done: s.hasFirstOrder,      label:'Place a test order',          action:"window.open('/order/'+encodeURIComponent(branchId)+'?table=test','_blank')", cta:'Open Order Page' },
     ];
     if (steps.every(st => st.done)) return; // all done — card stays hidden
 
@@ -2279,7 +2287,7 @@ async function loadOverviewKPIs(){
       <td><strong>${esc(r.name)}</strong></td>
       <td>${r.guests}</td>
       <td>${esc(r.datetime)}</td>
-      <td><span class="badge ${r.status}">${r.status}</span></td>
+      <td><span class="badge ${esc(r.status)}">${esc(r.status)}</span></td>
     </tr>`).join(''):'<tr><td colspan="4" style="color:#bbb;text-align:center;padding:16px">No reservations yet</td></tr>';
     // Auto-pilot state
     const sRes=await fetch(`/api/businesses/${branchId}/analytics`);
@@ -2362,7 +2370,7 @@ async function loadReservations(){
       <td data-label="Phone">${esc(r.phone||'—')}</td>
       <td data-label="Guests">${r.guests}</td>
       <td data-label="When">${esc(r.datetime)}</td>
-      <td data-label="Status"><span class="badge ${r.status}">${r.status}</span></td>
+      <td data-label="Status"><span class="badge ${esc(r.status)}">${esc(r.status)}</span></td>
       <td data-label="Actions" style="display:flex;gap:6px;flex-wrap:wrap">
         ${
         r.status==='pending'   ? `<button class="btn sm success" onclick="updateRes('${r.id}','approved')">✓ Approve</button><button class="btn sm danger" onclick="updateRes('${r.id}','rejected')">✗ Cancel</button>` :
@@ -2700,9 +2708,9 @@ function renderMenuEditor(){
         <select class="form-input" onchange="onMenuCategoryChange(${i},this)">${catOptionsHtml(item.category)}<option value="__custom__">+ Custom…</option></select>
         <input class="form-input menu-cat-custom" style="display:none;font-size:12px" placeholder="New category" onchange="setCustomCategory(${i},this.value)"/>
       </div>
-      <input class="form-input" type="number" value="${item.price}" onchange="menuData[${i}].price=+this.value" placeholder="₹"/>
-      <input class="form-input" type="number" value="${item.discount||0}" onchange="menuData[${i}].discount=+this.value" placeholder="%" title="Standard discount shown to customers"/>
-      <input class="form-input" type="number" min="0" max="100" value="${item.aiMaxDiscount||0}" onchange="menuData[${i}].aiMaxDiscount=Math.max(0,Math.min(100,Math.round(+this.value||0)));this.value=menuData[${i}].aiMaxDiscount" placeholder="%" title="Max % the AI may offer on this item (0 = use café-wide limit)" style="border-color:var(--caramel)"/>
+      <input class="form-input" type="number" value="${esc(String(item.price))}" onchange="menuData[${i}].price=+this.value" placeholder="₹"/>
+      <input class="form-input" type="number" value="${esc(String(item.discount||0))}" onchange="menuData[${i}].discount=+this.value" placeholder="%" title="Standard discount shown to customers"/>
+      <input class="form-input" type="number" min="0" max="100" value="${esc(String(item.aiMaxDiscount||0))}" onchange="menuData[${i}].aiMaxDiscount=Math.max(0,Math.min(100,Math.round(+this.value||0)));this.value=menuData[${i}].aiMaxDiscount" placeholder="%" title="Max % the AI may offer on this item (0 = use café-wide limit)" style="border-color:var(--caramel)"/>
       <div style="display:flex;flex-direction:column;gap:4px" title="Shown to customers on the ordering page">
         <select class="form-input" style="font-size:11px;padding:6px 8px" onchange="menuData[${i}].isVeg=this.value===''?undefined:(this.value==='veg')">
           <option value=""${item.isVeg===undefined?' selected':''}>— Veg/Non-veg —</option>
@@ -2793,7 +2801,7 @@ async function loadCRM(){
       <td data-label="Name"><strong>${esc(c.name||'—')}</strong></td>
       <td data-label="Phone" style="font-family:monospace;font-size:12px">${esc(c.phone)}</td>
       <td data-label="Visits">${c.visits||0}</td>
-      <td data-label="Tier"><span class="badge ${(c.loyaltyTier||'new').toLowerCase().replace(' ','')}">${c.loyaltyTier||'New'}</span></td>
+      <td data-label="Tier"><span class="badge ${esc((c.loyaltyTier||'new').toLowerCase().replace(' ',''))}">${esc(c.loyaltyTier||'New')}</span></td>
       <td data-label="Tags" style="max-width:180px"><div style="display:flex;gap:4px;flex-wrap:wrap">${(c.tags||[]).slice(0,3).map(t=>`<span style="font-size:10px;background:var(--foam);color:var(--coffee);padding:2px 7px;border-radius:12px">${esc(t)}</span>`).join('')}</div></td>
       <td data-label="Avg Rating">${c.averageRating?c.averageRating+'★':'—'}</td>
       <td data-label="Last Active" style="font-size:12px;color:#aaa">${esc(c.lastActive||'—')}</td>
@@ -2858,6 +2866,7 @@ socket.on('campaign_broadcast_result',data=>{
 });
 
 // Feedback
+let feedbackRows = []; // as rendered (newest first) — the Reply buttons pass an index into this
 async function loadFeedback(){
   try {
     const r=await fetch(`/api/businesses/${branchId}/feedback`);
@@ -2867,7 +2876,8 @@ async function loadFeedback(){
       el.innerHTML='<div class="empty-state"><div class="empty-icon">⭐</div><div class="empty-text">No feedback yet</div></div>';
       return;
     }
-    el.innerHTML=[...feedback].reverse().map(f=>`
+    feedbackRows=[...feedback].reverse();
+    el.innerHTML=feedbackRows.map((f,i)=>`
       <div class="feedback-card">
         <div class="fb-head">
           <div>
@@ -2882,7 +2892,7 @@ async function loadFeedback(){
         <div class="fb-comment">${esc(f.comment)}</div>
         ${f.managerReply?`<div class="fb-reply"><div class="fb-reply-label">Manager Reply</div>${esc(f.managerReply)}</div>`:''}
         <div style="display:flex;gap:8px;margin-top:10px">
-          ${!f.managerReply?`<button class="btn sm primary" onclick="openReplyModal('${f.id}','${esc(f.customerName)}',${f.rating},'${esc(f.comment)}')">Reply</button>`:'<button class="btn sm" onclick="openReplyModal(\''+f.id+'\',\''+esc(f.customerName)+'\','+f.rating+',\''+esc(f.comment)+'\')">Edit Reply</button>'}
+          ${!f.managerReply?`<button class="btn sm primary" onclick="openReplyModal(${i})">Reply</button>`:`<button class="btn sm" onclick="openReplyModal(${i})">Edit Reply</button>`}
         </div>
       </div>`).join('');
 
@@ -2892,9 +2902,11 @@ async function loadFeedback(){
   }
 }
 
-function openReplyModal(id, name, rating, comment){
-  currentFeedbackId=id;
-  document.getElementById('reply-feedback-info').innerHTML=`<strong>${esc(name)}</strong> — ${'★'.repeat(rating)}${'☆'.repeat(5-rating)}<br/><span style="color:#666">${esc(comment)}</span>`;
+function openReplyModal(i){
+  const f=feedbackRows[i];
+  if(!f) return;
+  currentFeedbackId=f.id;
+  document.getElementById('reply-feedback-info').innerHTML=`<strong>${esc(f.customerName)}</strong> — ${'★'.repeat(f.rating)}${'☆'.repeat(5-f.rating)}<br/><span style="color:#666">${esc(f.comment)}</span>`;
   document.getElementById('reply-text').value='';
   document.getElementById('reply-modal').classList.add('open');
 }
@@ -2967,7 +2979,7 @@ function renderCampaigns(){
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
         <div>
           <strong style="font-size:13.5px">${esc(s.customerName)}</strong>
-          <span class="badge ${(s.loyaltyTier||'new').toLowerCase().replace(' ','')}" style="margin-left:8px">${s.loyaltyTier||'New'}</span>
+          <span class="badge ${esc((s.loyaltyTier||'new').toLowerCase().replace(' ',''))}" style="margin-left:8px">${esc(s.loyaltyTier||'New')}</span>
         </div>
         <span class="badge ${s.status==='approved'?'approved':'pending'}">${s.status}</span>
       </div>
@@ -3009,6 +3021,7 @@ async function triggerAutoPilot(){
 }
 
 // Offer Requests
+let offerRows = []; // as rendered (newest first) — the Approve buttons pass an index into this
 async function loadOffers(){
   try {
     const r=await fetch(`/api/businesses/${branchId}/offers`);
@@ -3018,7 +3031,8 @@ async function loadOffers(){
       el.innerHTML='<div class="empty-state"><div class="empty-icon">🏷️</div><div class="empty-text">No pending offer requests</div></div>';
       return;
     }
-    el.innerHTML=[...offers].reverse().map(o=>`
+    offerRows=[...offers].reverse();
+    el.innerHTML=offerRows.map((o,i)=>`
       <div class="offer-req-row">
         <div class="offer-req-info">
           <div class="offer-req-name">${esc(o.customerName||'Customer')} <span style="font-size:11px;color:#aaa;font-weight:400">${esc(o.phone)}</span></div>
@@ -3028,7 +3042,7 @@ async function loadOffers(){
         <span class="badge ${o.status}">${o.status}</span>
         ${o.status==='pending'?`
           <div style="display:flex;flex-direction:column;gap:6px">
-            <button class="btn sm success" onclick="openApproveOffer('${o.id}','${esc(o.customerName)}','${esc(o.requestText)}')">Approve</button>
+            <button class="btn sm success" onclick="openApproveOffer(${i})">Approve</button>
             <button class="btn sm danger" onclick="rejectOffer('${o.id}')">Reject</button>
           </div>`:''}
       </div>`).join('');
@@ -3039,9 +3053,11 @@ async function loadOffers(){
   }
 }
 
-function openApproveOffer(id, name, text){
-  currentOfferId=id;
-  document.getElementById('approve-offer-info').textContent=`${name} requested: "${text}"`;
+function openApproveOffer(i){
+  const o=offerRows[i];
+  if(!o) return;
+  currentOfferId=o.id;
+  document.getElementById('approve-offer-info').textContent=`${o.customerName||'Customer'} requested: "${o.requestText||''}"`;
   document.getElementById('approve-offer-text').value='Special discount approved! Enjoy 15% off on your next visit 🎁';
   document.getElementById('approve-offer-modal').classList.add('open');
 }
@@ -3834,14 +3850,14 @@ function renderApprovalQueue(orders) {
   if (!orders.length) { panel.style.display = 'none'; return; }
   panel.style.display = 'block';
   list.innerHTML = orders.map(o => {
-    const items = (o.items||[]).map(i => i.name + ' x' + i.qty).join(', ');
+    const items = (o.items||[]).map(i => esc(i.name) + ' x' + i.qty).join(', ');
     const feeLine = (o.delivery_fee > 0) ? ` <span style="color:#999;font-weight:400">(incl. ₹${o.delivery_fee} delivery)</span>` : '';
     const dt = new Date(o.created_at).toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'});
     return '<div class="order-card" id="approval-'+o.id+'">'+
       '<div class="order-card-top">'+
         '<div>'+
-          '<div class="order-id">#'+o.id.slice(-6).toUpperCase()+' — '+(o.customer_name||'Customer')+'</div>'+
-          '<div class="order-meta">'+dt+' · '+(o.customer_phone||'no phone')+' · '+(o.delivery_address||'no address given')+'</div>'+
+          '<div class="order-id">#'+o.id.slice(-6).toUpperCase()+' — '+esc(o.customer_name||'Customer')+'</div>'+
+          '<div class="order-meta">'+dt+' · '+esc(o.customer_phone||'no phone')+' · '+esc(o.delivery_address||'no address given')+'</div>'+
         '</div>'+
       '</div>'+
       '<div class="order-items-list">'+items+'</div>'+
@@ -3890,7 +3906,7 @@ function renderOrdersList(orders) {
   };
   container.innerHTML = orders.map(o => {
     const badge = '<span class="order-badge badge-' + o.status + '">' + o.status.replace(/_/g,' ') + '</span>';
-    const items = (o.items||[]).map(i => i.name + ' x' + i.qty).join(', ');
+    const items = (o.items||[]).map(i => esc(i.name) + ' x' + i.qty).join(', ');
     const dt = new Date(o.created_at).toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',month:'short',day:'numeric'});
     const statusFlow = (o.order_type === 'delivery') ? DELIVERY_FLOW : DINE_FLOW;
     const idx = statusFlow.indexOf(o.status);
@@ -3900,12 +3916,12 @@ function renderOrdersList(orders) {
     ).join('');
     const cancelBtn = !['served','delivered','cancelled'].includes(o.status)
       ? '<button class="status-btn" style="color:#c0392b;border-color:#f5c6cb" onclick="updateOrderStatus(\''+o.id+'\',\'cancelled\')">Cancel</button>' : '';
-    const tableInfo = (o.table_no||o.tableNo) ? ' · Table ' + (o.table_no||o.tableNo) : '';
+    const tableInfo = (o.table_no||o.tableNo) ? ' · Table ' + esc(o.table_no||o.tableNo) : '';
     return '<div class="order-card" id="ocard-'+o.id+'">'+
       '<div class="order-card-top">'+
         '<div>'+
-          '<div class="order-id">#'+o.id.slice(-6).toUpperCase()+' — '+(o.customer_name||o.customerName)+'</div>'+
-          '<div class="order-meta">'+dt+' · '+(o.order_type||'dine_in')+tableInfo+' · '+(o.payment_method||'cash')+'</div>'+
+          '<div class="order-id">#'+o.id.slice(-6).toUpperCase()+' — '+esc(o.customer_name||o.customerName)+'</div>'+
+          '<div class="order-meta">'+dt+' · '+esc(o.order_type||'dine_in')+tableInfo+' · '+esc(o.payment_method||'cash')+'</div>'+
         '</div>'+badge+
       '</div>'+
       '<div class="order-items-list">'+items+'</div>'+
@@ -3966,11 +3982,11 @@ function renderNoItems() {
     const qty = _noCart[m.id] || 0;
     const price = m.discount ? (m.price*(1-m.discount/100)) : m.price;
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 4px;border-bottom:1px solid var(--border)">'+
-      '<div><div style="font-size:13.5px;color:var(--espresso)">'+m.name+'</div><div style="font-size:11px;color:#aaa">₹'+price.toFixed(0)+(m.discount?' (was ₹'+m.price+')':'')+'</div></div>'+
+      '<div><div style="font-size:13.5px;color:var(--espresso)">'+esc(m.name)+'</div><div style="font-size:11px;color:#aaa">₹'+price.toFixed(0)+(m.discount?' (was ₹'+esc(m.price)+')':'')+'</div></div>'+
       '<div style="display:flex;align-items:center;gap:8px">'+
-        '<button class="btn sm" onclick="noChangeQty(\''+m.id+'\',-1)" style="width:28px;padding:4px 0">−</button>'+
+        '<button class="btn sm" data-id="'+esc(String(m.id))+'" onclick="noChangeQty(this.dataset.id,-1)" style="width:28px;padding:4px 0">−</button>'+
         '<span style="min-width:18px;text-align:center;font-size:13px">'+qty+'</span>'+
-        '<button class="btn sm" onclick="noChangeQty(\''+m.id+'\',1)" style="width:28px;padding:4px 0">+</button>'+
+        '<button class="btn sm" data-id="'+esc(String(m.id))+'" onclick="noChangeQty(this.dataset.id,1)" style="width:28px;padding:4px 0">+</button>'+
       '</div>'+
     '</div>';
   }).join('');
@@ -4107,7 +4123,7 @@ async function loadRevenue() {
       topEl.innerHTML = data.topItems.map((item,i) =>
         '<div class="top-item-row">'+
           '<span style="font-size:12px;min-width:20px;color:#999">'+(i+1)+'</span>'+
-          '<span style="font-size:13px;flex:none;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.name+'</span>'+
+          '<span style="font-size:13px;flex:none;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(item.name)+'</span>'+
           '<div class="top-item-bar-wrap"><div class="top-item-bar" style="width:'+Math.round((item.qty/max)*100)+'%"></div></div>'+
           '<span style="font-size:12px;color:var(--caramel);min-width:28px;text-align:right">'+item.qty+'</span>'+
         '</div>'
@@ -4281,8 +4297,8 @@ function renderLeaderboard(rows) {
     <tr style="border-bottom:1px solid rgba(255,255,255,0.04);transition:background 0.15s" onmouseover="this.style.background='rgba(196,127,58,0.06)'" onmouseout="this.style.background=''">
       <td style="padding:10px 16px;color:#888;font-family:'Cormorant Garamond',serif;font-size:16px">${medals[i]||i+1}</td>
       <td data-label="Customer" style="padding:10px 16px">
-        <div style="font-weight:500;color:#e0e0e0">${r.name||'Guest'}</div>
-        <div style="font-size:11px;color:#666">${r.phone||''}</div>
+        <div style="font-weight:500;color:#e0e0e0">${esc(r.name||'Guest')}</div>
+        <div style="font-size:11px;color:#666">${esc(r.phone||'')}</div>
       </td>
       <td data-label="Tier" style="padding:10px 16px">${tierBadge(r.tier)}</td>
       <td data-label="Points" style="padding:10px 16px;text-align:right;color:var(--caramel);font-family:'Cormorant Garamond',serif;font-size:18px">${(r.points||0).toLocaleString('en-IN')}</td>
@@ -4303,14 +4319,14 @@ function renderBirthdays(rows) {
     const label = (d.getDate()).toString().padStart(2,'0') + ' ' + d.toLocaleString('en-IN',{month:'short'});
     return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
       <td style="padding:10px 16px">
-        <div style="font-weight:500;color:#e0e0e0">${r.name||'Guest'}</div>
+        <div style="font-weight:500;color:#e0e0e0">${esc(r.name||'Guest')}</div>
       </td>
-      <td style="padding:10px 16px;color:#aaa;font-size:13px">${r.phone||''}</td>
+      <td style="padding:10px 16px;color:#aaa;font-size:13px">${esc(r.phone||'')}</td>
       <td style="padding:10px 16px">
         <span style="background:rgba(201,168,76,0.12);color:var(--caramel);padding:2px 10px;border-radius:10px;font-size:12px">🎂 ${label}</span>
       </td>
       <td style="padding:10px 16px;text-align:right">
-        <button class="btn sm primary" onclick="sendSingleBday('${r.phone}','${(r.name||'Guest').replace(/'/g,"\'")}')">
+        <button class="btn sm primary" data-phone="${esc(String(r.phone))}" data-name="${esc(r.name||'Guest')}" onclick="sendSingleBday(this.dataset.phone,this.dataset.name)">
           <svg width="11" height="11" fill="currentColor" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           Wish
         </button>
@@ -4329,10 +4345,10 @@ async function loadLoyaltyActivity() {
     const typeColor = { earn:'#7ECF7E', redeem_stamps:'#C47F3A', redeem_points:'#C47F3A', adjust:'#4A9CC5', stamp:'#C9A84C' };
     tbody.innerHTML = rows.slice(0,30).map(r => `
       <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
-        <td style="padding:8px 16px;color:#e0e0e0">${r.customer_name||r.phone||'—'}</td>
+        <td style="padding:8px 16px;color:#e0e0e0">${esc(r.customer_name||r.phone||'—')}</td>
         <td style="padding:8px 16px"><span style="color:${typeColor[r.type]||'#aaa'};font-size:12px;text-transform:capitalize">${r.type||''}</span></td>
         <td style="padding:8px 16px;text-align:right;color:var(--caramel);font-family:'Cormorant Garamond',serif;font-size:15px">${r.type==='stamp'?(r.stamps+' ☕'):(r.points>0?'+':'')+r.points+' pts'}</td>
-        <td style="padding:8px 16px;color:#666;font-size:12px">${r.description||''}</td>
+        <td style="padding:8px 16px;color:#666;font-size:12px">${esc(r.description||'')}</td>
       </tr>`).join('');
   } catch(e) {}
 }
@@ -4427,7 +4443,7 @@ async function loadReviewClaims() {
         </td>
         <td style="padding:11px 14px;white-space:nowrap">
           ${c.status === 'pending' ? `
-            <a href="${business && business.review ? business.review : '#'}" target="_blank"
+            <a href="${business && business.review ? safeUrl(business.review) : '#'}" target="_blank"
                class="btn sm" style="font-size:11px;text-decoration:none;margin-right:4px">Check Google</a>
             <button class="btn sm primary" style="font-size:11px;margin-right:4px"
               onclick="approveReviewClaim('${c.id}')">✓ Approve</button>
@@ -4526,7 +4542,7 @@ async function loadClients() {
       const status  = b.subscriptionStatus || 'active';
       const sColor  = STATUS_C[status] || '#aaa';
       const sLabel  = STATUS_L[status] || status;
-      const color   = b.brandColor || '#c47f3a';
+      const color   = /^#[0-9a-fA-F]{6}$/.test(b.brandColor) ? b.brandColor : '#c47f3a'; // goes into style=""
       const emoji   = EMOJI[idx % EMOJI.length];
 
       // Trial progress bar
@@ -4551,7 +4567,7 @@ async function loadClients() {
             <div style="font-family:var(--font-display);font-size:15px;color:var(--espresso);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.name||b.id)}</div>
             <div style="font-size:11px;color:#aaa;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.location||b.id)}</div>
           </div>
-          <span style="background:${sColor}22;color:${sColor};font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:12px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">${sLabel}</span>
+          <span style="background:${sColor}22;color:${sColor};font-size:9.5px;font-weight:700;padding:3px 9px;border-radius:12px;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">${esc(sLabel)}</span>
         </div>
 
         <!-- Stats row -->
@@ -4574,12 +4590,12 @@ async function loadClients() {
 
         <!-- Action buttons -->
         <div style="padding:12px 14px;display:flex;gap:7px">
-          <a href="/manager/${b.id}" target="_blank" style="flex:2;text-align:center;padding:8px 6px;background:var(--espresso);color:#fff;border-radius:9px;font-size:12px;font-weight:600;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">📊 Dashboard</a>
-          <a href="/portal/${b.id}" target="_blank" style="flex:1;text-align:center;padding:8px 4px;background:rgba(196,127,58,0.08);color:var(--caramel);border:1px solid rgba(196,127,58,0.2);border-radius:9px;font-size:11.5px;font-weight:500;text-decoration:none" onmouseover="this.style.background='rgba(196,127,58,0.18)'" onmouseout="this.style.background='rgba(196,127,58,0.08)'">🔑 Portal</a>
-          <a href="/kitchen.html?branch=${b.id}" target="_blank" style="flex:1;text-align:center;padding:8px 4px;background:rgba(74,144,196,0.1);color:var(--sky);border:1px solid rgba(74,144,196,0.25);border-radius:9px;font-size:11.5px;font-weight:500;text-decoration:none" onmouseover="this.style.background='rgba(74,144,196,0.2)'" onmouseout="this.style.background='rgba(74,144,196,0.1)'">🍳 Kitchen</a>
+          <a href="/manager/${esc(b.id)}" target="_blank" style="flex:2;text-align:center;padding:8px 6px;background:var(--espresso);color:#fff;border-radius:9px;font-size:12px;font-weight:600;text-decoration:none;transition:opacity 0.15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">📊 Dashboard</a>
+          <a href="/portal/${esc(b.id)}" target="_blank" style="flex:1;text-align:center;padding:8px 4px;background:rgba(196,127,58,0.08);color:var(--caramel);border:1px solid rgba(196,127,58,0.2);border-radius:9px;font-size:11.5px;font-weight:500;text-decoration:none" onmouseover="this.style.background='rgba(196,127,58,0.18)'" onmouseout="this.style.background='rgba(196,127,58,0.08)'">🔑 Portal</a>
+          <a href="/kitchen.html?branch=${esc(b.id)}" target="_blank" style="flex:1;text-align:center;padding:8px 4px;background:rgba(74,144,196,0.1);color:var(--sky);border:1px solid rgba(74,144,196,0.25);border-radius:9px;font-size:11.5px;font-weight:500;text-decoration:none" onmouseover="this.style.background='rgba(74,144,196,0.2)'" onmouseout="this.style.background='rgba(74,144,196,0.1)'">🍳 Kitchen</a>
           ${status !== 'active'
-            ? `<button onclick="setClientStatus('${b.id}','active')" style="flex:1;padding:8px 4px;background:rgba(122,158,126,0.1);color:var(--sage);border:1px solid rgba(122,158,126,0.25);border-radius:9px;font-size:11px;font-weight:600;cursor:pointer">✓ Activate</button>`
-            : `<button onclick="setClientStatus('${b.id}','paused')" style="flex:1;padding:8px 4px;background:rgba(196,97,106,0.08);color:var(--rose);border:1px solid rgba(196,97,106,0.2);border-radius:9px;font-size:11px;font-weight:600;cursor:pointer">⏸ Pause</button>`}
+            ? `<button data-id="${esc(b.id)}" onclick="setClientStatus(this.dataset.id,'active')" style="flex:1;padding:8px 4px;background:rgba(122,158,126,0.1);color:var(--sage);border:1px solid rgba(122,158,126,0.25);border-radius:9px;font-size:11px;font-weight:600;cursor:pointer">✓ Activate</button>`
+            : `<button data-id="${esc(b.id)}" onclick="setClientStatus(this.dataset.id,'paused')" style="flex:1;padding:8px 4px;background:rgba(196,97,106,0.08);color:var(--rose);border:1px solid rgba(196,97,106,0.2);border-radius:9px;font-size:11px;font-weight:600;cursor:pointer">⏸ Pause</button>`}
         </div>
       </div>`;
     }).join('');
@@ -4719,10 +4735,10 @@ async function loadAtRiskCustomers() {
       <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="width:36px;height:36px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">⚠️</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:13px">${c.name||'Customer'}</div>
-          <div style="font-size:11.5px;color:#aaa">${c.phone} · ${c.visits} visits · Last: ${c.daysSince}d ago · Avg ₹${c.avgSpend}</div>
+          <div style="font-weight:600;font-size:13px">${esc(c.name||'Customer')}</div>
+          <div style="font-size:11.5px;color:#aaa">${esc(c.phone)} · ${c.visits} visits · Last: ${c.daysSince}d ago · Avg ₹${c.avgSpend}</div>
         </div>
-        <button class="btn sm" onclick="generateAiOffer('${c.phone}','${(c.name||'').replace(/'/g,'')}')" style="white-space:nowrap;font-size:11px">🤖 AI Offer</button>
+        <button class="btn sm" data-phone="${esc(String(c.phone))}" data-name="${esc(c.name||'')}" onclick="generateAiOffer(this.dataset.phone,this.dataset.name)" style="white-space:nowrap;font-size:11px">🤖 AI Offer</button>
       </div>`).join('');
   } catch(e) { if(list) list.innerHTML = '<div style="color:#e57;font-size:13px">Failed to load</div>'; }
 }
@@ -4753,15 +4769,15 @@ async function loadCustomerInsights() {
   if (panel) { panel.style.display='block'; panel.innerHTML = '<div style="color:#bbb;padding:16px;text-align:center">Loading insights...</div>'; }
   try {
     const p = await fetch('/api/businesses/' + branchId + '/customers/' + phone + '/insights', { headers: getAuthHeaders() }).then(r=>r.json());
-    if (p.error) { if(panel) panel.innerHTML='<div style="color:#e57;padding:12px">'+p.error+'</div>'; return; }
+    if (p.error) { if(panel) panel.innerHTML='<div style="color:#e57;padding:12px">'+esc(p.error)+'</div>'; return; }
     const segColors = { loyal:'#22c55e', regular:'#3b82f6', returning:'#f59e0b', new:'#a78bfa', at_risk:'#f97316', lost:'#ef4444' };
     const segColor = segColors[p.segment] || '#aaa';
-    const favItems = (p.favourites||[]).slice(0,3).map(f=>`<span style="background:#f5f5f5;padding:3px 8px;border-radius:12px;font-size:11px">${f.name} x${f.count}</span>`).join(' ');
+    const favItems = (p.favourites||[]).slice(0,3).map(f=>`<span style="background:#f5f5f5;padding:3px 8px;border-radius:12px;font-size:11px">${esc(f.name)} x${f.count}</span>`).join(' ');
     if (panel) panel.innerHTML = `
       <div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
           <div style="width:44px;height:44px;border-radius:50%;background:#f5f0eb;display:flex;align-items:center;justify-content:center;font-size:20px">👤</div>
-          <div><div style="font-weight:700;font-size:15px">${p.name}</div><div style="font-size:12px;color:#aaa">${p.phone}</div></div>
+          <div><div style="font-weight:700;font-size:15px">${esc(p.name)}</div><div style="font-size:12px;color:#aaa">${esc(p.phone)}</div></div>
           <span style="margin-left:auto;background:${segColor}22;color:${segColor};padding:4px 12px;border-radius:20px;font-size:11.5px;font-weight:600;text-transform:capitalize">${p.segment.replace('_',' ')}</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
@@ -4771,7 +4787,7 @@ async function loadCustomerInsights() {
         </div>
         <div style="margin-bottom:10px"><div style="font-size:11.5px;font-weight:600;color:#666;margin-bottom:6px">FAVOURITE ITEMS</div><div style="display:flex;flex-wrap:wrap;gap:6px">${favItems||'<span style="color:#bbb;font-size:12px">Not enough data</span>'}</div></div>
         <div style="margin-bottom:14px;font-size:12px;color:#888">Visits mostly on <strong>${p.peakDay}s</strong> around <strong>${p.peakHour}</strong> · Total: <strong>Rs.${p.totalSpend}</strong></div>
-        <button class="btn primary full" onclick="generateAiOffer('${p.phone}','${(p.name||'').replace(/'/g,'')}')">🤖 Generate AI Re-engagement Offer</button>
+        <button class="btn primary full" data-phone="${esc(String(p.phone))}" data-name="${esc(p.name||'')}" onclick="generateAiOffer(this.dataset.phone,this.dataset.name)">🤖 Generate AI Re-engagement Offer</button>
       </div>`;
   } catch(e) { console.error('[loadCustomerInsights]', e); if(panel) panel.innerHTML='<div style="color:#e57;padding:12px">'+friendly(e)+'</div>'; }
 }
@@ -4846,7 +4862,7 @@ async function loadExpenses() {
     const r = await fetch(url, { headers: getAuthHeaders() });
     data = await r.json();
     if (!r.ok || data.error) {
-      if (list) list.innerHTML = '<div style="padding:16px;color:#e74c3c;text-align:center">Error: ' + (data.error || 'Failed to load expenses') + '</div>';
+      if (list) list.innerHTML = '<div style="padding:16px;color:#e74c3c;text-align:center">Error: ' + esc(data.error || 'Failed to load expenses') + '</div>';
       return;
     }
   } catch(e) {
@@ -4864,8 +4880,8 @@ async function loadExpenses() {
     <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border)">
       <span style="font-size:20px">${EXP_ICONS[e.category]||'📎'}</span>
       <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13px;text-transform:capitalize">${e.category}${e.description?' — '+e.description:''}</div>
-        <div style="font-size:11.5px;color:#aaa">${e.expense_date}${e.vendor?' · '+e.vendor:''}${e.receipt_no?' · #'+e.receipt_no:''} · by ${e.added_by||'manager'}</div>
+        <div style="font-weight:600;font-size:13px;text-transform:capitalize">${esc(e.category)}${e.description?' — '+esc(e.description):''}</div>
+        <div style="font-size:11.5px;color:#aaa">${esc(e.expense_date)}${e.vendor?' · '+esc(e.vendor):''}${e.receipt_no?' · #'+esc(e.receipt_no):''} · by ${esc(e.added_by||'manager')}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-weight:700;font-size:14px">₹${Math.round(e.amount).toLocaleString('en-IN')}</div>

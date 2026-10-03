@@ -271,6 +271,14 @@
 <script>
 let authToken = null, bizId = null, staffInfo = null, allMyBranches = [];
 
+// Lives in this first script block on purpose: the dashboard renders as soon as the
+// session is restored, which can be before the later block (it sits behind two external
+// <script src>) has run. Safe for text and quoted attribute values; values an inline
+// handler needs go through data-* attributes, not into the handler's JS.
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // Agency admin has no single "own" café — its token's businessId is the
 // placeholder _agency. When HQ links an admin into /portal/:id to view a
 // specific café, the URL's branch must win over the token's businessId.
@@ -410,7 +418,7 @@ function showSubscriptionBanner(biz) {
     badge.textContent = 'Trial';
     banner.className = 'trial'; banner.style.display = 'block';
     const urgency = daysLeft <= 3 ? '🚨' : daysLeft <= 7 ? '⚠️' : '⏳';
-    banner.innerHTML = `${urgency} Trial ends in <strong>${daysLeft} day${daysLeft===1?'':'s'}</strong> — <a onclick="openBillingModal('${biz.id}')">Upgrade to Pro →</a>`;
+    banner.innerHTML = `${urgency} Trial ends in <strong>${daysLeft} day${daysLeft===1?'':'s'}</strong> — <a data-id="${escHtml(biz.id)}" onclick="openBillingModal(this.dataset.id)">Upgrade to Pro →</a>`;
   } else if (status === 'active') {
     badge.className = 'sub-badge sb-active';
     badge.textContent = 'Active';
@@ -418,7 +426,7 @@ function showSubscriptionBanner(biz) {
     badge.className = 'sub-badge sb-expired';
     badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
     banner.className = 'expired'; banner.style.display = 'block';
-    banner.innerHTML = `❌ Your subscription is <strong>${status}</strong>. Contact your agency to reactivate.`;
+    banner.innerHTML = `❌ Your subscription is <strong>${escHtml(status)}</strong>. Contact your agency to reactivate.`;
   }
 }
 
@@ -432,63 +440,63 @@ async function renderSingleBranch(biz) {
     <div id="setup-checklist-card" style="display:none;margin-bottom:20px;padding:18px 20px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.25);border-radius:10px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-family:var(--font-d);font-size:16px;color:var(--ink)">🚀 Get Set Up</div>
-        <button onclick="dismissSetupChecklist('${biz.id}')" style="background:none;border:none;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline">Dismiss</button>
+        <button data-id="${escHtml(biz.id)}" onclick="dismissSetupChecklist(this.dataset.id)" style="background:none;border:none;font-size:12px;color:var(--ink-3);cursor:pointer;text-decoration:underline">Dismiss</button>
       </div>
       <div id="setup-checklist-body" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
     <div class="branch-hero">
       <div class="branch-hero-top">
         <div>
-          <div class="branch-name-big">${biz.name}</div>
-          <div class="branch-loc">📍 ${biz.location || 'Location not set'}</div>
-          <span class="branch-id">${biz.id}</span>
+          <div class="branch-name-big">${escHtml(biz.name)}</div>
+          <div class="branch-loc">📍 ${escHtml(biz.location || 'Location not set')}</div>
+          <span class="branch-id">${escHtml(biz.id)}</span>
         </div>
       </div>
       <div class="kpi-strip">
         <div class="kpi-chip"><div class="kpi-chip-val">${orders}</div><div class="kpi-chip-lbl">Today's Orders</div></div>
         <div class="kpi-chip"><div class="kpi-chip-val">₹${Math.round(revenue).toLocaleString('en-IN')}</div><div class="kpi-chip-lbl">Today's Revenue</div></div>
-        <div class="kpi-chip"><div class="kpi-chip-val">${biz.timings||'—'}</div><div class="kpi-chip-lbl">Timings</div></div>
+        <div class="kpi-chip"><div class="kpi-chip-val">${escHtml(biz.timings||'—')}</div><div class="kpi-chip-lbl">Timings</div></div>
         <div class="kpi-chip"><div class="kpi-chip-val">${biz.subscriptionStatus==='trial'?daysLeftText(biz):'✓ Active'}</div><div class="kpi-chip-lbl">Subscription</div></div>
       </div>
     </div>
     <div style="font-family:var(--font-d);font-size:17px;color:var(--ink-2);margin-bottom:14px">Quick Access</div>
     <div class="quick-actions">
-      <a class="qa-card" href="/manager/${biz.id}" target="_blank">
+      <a class="qa-card" href="/manager/${escHtml(biz.id)}" target="_blank">
         <div class="qa-icon">📊</div>
         <div class="qa-title">Manager Dashboard</div>
         <div class="qa-desc">Orders, CRM, menu, campaigns, loyalty</div>
       </a>
-      <a class="qa-card" href="/kitchen.html?branch=${biz.id}" target="_blank">
+      <a class="qa-card" href="/kitchen.html?branch=${escHtml(biz.id)}" target="_blank">
         <div class="qa-icon">👨‍🍳</div>
         <div class="qa-title">Kitchen Display</div>
         <div class="qa-desc">Live order tickets for your cook</div>
       </a>
-      <a class="qa-card" href="/table-order.html?branch=${biz.id}&table=1" target="_blank">
+      <a class="qa-card" href="/table-order.html?branch=${escHtml(biz.id)}&table=1" target="_blank">
         <div class="qa-icon">📱</div>
         <div class="qa-title">Table Ordering</div>
         <div class="qa-desc">Customer-facing QR order page</div>
       </a>
-      <a class="qa-card" href="/cafe/${biz.id}" target="_blank">
+      <a class="qa-card" href="/cafe/${escHtml(biz.id)}" target="_blank">
         <div class="qa-icon">🤖</div>
         <div class="qa-title">Customer Chat Bot</div>
         <div class="qa-desc">WhatsApp-style chat portal</div>
       </a>
-      <div class="qa-card" onclick="openChatHistory('${biz.id}')">
+      <div class="qa-card" data-id="${escHtml(biz.id)}" onclick="openChatHistory(this.dataset.id)">
         <div class="qa-icon">💬</div>
         <div class="qa-title">Chat History</div>
         <div class="qa-desc">All customer conversations — WhatsApp &amp; chat bot</div>
       </div>
-      <div class="qa-card" onclick="openMenuEditor('${biz.id}')">
+      <div class="qa-card" data-id="${escHtml(biz.id)}" onclick="openMenuEditor(this.dataset.id)">
         <div class="qa-icon">🍽️</div>
         <div class="qa-title">Menu Editor</div>
         <div class="qa-desc">Add, edit, or remove menu items &amp; prices</div>
       </div>
-      <a class="qa-card" href="/manager/${biz.id}" target="_blank">
+      <a class="qa-card" href="/manager/${escHtml(biz.id)}" target="_blank">
         <div class="qa-icon">🔲</div>
         <div class="qa-title">Table QR Codes</div>
         <div class="qa-desc">Print QR codes for your tables</div>
       </a>
-      <a class="qa-card" onclick="openBillingModal('${biz.id}')">
+      <a class="qa-card" data-id="${escHtml(biz.id)}" onclick="openBillingModal(this.dataset.id)">
         <div class="qa-icon">💳</div>
         <div class="qa-title">Subscription</div>
         <div class="qa-desc">${biz.subscriptionStatus==='trial'?'Trial · '+daysLeftText(biz)+' remaining':'Active plan'}</div>
@@ -518,7 +526,7 @@ async function loadSetupChecklistPortal(bizId){
       <div style="display:flex;align-items:center;gap:10px">
         <span style="font-size:15px">${st.done ? '✅' : '⭕'}</span>
         <span style="flex:1;font-size:13px;${st.done?'color:var(--ink-3);text-decoration:line-through':''}">${st.label}</span>
-        ${st.done ? '' : `<a href="${st.url}" target="_blank" style="font-size:12px;color:var(--gold-d,#a07830);text-decoration:underline">Go →</a>`}
+        ${st.done ? '' : `<a href="${escHtml(st.url)}" target="_blank" style="font-size:12px;color:var(--gold-d,#a07830);text-decoration:underline">Go →</a>`}
       </div>
     `).join('');
   } catch(e) {}
@@ -645,7 +653,7 @@ async function submitChangePassword(){
   }
 }
 
-async function openBillingModal(bizId){let plans=[];try{const r=await fetch('/api/plans');const d=await r.json();plans=Array.isArray(d)?d:(d.plans||[]);}catch(e){}let modal=document.getElementById('billing-modal-overlay');if(!modal){modal=document.createElement('div');modal.id='billing-modal-overlay';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center';document.body.appendChild(modal);}modal.innerHTML=`<div style="background:var(--white);border-radius:var(--r);padding:28px 24px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,0.2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div style="font-family:var(--font-d);font-size:20px;color:var(--ink)">Upgrade Plan</div><button onclick="document.getElementById('billing-modal-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-3)">✕</button></div><div style="display:grid;gap:10px;margin-bottom:20px">${plans.map(p=>'<div style="padding:14px 16px;border:1.5px solid '+(p.badge?'var(--gold)':'var(--border)')+';border-radius:10px;cursor:pointer" onclick="doSubscriptionPay(\''+bizId+'\',\''+p.id+'\')"><div style="display:flex;align-items:center;justify-content:space-between"><div><strong>'+p.name+'</strong>'+(p.badge?' <span style="font-size:10px;background:#fff8e8;color:var(--gold-d);padding:2px 8px;border-radius:10px;font-weight:700">'+p.badge+'</span>':'')+'</div><div style="font-size:18px;font-weight:700;color:var(--gold-d)">₹'+p.price+'</div></div><div style="font-size:12px;color:var(--ink-3);margin-top:4px">'+p.duration_days+' days'+(p.features?' · '+p.features.join(', '):'')+' </div></div>').join('')||'<div style="color:var(--ink-3);text-align:center;padding:20px">No plans available</div>'}</div><div style="text-align:center;font-size:12px;color:var(--ink-3)">Secure payment via Razorpay</div></div>`;modal.style.display='flex';}
+async function openBillingModal(bizId){let plans=[];try{const r=await fetch('/api/plans');const d=await r.json();plans=Array.isArray(d)?d:(d.plans||[]);}catch(e){}let modal=document.getElementById('billing-modal-overlay');if(!modal){modal=document.createElement('div');modal.id='billing-modal-overlay';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center';document.body.appendChild(modal);}modal.innerHTML=`<div style="background:var(--white);border-radius:var(--r);padding:28px 24px;max-width:440px;width:92%;box-shadow:0 8px 32px rgba(0,0,0,0.2)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div style="font-family:var(--font-d);font-size:20px;color:var(--ink)">Upgrade Plan</div><button onclick="document.getElementById('billing-modal-overlay').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-3)">✕</button></div><div style="display:grid;gap:10px;margin-bottom:20px">${plans.map(p=>'<div style="padding:14px 16px;border:1.5px solid '+(p.badge?'var(--gold)':'var(--border)')+';border-radius:10px;cursor:pointer" data-biz="'+escHtml(bizId)+'" data-plan="'+escHtml(p.id)+'" onclick="doSubscriptionPay(this.dataset.biz,this.dataset.plan)"><div style="display:flex;align-items:center;justify-content:space-between"><div><strong>'+p.name+'</strong>'+(p.badge?' <span style="font-size:10px;background:#fff8e8;color:var(--gold-d);padding:2px 8px;border-radius:10px;font-weight:700">'+p.badge+'</span>':'')+'</div><div style="font-size:18px;font-weight:700;color:var(--gold-d)">₹'+p.price+'</div></div><div style="font-size:12px;color:var(--ink-3);margin-top:4px">'+p.duration_days+' days'+(p.features?' · '+p.features.join(', '):'')+' </div></div>').join('')||'<div style="color:var(--ink-3);text-align:center;padding:20px">No plans available</div>'}</div><div style="text-align:center;font-size:12px;color:var(--ink-3)">Secure payment via Razorpay</div></div>`;modal.style.display='flex';}
 async function doSubscriptionPay(bizId,planId){try{const r=await fetch('/api/businesses/'+bizId+'/billing/create-order',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({planId})});const d=await r.json();if(!r.ok){console.error('[doSubscriptionPay] create-order failed',r.status,d);alert('Online payment isn\'t available right now — please contact your Zordical account manager to upgrade.');return;}if(d.error){alert('Error: '+d.error);return;}const options={key:d.keyId,amount:d.amount,currency:d.currency,name:'Zordical',description:d.plan.name+' Plan',order_id:d.orderId,handler:async function(response){try{const v=await fetch('/api/businesses/'+bizId+'/billing/verify-payment',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+authToken},body:JSON.stringify({...response,planId})}).then(r=>r.json());if(v.success){document.getElementById('billing-modal-overlay')?.remove();alert('✅ Subscription activated! Plan: '+v.plan);loadDashboard();}else{alert('Payment verification failed.');}}catch(e){console.error('[verifyPayment]',e);alert('Verification error: '+friendly(e));}},prefill:{name:staffInfo?.name||'',email:''},theme:{color:'#c47f3a'}};const rzp=new window.Razorpay(options);rzp.on('payment.failed',e=>alert('Payment failed: '+e.error.description));document.getElementById('billing-modal-overlay')?.remove();rzp.open();}catch(e){console.error('[doSubscriptionPay]',e);alert('Error: '+friendly(e));}}
 // ─── Menu Editor ───────────────────────────────────────────────────────────
 let _menuBizId = null, _menuItems = [];
@@ -690,8 +698,8 @@ function renderMenuEditor() {
     <div style="display:grid;grid-template-columns:1.6fr 1fr 0.8fr 0.7fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
       <input value="${escHtml(item.name||'')}" placeholder="Name" oninput="updateMenuItem(${i},'name',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
       <input value="${escHtml(item.category||'')}" placeholder="Category" oninput="updateMenuItem(${i},'category',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
-      <input type="number" value="${item.price||0}" placeholder="Price" oninput="updateMenuItem(${i},'price',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
-      <input type="number" value="${item.discount||0}" placeholder="Disc%" oninput="updateMenuItem(${i},'discount',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+      <input type="number" value="${escHtml(String(item.price||0))}" placeholder="Price" oninput="updateMenuItem(${i},'price',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+      <input type="number" value="${escHtml(String(item.discount||0))}" placeholder="Disc%" oninput="updateMenuItem(${i},'discount',this.value)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">
       <button onclick="removeMenuItem(${i})" title="Remove" style="background:none;border:none;color:#c0392b;font-size:16px;cursor:pointer">🗑</button>
     </div>
     <input value="${escHtml(item.description||'')}" placeholder="Description" oninput="updateMenuItem(${i},'description',this.value)" style="width:100%;padding:6px 8px;margin-bottom:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--ink-3)">
@@ -790,13 +798,11 @@ function renderConvoList(list) {
     const arrow  = c.last_direction === 'out' ? '↗ ' : '↙ ';
     const ch     = c.channel === 'simulator' ? '🖥' : '📱';
     const time   = fmtTime(c.created_at);
-    const safePh = phone.replace(/'/g, "\\'");
-    const safeNm = name.replace(/'/g, "\\'");
-    return `<div class="convo-item" onclick="openThread('${safePh}','${safeNm}')">
+    return `<div class="convo-item" data-phone="${escHtml(phone)}" data-name="${escHtml(name)}" onclick="openThread(this.dataset.phone,this.dataset.name)">
       <div class="convo-avatar">${ch}</div>
       <div class="convo-info">
         <div class="convo-name">${name ? escHtml(name) : 'Customer'}</div>
-        <div class="convo-phone">${masked}</div>
+        <div class="convo-phone">${escHtml(masked)}</div>
         <div class="convo-preview">${arrow}${preview}</div>
       </div>
       <div class="convo-meta">
@@ -914,10 +920,6 @@ function fmtTime(dt) {
   if (diff < 86400000)   return d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
   if (diff < 604800000)  return d.toLocaleDateString('en-IN', {weekday:'short', hour:'2-digit', minute:'2-digit'});
   return d.toLocaleDateString('en-IN', {day:'numeric', month:'short'});
-}
-
-function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // Friendly error messages (UI6) — technical detail stays in console.error

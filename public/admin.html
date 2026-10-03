@@ -946,6 +946,11 @@
 const ADMIN_HEADERS = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (localStorage.getItem('cafehq_token') || '') };
 let resetTargetId = null;
 
+// Staff and café names are typed by café owners. esc() covers text and quoted attribute
+// values; a JS string inside an inline handler needs more than that (the browser decodes
+// the entities before parsing the handler), so the Reset button carries its values in data-*.
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
 async function loadAllStaff() {
   const loadEl = document.getElementById('staff-loading');
   const listEl = document.getElementById('staff-list');
@@ -978,8 +983,8 @@ async function loadAllStaff() {
       const bizName = bizMap[bizId] || bizId;
       html += `<div class="dashboard-card" style="margin-bottom:18px">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
-          <h4 style="margin:0;font-size:15px">🏠 ${bizName}</h4>
-          <span style="font-size:11px;color:#aaa;font-family:monospace">${bizId}</span>
+          <h4 style="margin:0;font-size:15px">🏠 ${esc(bizName)}</h4>
+          <span style="font-size:11px;color:#aaa;font-family:monospace">${esc(bizId)}</span>
         </div>
         <div class="card-body" style="padding:0;overflow:auto">
           <table class="data-table" style="margin:0;min-width:100%">
@@ -990,11 +995,11 @@ async function loadAllStaff() {
         const c = roleColor[s.role] || '#555';
         const b = roleBg[s.role]    || '#f9f9f9';
         html += `<tr>
-          <td style="font-weight:600">${s.name || '—'}</td>
-          <td><code style="background:#f5f5f5;padding:2px 7px;border-radius:5px;font-size:13px">${s.username}</code></td>
-          <td><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;color:${c};background:${b}">${s.role}</span></td>
+          <td style="font-weight:600">${esc(s.name) || '—'}</td>
+          <td><code style="background:#f5f5f5;padding:2px 7px;border-radius:5px;font-size:13px">${esc(s.username)}</code></td>
+          <td><span style="padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;color:${c};background:${b}">${esc(s.role)}</span></td>
           <td><span style="font-size:12px;color:${s.active?'#2a7':'#c00'}">${s.active?'✓ Active':'✗ Inactive'}</span></td>
-          <td><button onclick="openResetModal('${s.id}','${(s.name||'').replace(/'/g,"\'")}','${s.username}')"
+          <td><button data-id="${esc(s.id)}" data-name="${esc(s.name)}" data-username="${esc(s.username)}" onclick="openResetModal(this.dataset.id,this.dataset.name,this.dataset.username)"
             style="padding:5px 14px;background:#1a1a1a;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap">
             🔑 Reset
           </button></td>
@@ -1005,7 +1010,7 @@ async function loadAllStaff() {
     listEl.innerHTML = html || '<p style="color:#aaa;padding:20px">No staff accounts found.</p>';
   } catch(e) {
     if (loadEl) loadEl.style.display = 'none';
-    if (listEl) listEl.innerHTML = `<p style="color:#c00;padding:20px">Error: ${e.message}</p>`;
+    if (listEl) listEl.innerHTML = `<p style="color:#c00;padding:20px">Error: ${esc(e.message)}</p>`;
   }
 }
 
@@ -1044,7 +1049,7 @@ async function confirmResetPassword() {
       resEl.textContent = data.error || 'Reset failed';
     } else {
       resEl.style.cssText = 'display:block;background:#f0fdf4;color:#1a7a3a;border:1px solid #aed;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px';
-      resEl.innerHTML = `✓ Password reset!<br><strong style="font-family:monospace;font-size:16px;letter-spacing:1px">${data.newPassword}</strong><br><span style="font-size:11px;color:#666">Copy this now — won't be shown again</span>`;
+      resEl.innerHTML = `✓ Password reset!<br><strong style="font-family:monospace;font-size:16px;letter-spacing:1px">${esc(data.newPassword)}</strong><br><span style="font-size:11px;color:#666">Copy this now — won't be shown again</span>`;
     }
   } catch(e) {
     resEl.style.cssText = 'display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px';
