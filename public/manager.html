@@ -47,12 +47,21 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 
 /* Layout */
 .main{margin-left:210px;min-height:100vh}
-.topbar{position:sticky;top:0;z-index:50;background:rgba(250,246,241,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 26px;height:56px;display:flex;align-items:center;justify-content:space-between}
-.topbar-left{display:flex;align-items:center;gap:12px}
-.topbar-title{font-family:var(--font-display);font-size:17px;color:var(--espresso)}
-.topbar-id{font-size:11px;color:#aaa;background:var(--foam);padding:3px 9px;border-radius:20px;letter-spacing:0.3px}
-.topbar-right{display:flex;align-items:center;gap:10px}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(250,246,241,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 26px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+/* The left side gives way first. It is one line tall and clips: when the branch id no longer fits
+   beside the café name it wraps onto the hidden second line, then the name truncates. */
+.topbar-left{display:flex;align-items:center;flex-wrap:wrap;gap:12px;height:26px;overflow:hidden;flex:1 1 0;min-width:120px}
+.topbar-title{font-family:var(--font-display);font-size:17px;line-height:26px;color:var(--espresso);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-id{font-size:11px;color:#aaa;background:var(--foam);padding:3px 9px;border-radius:20px;letter-spacing:0.3px;white-space:nowrap}
+/* Above 600px these two groups are only wrappers: their children sit directly in the bar, so once the
+   name is down to its minimum just the two pills shrink (their text truncates) — never the buttons
+   or the toggle. Phones turn the groups into real rows (see the top bar media queries). */
+.topbar-account,.topbar-status{display:contents}
+.topbar-account>*,.topbar-status>*{flex-shrink:0;white-space:nowrap}
+#staff-pill,.topbar-status .wa-pill{flex-shrink:1;min-width:0;overflow:hidden}
+#staff-name-display{max-width:140px;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .wa-pill{display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);cursor:pointer;transition:all 0.15s;color:var(--espresso);background:#fff}
+.wa-pill span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .wa-pill:hover{background:var(--foam)}
 .wa-dot{width:7px;height:7px;border-radius:50%;background:#ccc;flex-shrink:0}
 .wa-dot.connected{background:var(--sage)}
@@ -92,6 +101,8 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 /* Grid layouts */
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
 .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px}
+.orders-split{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+.theme-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 
 /* Table */
 .ds-pill{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:#888;font-family:var(--font-body);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s}
@@ -230,7 +241,20 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 .empty-icon{font-size:36px;margin-bottom:10px}
 .empty-text{font-size:13px}
 
-@media(max-width:900px){.kpi-row{grid-template-columns:1fr 1fr}.two-col,.three-col{grid-template-columns:1fr}}
+@media(max-width:900px){.kpi-row{grid-template-columns:1fr 1fr}.two-col,.three-col{grid-template-columns:1fr}.orders-split{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:400px){.theme-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* ── Top bar fits every width ── A bar wider than the screen makes mobile Chrome
+   widen the whole layout: every tab pans sideways and fixed modals (e.g. the
+   Google listing picker) slide off-screen. So below 960px it drops the staff
+   pill and branch id, and on phones wraps the status group onto a second row. */
+@media(max-width:960px){.topbar-id{display:none}#staff-pill{display:none!important}} /* !important: JS shows the pill with an inline display */
+@media(max-width:600px){
+  .topbar{height:auto;flex-wrap:wrap;padding:9px 26px;row-gap:8px}
+  .topbar-left{min-width:0}
+  .topbar-account,.topbar-status{display:flex;align-items:center;gap:10px;flex-shrink:0;min-width:0}
+  .topbar-status{flex:1 0 100%;flex-direction:row-reverse;justify-content:space-between}
+}
 
 /* ── Mobile nav (UI3) — bottom tab bar replaces the sidebar under 768px ── */
 .mobile-bottom-nav{display:none}
@@ -483,7 +507,8 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
       <div class="topbar-title" id="topbar-branch">Branch</div>
       <span class="topbar-id" id="topbar-id">—</span>
     </div>
-    <div class="topbar-right">
+    <!-- Two groups, so phones can wrap the status group onto its own row (see the top bar media queries) -->
+    <div class="topbar-account">
       <!-- Staff pill + logout (Phase 1 auth) -->
       <div id="staff-pill" style="display:none;align-items:center;gap:8px;padding:5px 12px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);border-radius:20px;font-size:12px;color:#7A5C2E;cursor:default">
         <span>👤</span>
@@ -499,6 +524,8 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         style="display:none;padding:6px 14px;border:1px solid rgba(201,168,76,0.3);border-radius:20px;background:transparent;color:#A07830;font-size:12px;cursor:pointer;transition:all 0.2s">
         Sign Out
       </button>
+    </div>
+    <div class="topbar-status">
       <div class="pilot-toggle">
         <span style="font-size:12px;color:#888">Auto-Pilot</span>
         <div class="toggle-switch" id="pilot-toggle" onclick="toggleAutoPilot()"></div>
@@ -846,7 +873,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
             <div style="font-family:var(--font-display);font-size:22px;color:var(--espresso)">Orders & Revenue</div>
             <div style="font-size:13px;color:#999;margin-top:4px">Live order queue + revenue analytics</div>
           </div>
-          <div style="display:flex;gap:10px;align-items:center">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <select id="order-filter" onchange="loadOrders()" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff">
               <option value="">All Orders</option>
               <option value="pending_approval">Awaiting Approval</option>
@@ -865,7 +892,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         </div>
 
         <!-- Order KPI strip (revenue hidden — admin only) -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px" id="revenue-kpis">
+        <div class="kpi-row" style="gap:14px;margin-bottom:28px" id="revenue-kpis">
           <div class="card" style="padding:18px 22px;text-align:center">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">Today</div>
             <div style="font-family:var(--font-display);font-size:26px;color:var(--espresso)" id="kpi-today-orders">—</div>
@@ -898,7 +925,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         </div>
 
         <!-- Two-column: order queue + top items -->
-        <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start">
+        <div class="orders-split">
 
           <!-- Order queue -->
           <div class="card" style="padding:0;overflow:hidden">
@@ -1300,7 +1327,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           <div class="panel" style="margin-bottom:16px">
             <div class="panel-head"><div class="panel-title">Café Theme</div><div class="panel-sub">Choose the visual style for your customer website</div></div>
             <div class="panel-body">
-              <div id="theme-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px"></div>
+              <div id="theme-grid" class="theme-grid"></div>
               <button class="btn primary full" onclick="saveTheme()">Apply Theme</button>
             </div>
           </div>
