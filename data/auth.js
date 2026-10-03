@@ -48,7 +48,8 @@ function requireAuth(req, res, next) {
   }
 
   const result = verifyToken(token);
-  if (!result.ok) {
+  // Only staff login tokens carry id + role; anything else signed with this secret is not a login.
+  if (!result.ok || !result.payload || !result.payload.id || !result.payload.role) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 

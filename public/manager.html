@@ -1516,7 +1516,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           </div>
           <!-- Location picker modal (shown after OAuth callback with ?google=pick) -->
           <div id="gbp-pick-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center">
-            <div style="background:var(--card,#fff);border-radius:12px;padding:28px;max-width:460px;width:calc(100%-32px);max-height:80vh;overflow-y:auto">
+            <div style="background:var(--card,#fff);border-radius:12px;padding:28px;max-width:460px;width:calc(100% - 32px);box-sizing:border-box;max-height:80vh;overflow-y:auto">
               <div style="font-size:16px;font-weight:700;margin-bottom:4px">Select your Google listing</div>
               <div style="font-size:13px;color:#888;margin-bottom:18px">Choose the location that matches this branch</div>
               <div id="gbp-location-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px"></div>
@@ -3123,6 +3123,35 @@ async function saveTheme(){
 
 let _gbpPickLocations = [];
 let _gbpSelectedLocation = null;
+const GBP_RETURN_ERRORS = {
+  access_denied:   'Google connection was cancelled',
+  invalid_state:   'That Google sign-in expired. Please press Connect again.',
+  missing_code:    "Google didn't finish signing in. Please try again.",
+  not_configured:  "Google connection isn't available yet",
+  exchange_failed: "Couldn't finish connecting to Google. Please try again.",
+};
+const gbpAttr = s => esc(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+// Coming back from Google (?google=pick|error): remember it, clean the URL, act once the branch has loaded.
+let _gbpReturn = (function () {
+  const params = new URLSearchParams(window.location.search);
+  const kind = params.get('google');
+  if (!kind) return null;
+  const clean = new URL(window.location.href);
+  clean.searchParams.delete('google');
+  clean.searchParams.delete('reason');
+  window.history.replaceState({}, '', clean.toString());
+  return { kind, reason: params.get('reason') };
+})();
+
+function handleGoogleReturn() {
+  if (!_gbpReturn || !business) return;
+  const ret = _gbpReturn;
+  _gbpReturn = null;
+  showTab('settings', document.querySelector('.nav-item[onclick*=settings]'));
+  if (ret.kind === 'pick') openGbpPicker();
+  else if (ret.kind === 'error') toast(GBP_RETURN_ERRORS[ret.reason] || "Couldn't connect to Google. Please try again.", 'error');
+}
 
 async function loadGoogleStatus() {
   const body = document.getElementById('gbp-settings-body');
@@ -3144,7 +3173,7 @@ function renderGbpCard(d) {
   if (pill) pill.style.display = (d.mode === 'mock') ? 'inline-block' : 'none';
 
   if (!d.configured) {
-    body.innerHTML = '<div style="color:#888;font-size:13px">Google connection is not available yet.</div>';
+    body.innerHTML = '<div style="color:#888;font-size:13px">Google connection isn\'t available yet.</div>';
     return;
   }
 
@@ -3165,7 +3194,8 @@ function renderGbpCard(d) {
         <div style="font-weight:600;color:var(--amber,#f59e0b);margin-bottom:4px">Google connection needs attention</div>
         <div style="font-size:12.5px;color:#888">Last successful sync: ${esc(lastSync)}</div>
       </div>
-      <button class="btn primary" onclick="startGbpConnect()">Reconnect</button>`;
+      <button class="btn primary" onclick="startGbpConnect()">Reconnect</button>
+      <span id="gbp-connect-msg" style="font-size:12.5px;margin-left:8px"></span>`;
     return;
   }
 
@@ -3184,10 +3214,10 @@ function renderGbpCard(d) {
         <div style="font-weight:600;font-size:13.5px">${esc(d.locationTitle||'Connected')}</div>
         <div style="font-size:11.5px;color:#888">${esc(lastSync)}${d.googleEmail?' · '+esc(d.googleEmail):''}</div>
       </div>
-      ${d.mapsUri ? `<a href="${esc(d.mapsUri)}" target="_blank" class="btn" style="font-size:11.5px;text-decoration:none">View on Maps ↗</a>` : ''}
+      ${/^https:\/\//.test(d.mapsUri || '') ? `<a href="${gbpAttr(d.mapsUri)}" target="_blank" rel="noopener" class="btn" style="font-size:11.5px;text-decoration:none">View on Maps ↗</a>` : ''}
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn primary" id="gbp-sync-now-btn" onclick="syncGBP()">Sync now</button>
+      ${d.syncAvailable ? '<button class="btn primary" id="gbp-sync-now-btn" onclick="syncGBP()">Sync now</button>' : ''}
       <button class="btn" onclick="disconnectGbp()">Disconnect</button>
     </div>
     <div id="gbp-sync-msg" style="font-size:12.5px;margin-top:8px;color:#888"></div>`;
@@ -3195,14 +3225,15 @@ function renderGbpCard(d) {
 
 async function startGbpConnect() {
   const msg = document.getElementById('gbp-connect-msg');
-  if (msg) { msg.textContent = 'Opening Google…'; msg.style.color = '#888'; }
+  const show = (text, color) => { if (msg) { msg.textContent = text; msg.style.color = color; } };
+  show('Opening Google…', '#888');
   try {
     const r = await fetch(`/api/businesses/${branchId}/google/connect`, { method: 'POST' });
     const d = await r.json();
-    if (!r.ok) { if(msg) { msg.textContent = d.error || 'Failed'; msg.style.color = 'var(--rose)'; } return; }
+    if (!r.ok) return show(r.status === 403 ? 'Only an owner or manager can connect Google' : (d.error || "Couldn't start. Please try again."), 'var(--rose)');
     window.location.href = d.url;
   } catch(e) {
-    if (msg) { msg.textContent = 'Connection failed'; msg.style.color = 'var(--rose)'; }
+    show("Couldn't start. Please try again.", 'var(--rose)');
   }
 }
 
@@ -3229,6 +3260,11 @@ async function openGbpPicker() {
   try {
     const r = await fetch(`/api/businesses/${branchId}/google/locations`);
     const d = await r.json();
+    if (!r.ok) {
+      list.innerHTML = `<div style="color:var(--rose);font-size:13px">${esc(d.error || 'Failed to load locations. Please try again.')}</div>`;
+      if (d.code === 'GOOGLE_RECONNECT' || d.code === 'GOOGLE_NOT_CONNECTED') loadGoogleStatus();
+      return;
+    }
     _gbpPickLocations = d.locations || [];
     if (!_gbpPickLocations.length) {
       list.innerHTML = '<div style="color:#888;font-size:13px">No locations found in your Google account.</div>';
@@ -3257,10 +3293,6 @@ function closeGbpPicker() {
   const overlay = document.getElementById('gbp-pick-overlay');
   if (overlay) overlay.style.display = 'none';
   _gbpSelectedLocation = null;
-  // Clean up URL param without reload
-  const url = new URL(window.location.href);
-  url.searchParams.delete('google');
-  window.history.replaceState({}, '', url.toString());
 }
 
 async function saveGbpLocation() {
@@ -3279,6 +3311,7 @@ async function saveGbpLocation() {
     if (!r.ok) {
       if (err) { err.textContent = d.error || 'Failed to save location'; err.style.display = 'block'; }
       if (btn) btn.disabled = false;
+      if (d.code === 'GOOGLE_RECONNECT' || d.code === 'GOOGLE_NOT_CONNECTED') loadGoogleStatus();
       return;
     }
     closeGbpPicker();
@@ -3289,26 +3322,6 @@ async function saveGbpLocation() {
     if (btn) btn.disabled = false;
   }
 }
-
-// Handle ?google=pick or ?google=error URL params on page load
-(function handleGoogleCallbackParam() {
-  const params = new URLSearchParams(window.location.search);
-  const gp = params.get('google');
-  if (!gp) return;
-  // Clean the URL immediately so refresh doesn't re-trigger
-  const cleanUrl = new URL(window.location.href);
-  cleanUrl.searchParams.delete('google');
-  cleanUrl.searchParams.delete('reason');
-  window.history.replaceState({}, '', cleanUrl.toString());
-
-  if (gp === 'pick') {
-    // Wait for the page to finish initializing, then open the picker
-    window.addEventListener('gbp-ready', openGbpPicker, { once: true });
-  } else if (gp === 'error') {
-    const reason = params.get('reason') || 'unknown';
-    window.addEventListener('gbp-ready', () => toast('Google connection failed (' + reason + ')', 'error'), { once: true });
-  }
-})();
 
 async function loadSettings(){
   try {
@@ -3334,7 +3347,6 @@ async function loadSettings(){
     loadLoyaltySettings();
     loadDeliverySettings();
     loadGoogleStatus();
-    window.dispatchEvent(new Event('gbp-ready'));
 
   } catch(e) {
     console.error('[loadSettings]', e);
@@ -3788,7 +3800,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
 
 // Init
-loadBranch();
+loadBranch().then(handleGoogleReturn);
 
 // ════════════════════════════════ ORDERS & REVENUE ════════════════════════════
 let revenueChartInstance = null;

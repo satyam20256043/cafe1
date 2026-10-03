@@ -79,7 +79,9 @@ order data.
    mounted at `:2468-2479` as `require('./routes/<name>')(routeCtx)`. Auth middleware
    on ctx: `requireAuth`, `requireBranchAccess` (`:2424` — admin/agency_admin pass
    everything; other staff only their own `businessId`), `requireRole(...roles)`
-   (`:2416`). `signToken` / `verifyToken` are on ctx too.
+   (`:2416`). `signToken` / `verifyToken` are on ctx too. ⚠️ They are `server.js`'s versions:
+   `verifyToken` returns the payload or `null` (not `{ ok, payload }`), and `signToken` mints 24 h
+   **login** tokens. See GB4.1.
 
 9. **Schema migration shape** — `data/db.js:345` `(function migrateColumns() { const cols = [ ['table','column','TYPE'], ... ]`.
    New *tables* go in the main `CREATE TABLE IF NOT EXISTS` schema block (same file,
@@ -407,6 +409,46 @@ Owner-facing words only: Connect, Reconnect, Disconnect. Never "OAuth" or "token
 **Verify (mock):** connect → pick location → status `connected`. Disconnect → status
 `disconnected`, tokens null in DB. Callback with a tampered state → error redirect,
 no DB write. A manager of café A calling café B's `/google/status` → 403.
+
+## GB4.1 — Review fixes (done 2026-10-03). GB5–GB10 must follow these
+
+A review of GB1–GB4 found blockers. They are fixed, and these contracts now hold:
+
+- **Never sign non-login data with `ctx.signToken`.** Anything it signs works as a café login. The
+  OAuth `state` uses its own derived key, a 10-minute expiry and a nonce in an httpOnly cookie
+  (`routes/google.js`). `auth.requireAuth` rejects tokens without `id` and `role`.
+- **Never answer a Google problem with HTTP 401.** The dashboard treats any 401 as an expired
+  Zordical login and signs the user out. Use `sendGoogleError(res, e)` in `routes/google.js`:
+  `AUTH` → 409 `GOOGLE_RECONNECT`, not connected → 409 `GOOGLE_NOT_CONNECTED`,
+  `PERMISSION`/`NOT_FOUND` → 409 `GOOGLE_ACCESS`, anything else → 502 `GOOGLE_UNAVAILABLE`,
+  no adapter → 503 `GOOGLE_NOT_CONFIGURED`.
+- **Adapter selection:** `null` unless `GOOGLE_MODE` is `mock` or `live` **and** `TOKEN_ENCRYPTION_KEY`
+  is set (both modes). Mock is refused in production (`NODE_ENV=production`, or a `BASE_URL` host on
+  zordical.com / zordical.in / zordic.in, `www.` included). This is logged; the server never exits.
+  Tokens are always encrypted. The local `.env` has `GOOGLE_MODE=mock` and a local-only key.
+- **DB accessors take `businessId` first and filter on it:**
+  - `upsertGoogleReview(businessId, review)` → `{ inserted }`, or `{ inserted: false, skipped: 'other_business' }`.
+  - `updateGoogleReviewDraft(businessId, reviewName, patch)` → number of rows changed.
+  - `createGooglePost(businessId, fields)`, `getGooglePost(businessId, id)`, `updateGooglePost(businessId, id, fields)`.
+  - `claimGooglePostForPublishing(businessId, id)`. GB9's claim SQL therefore also has `AND business_id = ?`.
+
+  Unknown column names throw.
+- **One Google listing per branch:** `db.findGoogleLocationOwner(locationName, exceptBusinessId)`.
+  Location pick refuses a listing another branch holds (409 `GOOGLE_LISTING_TAKEN`).
+- **`GET …/google/status` returns `syncAvailable`.** The Settings card shows **Sync now** only once
+  `ctx.syncGoogleReviews` exists. In GB5, point that button at the new rate-limited
+  `POST …/google/sync`, and make `syncGBP()` handle a `{ skipped }` result.
+- **Mock adapter:**
+  - Returns the live adapter's shapes (`getLocation` runs fixtures through `normalizeLocation`).
+  - Keeps reviews per location, 5 per page, so GB5's paging loop really runs.
+  - `_addReview(locationName, fields)` adds a review.
+  - Metrics follow the requested metrics and date range.
+- **`createLocalPost(post)`** takes `{ topicType, summary, ctaType, ctaUrl, title, startDate, endDate, couponCode, imageUrl }`,
+  with dates as `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM`. `EVENT`/`OFFER` need a title and both dates.
+  `buildLocalPost` produces Google's schedule shape.
+- Store timestamps as ISO strings (`new Date().toISOString()`). The UI parses them with `new Date()`.
+- **Run each package's Verify list end to end before committing.** GB4 was committed after a
+  module-load check, and its callback could never succeed.
 
 ## GB5 — Review sync + scheduler
 

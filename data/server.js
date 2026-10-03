@@ -188,8 +188,8 @@ app.get('/cafe/:id', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'cafe.html'));
 });
 
-// Serve branch manager dashboards
-app.get('/manager/:id', (req, res) => {
+// Serve branch manager dashboards (without an id, the page falls back to the branch saved at login)
+app.get(['/manager', '/manager/:id'], (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'manager.html'));
 });
 // ── Table QR Ordering — Customer menu page ───────────────────────────────────
@@ -2420,6 +2420,7 @@ require('./routes/feedback')(routeCtx);
 require('./routes/leads')(routeCtx);
 require('./routes/wa-qr')(routeCtx);
 require('./routes/google')(routeCtx);
+getGoogleAdapter(); // logs at boot whether Google is mock, live or disabled
 
 // Socket.io Real-time Event Handling
 // -------------------------------------------------------------

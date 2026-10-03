@@ -1898,12 +1898,37 @@ function bumpClaudeUsage(businessId, date) {
 Object.assign(module.exports, { getClaudeUsageToday, bumpClaudeUsage });
 
 // ── Google Business Profile accessors (GB1) ───────────────────────────────────
+// Every by-id accessor takes businessId and filters on it. Column names are spliced
+// into SQL, so they are checked against these whitelists.
+
+const GOOGLE_CONNECTION_COLS = new Set(['status', 'google_email', 'account_name', 'location_name', 'location_title',
+  'maps_uri', 'access_token_enc', 'refresh_token_enc', 'token_expires_at', 'last_sync_at', 'last_sync_error',
+  'connected_at', 'connected_by']);
+const GOOGLE_REVIEW_COLS = new Set(['review_name', 'reviewer_name', 'reviewer_photo', 'star_rating', 'comment',
+  'create_time', 'update_time', 'reply_text', 'reply_time']);
+const GOOGLE_POST_COLS = new Set(['topic_type', 'summary', 'cta_type', 'cta_url', 'title', 'start_date', 'end_date',
+  'coupon_code', 'image_url', 'status', 'scheduled_for', 'google_post_name', 'attempts', 'last_error', 'ai_generated',
+  'created_by', 'approved_by']);
+
+function checkGoogleColumns(fields, allowed, fn) {
+  for (const k of Object.keys(fields)) {
+    if (!allowed.has(k)) throw new Error(`${fn}: unknown column "${k}"`);
+  }
+}
 
 function getGoogleConnection(businessId) {
   return db.prepare('SELECT * FROM google_connections WHERE business_id = ?').get(businessId) || null;
 }
 
+function findGoogleLocationOwner(locationName, exceptBusinessId) {
+  const row = db.prepare(
+    "SELECT business_id FROM google_connections WHERE location_name = ? AND business_id != ? AND status != 'disconnected' LIMIT 1"
+  ).get(locationName, exceptBusinessId);
+  return row ? row.business_id : null;
+}
+
 function upsertGoogleConnection(businessId, fields) {
+  checkGoogleColumns(fields, GOOGLE_CONNECTION_COLS, 'upsertGoogleConnection');
   const now = new Date().toISOString();
   const existing = getGoogleConnection(businessId);
   if (!existing) {
@@ -1918,36 +1943,41 @@ function upsertGoogleConnection(businessId, fields) {
   return getGoogleConnection(businessId);
 }
 
-// Returns { inserted: boolean } — GB5 uses this to detect new-vs-updated rows.
-function upsertGoogleReview(review) {
-  const existing = db.prepare('SELECT review_name FROM google_reviews WHERE review_name = ?').get(review.review_name);
+// Returns { inserted } so GB5 alerts only on new rows. Only Google-owned columns are written, so our
+// draft fields survive a re-sync. A review_name already stored under another business is left untouched.
+function upsertGoogleReview(businessId, review) {
+  checkGoogleColumns(review, GOOGLE_REVIEW_COLS, 'upsertGoogleReview');
+  if (!review.review_name) throw new Error('upsertGoogleReview: review_name is required');
   const now = new Date().toISOString();
+  const existing = db.prepare('SELECT business_id FROM google_reviews WHERE review_name = ?').get(review.review_name);
   if (!existing) {
-    const cols = ['synced_at', ...Object.keys(review)];
-    const vals = [now, ...Object.values(review)];
-    const placeholders = cols.map(() => '?').join(',');
-    db.prepare(`INSERT INTO google_reviews (${cols.join(',')}) VALUES (${placeholders})`).run(...vals);
+    const cols = ['business_id', 'synced_at', ...Object.keys(review)];
+    db.prepare(`INSERT INTO google_reviews (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
+      .run(businessId, now, ...Object.values(review));
     return { inserted: true };
   }
-  // On update: overwrite Google-owned fields; preserve our draft fields via updateGoogleReviewDraft.
-  const sets = Object.keys(review).map(k => `${k} = ?`).join(', ');
-  db.prepare(`UPDATE google_reviews SET ${sets}, synced_at = ? WHERE review_name = ?`).run(...Object.values(review), now, review.review_name);
+  if (existing.business_id !== businessId) return { inserted: false, skipped: 'other_business' };
+  const keys = Object.keys(review).filter(k => k !== 'review_name');
+  const sets = keys.map(k => `${k} = ?, `).join('');
+  db.prepare(`UPDATE google_reviews SET ${sets}synced_at = ? WHERE review_name = ? AND business_id = ?`)
+    .run(...keys.map(k => review[k]), now, review.review_name, businessId);
   return { inserted: false };
 }
 
-function updateGoogleReviewDraft(reviewName, patch) {
+// Returns the number of rows changed (0 = no such review for this business).
+function updateGoogleReviewDraft(businessId, reviewName, patch) {
   const col = { sentiment: 'sentiment', topics: 'topics', aiDraft: 'ai_draft',
     draftStatus: 'draft_status', publishError: 'publish_error',
     repliedBy: 'replied_by', replyText: 'reply_text', replyTime: 'reply_time' };
   const fields = {};
   for (const [k, v] of Object.entries(patch)) {
-    if (col[k] !== undefined && v !== undefined) {
-      fields[col[k]] = k === 'topics' && Array.isArray(v) ? JSON.stringify(v) : v;
-    }
+    if (!col[k]) throw new Error(`updateGoogleReviewDraft: unknown field "${k}"`);
+    if (v !== undefined) fields[col[k]] = k === 'topics' && Array.isArray(v) ? JSON.stringify(v) : v;
   }
-  if (Object.keys(fields).length === 0) return;
+  if (Object.keys(fields).length === 0) return 0;
   const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
-  db.prepare(`UPDATE google_reviews SET ${sets} WHERE review_name = ?`).run(...Object.values(fields), reviewName);
+  return db.prepare(`UPDATE google_reviews SET ${sets} WHERE review_name = ? AND business_id = ?`)
+    .run(...Object.values(fields), reviewName, businessId).changes;
 }
 
 function listGoogleReviews(businessId, { filter, limit, offset } = {}) {
@@ -1977,25 +2007,27 @@ function countGoogleReviewSummary(businessId) {
 
 // ── Google posts ──────────────────────────────────────────────────────────────
 
-function createGooglePost(fields) {
-  const id  = 'gp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-  const now = new Date().toISOString();
-  const cols = ['id', 'created_at', 'updated_at', ...Object.keys(fields)];
-  const vals = [id, now, now, ...Object.values(fields)];
-  const ph   = cols.map(() => '?').join(',');
-  db.prepare(`INSERT INTO google_posts (${cols.join(',')}) VALUES (${ph})`).run(...vals);
-  return db.prepare('SELECT * FROM google_posts WHERE id = ?').get(id);
-}
-
-function updateGooglePost(id, fields) {
+function createGooglePost(businessId, fields) {
+  checkGoogleColumns(fields, GOOGLE_POST_COLS, 'createGooglePost');
+  const id   = 'gp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   const now  = new Date().toISOString();
-  const sets = Object.keys(fields).map(k => `${k} = ?`).join(', ');
-  db.prepare(`UPDATE google_posts SET ${sets}, updated_at = ? WHERE id = ?`).run(...Object.values(fields), now, id);
-  return db.prepare('SELECT * FROM google_posts WHERE id = ?').get(id);
+  const cols = ['id', 'business_id', 'created_at', 'updated_at', ...Object.keys(fields)];
+  db.prepare(`INSERT INTO google_posts (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`)
+    .run(id, businessId, now, now, ...Object.values(fields));
+  return getGooglePost(businessId, id);
 }
 
-function getGooglePost(id) {
-  return db.prepare('SELECT * FROM google_posts WHERE id = ?').get(id) || null;
+function updateGooglePost(businessId, id, fields) {
+  checkGoogleColumns(fields, GOOGLE_POST_COLS, 'updateGooglePost');
+  const keys = Object.keys(fields);
+  const sets = keys.map(k => `${k} = ?, `).join('');
+  db.prepare(`UPDATE google_posts SET ${sets}updated_at = ? WHERE id = ? AND business_id = ?`)
+    .run(...keys.map(k => fields[k]), new Date().toISOString(), id, businessId);
+  return getGooglePost(businessId, id);
+}
+
+function getGooglePost(businessId, id) {
+  return db.prepare('SELECT * FROM google_posts WHERE id = ? AND business_id = ?').get(id, businessId) || null;
 }
 
 function listGooglePosts(businessId, { status, limit, offset } = {}) {
@@ -2008,11 +2040,10 @@ function listGooglePosts(businessId, { status, limit, offset } = {}) {
 }
 
 // Atomic publish claim — returns true only if THIS call won the race.
-function claimGooglePostForPublishing(id) {
-  const result = db.prepare(
-    "UPDATE google_posts SET status='publishing', updated_at=datetime('now') WHERE id=? AND status IN ('draft','scheduled')"
-  ).run(id);
-  return result.changes === 1;
+function claimGooglePostForPublishing(businessId, id) {
+  return db.prepare(
+    "UPDATE google_posts SET status = 'publishing', updated_at = ? WHERE id = ? AND business_id = ? AND status IN ('draft','scheduled')"
+  ).run(new Date().toISOString(), id, businessId).changes === 1;
 }
 
 // ── Google daily metrics ──────────────────────────────────────────────────────
@@ -2050,7 +2081,7 @@ function getLatestGoogleAudits(businessId, limit) {
 }
 
 Object.assign(module.exports, {
-  getGoogleConnection, upsertGoogleConnection,
+  getGoogleConnection, upsertGoogleConnection, findGoogleLocationOwner,
   upsertGoogleReview, updateGoogleReviewDraft, listGoogleReviews, countGoogleReviewSummary,
   createGooglePost, updateGooglePost, getGooglePost, listGooglePosts, claimGooglePostForPublishing,
   upsertGoogleMetric, getGoogleMetrics,
