@@ -2422,6 +2422,29 @@ require('./routes/wa-qr')(routeCtx);
 require('./routes/google')(routeCtx);
 getGoogleAdapter(); // logs at boot whether Google is mock, live or disabled
 
+// GB5 — 30-min Google review sync scheduler: syncs all connected businesses sequentially with 2 s between them.
+function scheduleGoogleReviewSync() {
+  setInterval(async () => {
+    if (!db || typeof routeCtx.syncGoogleReviews !== 'function') return;
+    let ids;
+    try { ids = db.listConnectedGoogleBusinessIds(); } catch (e) { console.error('[google/scheduler] listConnectedGoogleBusinessIds failed:', e.message); return; }
+    for (const id of ids) {
+      try {
+        const result = await routeCtx.syncGoogleReviews(id);
+        if (result.skipped) {
+          console.log(`[google/scheduler] ${id}: skipped (${result.skipped})`);
+        } else {
+          console.log(`[google/scheduler] ${id}: inserted=${result.inserted} updated=${result.updated} pages=${result.pages}`);
+        }
+      } catch (e) {
+        console.error(`[google/scheduler] ${id}: sync error:`, e.message);
+      }
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }, 30 * 60 * 1000);
+}
+scheduleGoogleReviewSync();
+
 // Socket.io Real-time Event Handling
 // -------------------------------------------------------------
 // ══════════════════════════════════════════════════════════════════════════════

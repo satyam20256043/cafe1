@@ -2067,6 +2067,10 @@ function getGoogleMetrics(businessId, { days, metrics } = {}) {
   return db.prepare(q + ' ORDER BY date ASC').all(...params);
 }
 
+function listConnectedGoogleBusinessIds() {
+  return db.prepare("SELECT business_id FROM google_connections WHERE status = 'connected'").all().map(r => r.business_id);
+}
+
 // ── Google audits ─────────────────────────────────────────────────────────────
 
 function saveGoogleAudit(businessId, score, findings) {
@@ -2086,4 +2090,5 @@ Object.assign(module.exports, {
   createGooglePost, updateGooglePost, getGooglePost, listGooglePosts, claimGooglePostForPublishing,
   upsertGoogleMetric, getGoogleMetrics,
   saveGoogleAudit, getLatestGoogleAudits,
+  listConnectedGoogleBusinessIds,
 });

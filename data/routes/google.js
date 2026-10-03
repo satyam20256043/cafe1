@@ -1,9 +1,10 @@
 'use strict';
-// Google Business Profile connection: status, connect (OAuth), location pick, disconnect.
+// Google Business Profile connection: status, connect (OAuth), location pick, disconnect, review sync.
 
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { encrypt, decrypt } = require('../secrets');
+const { rateLimit } = require('../rateLimit');
 
 const MANAGE_ROLES      = ['owner', 'manager', 'admin', 'agency_admin'];
 const CALLBACK_PATH     = '/api/google/oauth/callback';
@@ -11,6 +12,11 @@ const NONCE_COOKIE      = 'zg_google_nonce';
 const STATE_TTL_SECONDS = 10 * 60;
 const NOT_CONFIGURED    = { error: "Google connection isn't available yet", code: 'GOOGLE_NOT_CONFIGURED' };
 const LISTING_TAKEN     = { error: 'This Google listing is already connected to another Zordical branch', code: 'GOOGLE_LISTING_TAKEN' };
+const SYNC_MAX_PAGES    = 20;
+const SYNC_NOTIFY_LIMIT = 25; // max reviews queued for AI per sync run
+
+// Per-business in-memory concurrency guard
+const syncsInProgress = new Set();
 
 // The state travels through URLs, so it gets its own derived key: it can never pass as a staff login token.
 function stateKey() {
@@ -229,5 +235,115 @@ module.exports = function googleRoutes(ctx) {
     if (toRevoke && adapter) adapter.revoke(toRevoke).catch(() => {});
   });
 
+  // ── Review sync ──────────────────────────────────────────────────────────────
+
+  async function syncGoogleReviews(businessId) {
+    const conn = db.getGoogleConnection(businessId);
+    if (!conn || conn.status !== 'connected') return { skipped: 'not_connected' };
+    if (syncsInProgress.has(businessId)) return { skipped: 'in_progress' };
+
+    syncsInProgress.add(businessId);
+    const isFirstSync = !conn.last_sync_at;
+    let inserted = 0, updated = 0, pages = 0;
+    const newLowStarReviews = [];
+    const newUnreplied = [];
+
+    try {
+      const adapter = adapterOrNull();
+      if (!adapter) throw typedError('NOT_CONFIGURED', 'Google is not configured');
+      const accessToken = await getValidAccessToken(businessId);
+
+      let pageToken;
+      do {
+        const result = await adapter.listReviews(accessToken, conn.account_name, conn.location_name, pageToken);
+        for (const review of (result.reviews || [])) {
+          // Both live and mock adapters return snake_case field names already.
+          const row = {
+            review_name:    review.review_name,
+            reviewer_name:  review.reviewer_name,
+            reviewer_photo: review.reviewer_photo || null,
+            star_rating:    review.star_rating,
+            comment:        review.comment || null,
+            create_time:    review.create_time,
+            update_time:    review.update_time || null,
+            reply_text:     review.reply_text  || null,
+            reply_time:     review.reply_time  || null,
+          };
+          const outcome = db.upsertGoogleReview(businessId, row);
+          if (outcome.skipped) continue;
+          if (outcome.inserted) {
+            inserted++;
+            logEvent(businessId, 'review.received', { metadata: { stars: review.star_rating, source: 'google' } });
+            if (review.star_rating <= 3) newLowStarReviews.push(review);
+            if (!review.reply_text) newUnreplied.push(row);
+          } else {
+            // If Google's reply differs from what we have, Google wins (edited outside Zordical)
+            updated++;
+          }
+        }
+        pages++;
+        pageToken = result.nextPageToken;
+      } while (pageToken && pages < SYNC_MAX_PAGES);
+
+      db.upsertGoogleConnection(businessId, { last_sync_at: new Date().toISOString(), last_sync_error: null });
+
+      // Notifications — first sync: one summary; subsequent syncs: per low-star review
+      if (inserted > 0 || updated > 0) {
+        const business = ctx.businesses && ctx.businesses.find(b => b.id === businessId);
+        const ownerPhone = business && business.ownerPhone;
+        if (ownerPhone) {
+          if (isFirstSync) {
+            ctx.sendWhatsAppToCustomer(businessId, ownerPhone,
+              `📥 Imported ${inserted} Google review${inserted === 1 ? '' : 's'} for ${business.name || businessId}. Open your dashboard to see them.`
+            ).catch(() => {});
+          } else {
+            for (const rev of newLowStarReviews) {
+              const stars = '⭐'.repeat(rev.starRating);
+              ctx.sendWhatsAppToCustomer(businessId, ownerPhone,
+                `${stars} New ${rev.starRating}-star Google review — tap to reply:\n${(process.env.BASE_URL || 'http://localhost:3010')}/manager/${businessId}?tab=feedback&filter=negative`
+              ).catch(() => {});
+            }
+          }
+        }
+      }
+
+      // Queue new unreplied reviews for AI analysis (GB6). Non-blocking, sequential, max SYNC_NOTIFY_LIMIT per run.
+      if (typeof ctx.analyzeAndDraftReview === 'function') {
+        const toAnalyze = newUnreplied.slice(0, SYNC_NOTIFY_LIMIT);
+        setImmediate(async () => {
+          for (const rev of toAnalyze) {
+            try { await ctx.analyzeAndDraftReview(businessId, rev); }
+            catch (e) { console.error('[google/sync] analyzeAndDraft failed for', rev.review_name, e.message); }
+          }
+        });
+      }
+
+      return { inserted, updated, pages };
+    } catch (e) {
+      const errMsg = e.message || String(e);
+      db.upsertGoogleConnection(businessId, { last_sync_error: errMsg });
+      if (e.code === 'AUTH') markNeedsReconnect(businessId, errMsg);
+      throw e;
+    } finally {
+      syncsInProgress.delete(businessId);
+    }
+  }
+
+  // Rate limit: 1 manual sync per 2 min per business
+  const syncRateLimit = rateLimit({
+    windowMs: 2 * 60 * 1000,
+    max: 1,
+    keyFn: req => `google_sync:${req.params.id}`,
+    message: 'Sync is rate-limited — try again in 2 minutes.',
+  });
+
+  app.post('/api/businesses/:id/google/sync', requireAuth, requireBranchAccess, canManage, syncRateLimit, async (req, res) => {
+    try {
+      const result = await syncGoogleReviews(req.params.id);
+      res.json(result);
+    } catch (e) { sendGoogleError(res, e); }
+  });
+
+  ctx.syncGoogleReviews = syncGoogleReviews;
   ctx.getValidGoogleToken = getValidAccessToken;
 };
