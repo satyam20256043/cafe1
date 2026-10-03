@@ -1980,6 +1980,11 @@ function updateGoogleReviewDraft(businessId, reviewName, patch) {
     .run(...Object.values(fields), reviewName, businessId).changes;
 }
 
+function getGoogleReview(businessId, reviewName) {
+  const r = db.prepare('SELECT * FROM google_reviews WHERE review_name = ? AND business_id = ?').get(reviewName, businessId);
+  return r ? { ...r, topics: r.topics ? JSON.parse(r.topics) : [] } : null;
+}
+
 function listGoogleReviews(businessId, { filter, limit, offset } = {}) {
   const safeFilter = filter || 'needs_reply';
   const safeLimit  = Math.min(Math.max(1, parseInt(limit)  || 20),  100);
@@ -2086,7 +2091,7 @@ function getLatestGoogleAudits(businessId, limit) {
 
 Object.assign(module.exports, {
   getGoogleConnection, upsertGoogleConnection, findGoogleLocationOwner,
-  upsertGoogleReview, updateGoogleReviewDraft, listGoogleReviews, countGoogleReviewSummary,
+  upsertGoogleReview, updateGoogleReviewDraft, getGoogleReview, listGoogleReviews, countGoogleReviewSummary,
   createGooglePost, updateGooglePost, getGooglePost, listGooglePosts, claimGooglePostForPublishing,
   upsertGoogleMetric, getGoogleMetrics,
   saveGoogleAudit, getLatestGoogleAudits,
