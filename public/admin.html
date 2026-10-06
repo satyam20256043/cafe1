@@ -959,7 +959,7 @@ async function loadAllStaff() {
   listEl.innerHTML = '';
   try {
     const [staffRes, bizRes] = await Promise.all([
-      fetch('/api/admin/all-staff',  { headers: ADMIN_HEADERS }),
+      fetch('/api/admin/staff',      { headers: ADMIN_HEADERS }),
       fetch('/api/businesses',       { headers: ADMIN_HEADERS })
     ]);
     const staff      = await staffRes.json();
@@ -1032,16 +1032,23 @@ function closeResetModal() {
   resetTargetId = null;
 }
 
+// 10 characters, without the look-alikes (0/O, 1/l/I) since it gets read out or retyped.
+function generatePassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  return Array.from(crypto.getRandomValues(new Uint32Array(10)), n => chars[n % chars.length]).join('');
+}
+
 async function confirmResetPassword() {
   if (!resetTargetId) return;
   const inp    = document.getElementById('reset-new-pass');
   const resEl  = document.getElementById('reset-result');
-  const newPass = inp ? inp.value.trim() : '';
+  // The server stores exactly what it is sent, so "auto-generate if empty" happens here.
+  const newPass = (inp ? inp.value.trim() : '') || generatePassword();
   try {
-    const res = await fetch(`/api/admin/staff/${resetTargetId}/reset-password`, {
-      method: 'POST',
+    const res = await fetch(`/api/admin/staff/${encodeURIComponent(resetTargetId)}/password`, {
+      method: 'PUT',
       headers: ADMIN_HEADERS,
-      body: JSON.stringify({ newPassword: newPass || null })
+      body: JSON.stringify({ newPassword: newPass })
     });
     const data = await res.json();
     if (!res.ok) {
@@ -1049,7 +1056,7 @@ async function confirmResetPassword() {
       resEl.textContent = data.error || 'Reset failed';
     } else {
       resEl.style.cssText = 'display:block;background:#f0fdf4;color:#1a7a3a;border:1px solid #aed;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px';
-      resEl.innerHTML = `✓ Password reset!<br><strong style="font-family:monospace;font-size:16px;letter-spacing:1px">${esc(data.newPassword)}</strong><br><span style="font-size:11px;color:#666">Copy this now — won't be shown again</span>`;
+      resEl.innerHTML = `✓ Password reset!<br><strong style="font-family:monospace;font-size:16px;letter-spacing:1px">${esc(newPass)}</strong><br><span style="font-size:11px;color:#666">Copy this now — won't be shown again</span>`;
     }
   } catch(e) {
     resEl.style.cssText = 'display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px';
