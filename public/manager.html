@@ -3831,7 +3831,7 @@ async function saveSettings(){
     const r=await fetch(`/api/businesses/${branchId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();
     if(d.id){ business=d; toast('Branch details saved!','success'); await loadBranch(); }
-    else toast('Error saving details','error');
+    else toast(d.error||'Error saving details','error');
 
   } catch(e) {
     console.error('[saveSettings]', e);
