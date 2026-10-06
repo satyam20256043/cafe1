@@ -15,8 +15,22 @@ const LISTING_TAKEN     = { error: 'This Google listing is already connected to 
 const SYNC_MAX_PAGES    = 20;
 const SYNC_NOTIFY_LIMIT = 25; // max reviews queued for AI per sync run
 
+// GB6 closed topic vocabulary — the model's topics are filtered against this; anything else is dropped.
+const TOPIC_VOCAB = new Set(['food_quality', 'taste', 'portion', 'price_value', 'service', 'staff',
+  'waiting_time', 'cleanliness', 'ambience', 'music_noise', 'seating', 'wifi', 'parking', 'location',
+  'packaging', 'delivery', 'menu_variety', 'coffee_beverages', 'room_cleanliness', 'room_comfort',
+  'check_in', 'amenities', 'breakfast', 'hospitality', 'booking_issue', 'other']);
+
 // Per-business in-memory concurrency guard
 const syncsInProgress = new Set();
+
+// review_name holds slashes; the client URL-encodes it. Express usually decodes params, but decode
+// defensively if an environment left %2F encoded.
+function decodeReviewName(param) {
+  let v = String(param || '');
+  if (/%2[Ff]/.test(v)) { try { v = decodeURIComponent(v); } catch (_) {} }
+  return v;
+}
 
 // The state travels through URLs, so it gets its own derived key: it can never pass as a staff login token.
 function stateKey() {
@@ -344,6 +358,187 @@ module.exports = function googleRoutes(ctx) {
     } catch (e) { sendGoogleError(res, e); }
   });
 
+  // ── GB6: AI analysis + reply draft ────────────────────────────────────────
+
+  function vertical(business) {
+    const t = String((business && (business.businessType || business.vertical || business.category)) || '').toLowerCase();
+    if (t.includes('hotel')) return 'hotel';
+    if (t.includes('restaurant')) return 'restaurant';
+    return 'café';
+  }
+
+  function firstName(name) {
+    const n = String(name || '').trim().split(/\s+/)[0];
+    return n && n.toLowerCase() !== 'anonymous' ? n : 'there';
+  }
+
+  function buildReviewPrompt(businessId, review, tone) {
+    const business = (ctx.businesses || []).find(b => b.id === businessId) || {};
+    const vert = vertical(business);
+    const named = business.assistantName ? ` You are called ${business.assistantName}.` : '';
+    const facts = ((ctx.getBranchData && ctx.getBranchData(businessId, 'knowledge.json')) || [])
+      .filter(k => k && k.q && k.a && String(k.a).trim())
+      .map(k => `- ${k.q} → ${k.a}`).join('\n') || '(no specific facts provided — do not invent any)';
+    const stars = review.star_rating;
+    const text = (review.comment || '').trim();
+    const who = firstName(review.reviewer_name);
+    const contact = business.contact ? ` on ${business.contact}` : '';
+    const toneHint = { warmer: '\n- Make this version noticeably warmer and more personal.',
+      shorter: '\n- Make this version shorter: 1–2 sentences.',
+      more_formal: '\n- Make this version more formal and professional.' }[tone] || '';
+
+    return `You are the owner of "${business.name || 'our ' + vert}", a ${vert} in India.${named}
+${who} left a ${stars}-star Google review${text ? ':\n"""' + text + '"""' : ' with no written comment.'}
+
+Facts about the business (use ONLY these for any specific claim; never go beyond them):
+${facts}
+
+Reply to this review and classify it. Output ONLY a JSON object, nothing else:
+{"sentiment":"positive|neutral|negative","topics":["..."],"draft":"the public reply"}
+
+"topics" MUST come from this exact list (choose 1–4 that apply, else ["other"]):
+food_quality, taste, portion, price_value, service, staff, waiting_time, cleanliness, ambience, music_noise, seating, wifi, parking, location, packaging, delivery, menu_variety, coffee_beverages, room_cleanliness, room_comfort, check_in, amenities, breakfast, hospitality, booking_issue, other
+
+Rules for "draft":
+- Reply in the SAME language as the review (English, Hindi, or Hinglish).${text ? '' : ' There is no comment, so write a short, warm thank-you.'}
+- 2–4 sentences, under 500 characters. Thank ${who} by name.
+- Address the specific points raised.
+- NEVER promise refunds, discounts, free items or any compensation.
+- NEVER state a fact that is not in the facts above.
+- NEVER mention loyalty points, rewards or coupons.
+- NEVER argue with or blame the customer.
+${stars <= 3 ? `- Apologise once, sincerely, and invite ${who} to reach the ${vert} directly${contact}.` : ''}
+- No hashtags. At most one emoji.${toneHint}
+Output ONLY the JSON object.`;
+  }
+
+  function parseReviewAnalysis(raw) {
+    if (!raw) return null;
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    let obj;
+    try { obj = JSON.parse(raw.slice(start, end + 1)); }
+    catch (_) { return null; }
+    if (!obj || typeof obj !== 'object') return null;
+    const sentiment = ['positive', 'neutral', 'negative'].includes(obj.sentiment) ? obj.sentiment : null;
+    const topics = Array.isArray(obj.topics) ? obj.topics.filter(t => TOPIC_VOCAB.has(t)).slice(0, 4) : [];
+    let draft = typeof obj.draft === 'string' ? obj.draft.trim() : '';
+    if (draft.length > 500) draft = draft.slice(0, 500).trim();
+    return { sentiment, topics, draft };
+  }
+
+  function sentimentFromStars(stars) {
+    if (stars >= 4) return 'positive';
+    if (stars === 3) return 'neutral';
+    return 'negative';
+  }
+
+  async function analyzeAndDraftReview(businessId, review, opts = {}) {
+    const fallback = sentimentFromStars(review.star_rating);
+    const raw = await ctx.callClaude(buildReviewPrompt(businessId, review, opts.tone));
+    const parsed = parseReviewAnalysis(raw);
+    if (!parsed || !parsed.draft) {
+      // No usable draft (model down, parse failure): keep a stars-based sentiment, leave draft_status 'none'.
+      db.updateGoogleReviewDraft(businessId, review.review_name, {
+        sentiment: (parsed && parsed.sentiment) || fallback,
+        draftStatus: 'none',
+      });
+      return { ok: false, draftStatus: 'none', sentiment: (parsed && parsed.sentiment) || fallback };
+    }
+    db.updateGoogleReviewDraft(businessId, review.review_name, {
+      sentiment: parsed.sentiment || fallback,
+      topics: parsed.topics,
+      aiDraft: parsed.draft,
+      draftStatus: 'drafted',
+    });
+    return { ok: true, draftStatus: 'drafted', draft: parsed.draft, topics: parsed.topics, sentiment: parsed.sentiment || fallback };
+  }
+
+  const draftRateLimit = rateLimit({
+    windowMs: 60 * 1000, max: 10,
+    keyFn: req => `google_draft:${req.params.id}`,
+    message: 'Too many draft requests — try again in a minute.',
+  });
+
+  app.post('/api/businesses/:id/google/reviews/:reviewName/draft', requireAuth, requireBranchAccess, canManage, draftRateLimit, async (req, res) => {
+    const reviewName = decodeReviewName(req.params.reviewName);
+    const tone = ['warmer', 'shorter', 'more_formal'].includes(req.body && req.body.tone) ? req.body.tone : undefined;
+    const review = db.getGoogleReview(req.params.id, reviewName);
+    if (!review) return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    try {
+      const result = await analyzeAndDraftReview(req.params.id, review, { tone });
+      if (!result.ok) return res.status(502).json({ error: "Couldn't draft a reply right now. Please try again or write your own.", code: 'DRAFT_FAILED' });
+      res.json(result);
+    } catch (e) { sendGoogleError(res, e); }
+  });
+
+  // ── GB7: Reviews inbox + publish/delete/skip reply ────────────────────────
+
+  function humanGoogleError(e) {
+    if (e.code === 'AUTH') return 'Google connection needs to be reconnected';
+    if (e.code === 'PERMISSION' || e.code === 'NOT_FOUND') return "Google didn't accept this reply";
+    if (e.code === 'RATE_LIMIT') return 'Google is busy — try again shortly';
+    return "Google isn't responding — try again";
+  }
+
+  app.get('/api/businesses/:id/google/reviews', requireAuth, requireBranchAccess, (req, res) => {
+    const adapter = adapterOrNull();
+    if (!adapter || !db) return res.status(503).json(NOT_CONFIGURED);
+    const conn = db.getGoogleConnection(req.params.id);
+    const filter = ['needs_reply', 'negative', 'replied', 'all'].includes(req.query.filter) ? req.query.filter : 'needs_reply';
+    const reviews = db.listGoogleReviews(req.params.id, { filter, limit: req.query.limit, offset: req.query.offset });
+    const summary = db.countGoogleReviewSummary(req.params.id);
+    res.json({ mode: adapter.mode, status: conn ? conn.status : 'disconnected', filter, reviews, summary });
+  });
+
+  app.post('/api/businesses/:id/google/reviews/:reviewName/reply', requireAuth, requireBranchAccess, canManage, async (req, res) => {
+    const reviewName = decodeReviewName(req.params.reviewName);
+    const text = typeof (req.body && req.body.text) === 'string' ? req.body.text.trim() : '';
+    if (text.length < 1 || text.length > 4000) return res.status(400).json({ error: 'Reply must be 1–4000 characters', code: 'BAD_REPLY' });
+    const review = db.getGoogleReview(req.params.id, reviewName);
+    if (!review) return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    // Double-tap guard: claim synchronously (better-sqlite3 is sync, so no two requests interleave here).
+    if (review.draft_status === 'publishing') return res.status(409).json({ error: 'A reply is already being published', code: 'ALREADY_PUBLISHING' });
+    db.updateGoogleReviewDraft(req.params.id, reviewName, { draftStatus: 'publishing' });
+    try {
+      const accessToken = await getValidAccessToken(req.params.id);
+      await adapterOrNull().replyToReview(accessToken, reviewName, text);
+      const now = new Date().toISOString();
+      const aiDrafted = !!(review.ai_draft && String(review.ai_draft).trim());
+      const edited = aiDrafted ? (text !== String(review.ai_draft).trim()) : false;
+      db.updateGoogleReviewDraft(req.params.id, reviewName, {
+        replyText: text, replyTime: now, repliedBy: req.staff.id, draftStatus: 'published', publishError: null,
+      });
+      logEvent(req.params.id, 'review.replied', { actor: req.staff.id, metadata: { stars: review.star_rating, aiDrafted, edited } });
+      res.json({ ok: true, replyText: text, replyTime: now });
+    } catch (e) {
+      db.updateGoogleReviewDraft(req.params.id, reviewName, { draftStatus: 'failed', publishError: humanGoogleError(e) });
+      sendGoogleError(res, e);
+    }
+  });
+
+  app.delete('/api/businesses/:id/google/reviews/:reviewName/reply', requireAuth, requireBranchAccess, canManage, async (req, res) => {
+    const reviewName = decodeReviewName(req.params.reviewName);
+    const review = db.getGoogleReview(req.params.id, reviewName);
+    if (!review) return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    try {
+      const accessToken = await getValidAccessToken(req.params.id);
+      await adapterOrNull().deleteReply(accessToken, reviewName);
+      db.updateGoogleReviewDraft(req.params.id, reviewName, { replyText: null, replyTime: null, draftStatus: 'none' });
+      logEvent(req.params.id, 'review.reply_deleted', { actor: req.staff.id, metadata: { stars: review.star_rating } });
+      res.json({ ok: true });
+    } catch (e) { sendGoogleError(res, e); }
+  });
+
+  app.post('/api/businesses/:id/google/reviews/:reviewName/skip', requireAuth, requireBranchAccess, canManage, (req, res) => {
+    const reviewName = decodeReviewName(req.params.reviewName);
+    const changed = db.updateGoogleReviewDraft(req.params.id, reviewName, { draftStatus: 'skipped' });
+    if (!changed) return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    res.json({ ok: true });
+  });
+
+  ctx.analyzeAndDraftReview = analyzeAndDraftReview;
   ctx.syncGoogleReviews = syncGoogleReviews;
   ctx.getValidGoogleToken = getValidAccessToken;
 };

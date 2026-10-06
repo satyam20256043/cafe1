@@ -47,12 +47,21 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 
 /* Layout */
 .main{margin-left:210px;min-height:100vh}
-.topbar{position:sticky;top:0;z-index:50;background:rgba(250,246,241,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 26px;height:56px;display:flex;align-items:center;justify-content:space-between}
-.topbar-left{display:flex;align-items:center;gap:12px}
-.topbar-title{font-family:var(--font-display);font-size:17px;color:var(--espresso)}
-.topbar-id{font-size:11px;color:#aaa;background:var(--foam);padding:3px 9px;border-radius:20px;letter-spacing:0.3px}
-.topbar-right{display:flex;align-items:center;gap:10px}
+.topbar{position:sticky;top:0;z-index:50;background:rgba(250,246,241,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 26px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+/* The left side gives way first. It is one line tall and clips: when the branch id no longer fits
+   beside the café name it wraps onto the hidden second line, then the name truncates. */
+.topbar-left{display:flex;align-items:center;flex-wrap:wrap;gap:12px;height:26px;overflow:hidden;flex:1 1 0;min-width:120px}
+.topbar-title{font-family:var(--font-display);font-size:17px;line-height:26px;color:var(--espresso);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar-id{font-size:11px;color:#aaa;background:var(--foam);padding:3px 9px;border-radius:20px;letter-spacing:0.3px;white-space:nowrap}
+/* Above 600px these two groups are only wrappers: their children sit directly in the bar, so once the
+   name is down to its minimum just the two pills shrink (their text truncates) — never the buttons
+   or the toggle. Phones turn the groups into real rows (see the top bar media queries). */
+.topbar-account,.topbar-status{display:contents}
+.topbar-account>*,.topbar-status>*{flex-shrink:0;white-space:nowrap}
+#staff-pill,.topbar-status .wa-pill{flex-shrink:1;min-width:0;overflow:hidden}
+#staff-name-display{max-width:140px;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .wa-pill{display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border-radius:20px;border:1px solid var(--border-strong);cursor:pointer;transition:all 0.15s;color:var(--espresso);background:#fff}
+.wa-pill span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .wa-pill:hover{background:var(--foam)}
 .wa-dot{width:7px;height:7px;border-radius:50%;background:#ccc;flex-shrink:0}
 .wa-dot.connected{background:var(--sage)}
@@ -92,6 +101,8 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 /* Grid layouts */
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
 .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:18px}
+.orders-split{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+.theme-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 
 /* Table */
 .ds-pill{padding:7px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:#888;font-family:var(--font-body);font-size:12px;font-weight:500;cursor:pointer;transition:all 0.15s}
@@ -192,6 +203,32 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 .fb-reply{background:var(--cream);border-radius:8px;padding:10px 12px;font-size:12.5px;color:#666;border-left:3px solid var(--caramel);margin-top:8px}
 .fb-reply-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--caramel);margin-bottom:4px}
 
+/* Google reviews (GB7) */
+.gbp-pill{font-size:10px;font-weight:700;background:var(--amber,#f59e0b);color:#fff;padding:2px 7px;border-radius:10px;letter-spacing:.5px;vertical-align:middle}
+.gbp-rev-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.gbp-stat{display:flex;flex-direction:column;line-height:1.2}
+.gbp-stat b{font-size:17px;color:var(--espresso)}
+.gbp-stat span{font-size:10.5px;color:#999;text-transform:uppercase;letter-spacing:.5px}
+.gbp-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 14px}
+.gbp-chip{font-size:12px;padding:6px 13px;border-radius:16px;border:1px solid var(--border);background:#fff;color:#666;cursor:pointer;white-space:nowrap}
+.gbp-chip.active{background:var(--espresso);color:#fff;border-color:var(--espresso)}
+.gbp-rev-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.gbp-rev-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px}
+.gbp-rev-name{font-weight:600;font-size:13.5px;color:var(--espresso)}
+.gbp-rev-when{font-size:11px;color:#bbb;white-space:nowrap}
+.gbp-rev-text{font-size:13px;color:#555;line-height:1.6;margin:6px 0 10px}
+.gbp-topic{display:inline-block;font-size:10.5px;color:#8a6d3b;background:#fdf6ec;border:1px solid #f0e2c8;border-radius:10px;padding:2px 9px;margin:0 5px 5px 0}
+.gbp-draft-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--caramel);margin:8px 0 5px}
+.gbp-draft-ta{width:100%;box-sizing:border-box;min-height:74px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;line-height:1.5;resize:vertical;color:var(--ink)}
+.gbp-rev-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.gbp-rev-actions .btn{font-size:12.5px}
+.gbp-regen-wrap{position:relative;display:inline-block}
+.gbp-regen-menu{position:absolute;bottom:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.12);padding:4px;z-index:20;min-width:150px}
+.gbp-regen-menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 12px;font-size:12.5px;color:var(--ink);cursor:pointer;border-radius:6px;font-family:inherit}
+.gbp-regen-menu button:hover{background:var(--cream)}
+.gbp-rev-live{background:var(--cream);border-radius:8px;padding:10px 12px;font-size:12.5px;color:#555;border-left:3px solid #2e7d32;margin-top:4px}
+.gbp-rev-err{font-size:12px;color:var(--rose,#ef4444);margin-top:8px}
+
 /* Campaign */
 .campaign-row{padding:14px;border-bottom:1px solid var(--border)}
 .campaign-row:last-child{border-bottom:none}
@@ -230,7 +267,20 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 .empty-icon{font-size:36px;margin-bottom:10px}
 .empty-text{font-size:13px}
 
-@media(max-width:900px){.kpi-row{grid-template-columns:1fr 1fr}.two-col,.three-col{grid-template-columns:1fr}}
+@media(max-width:900px){.kpi-row{grid-template-columns:1fr 1fr}.two-col,.three-col{grid-template-columns:1fr}.orders-split{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:400px){.theme-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* ── Top bar fits every width ── A bar wider than the screen makes mobile Chrome
+   widen the whole layout: every tab pans sideways and fixed modals (e.g. the
+   Google listing picker) slide off-screen. So below 960px it drops the staff
+   pill and branch id, and on phones wraps the status group onto a second row. */
+@media(max-width:960px){.topbar-id{display:none}#staff-pill{display:none!important}} /* !important: JS shows the pill with an inline display */
+@media(max-width:600px){
+  .topbar{height:auto;flex-wrap:wrap;padding:9px 26px;row-gap:8px}
+  .topbar-left{min-width:0}
+  .topbar-account,.topbar-status{display:flex;align-items:center;gap:10px;flex-shrink:0;min-width:0}
+  .topbar-status{flex:1 0 100%;flex-direction:row-reverse;justify-content:space-between}
+}
 
 /* ── Mobile nav (UI3) — bottom tab bar replaces the sidebar under 768px ── */
 .mobile-bottom-nav{display:none}
@@ -483,7 +533,8 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
       <div class="topbar-title" id="topbar-branch">Branch</div>
       <span class="topbar-id" id="topbar-id">—</span>
     </div>
-    <div class="topbar-right">
+    <!-- Two groups, so phones can wrap the status group onto its own row (see the top bar media queries) -->
+    <div class="topbar-account">
       <!-- Staff pill + logout (Phase 1 auth) -->
       <div id="staff-pill" style="display:none;align-items:center;gap:8px;padding:5px 12px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);border-radius:20px;font-size:12px;color:#7A5C2E;cursor:default">
         <span>👤</span>
@@ -499,6 +550,8 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         style="display:none;padding:6px 14px;border:1px solid rgba(201,168,76,0.3);border-radius:20px;background:transparent;color:#A07830;font-size:12px;cursor:pointer;transition:all 0.2s">
         Sign Out
       </button>
+    </div>
+    <div class="topbar-status">
       <div class="pilot-toggle">
         <span style="font-size:12px;color:#888">Auto-Pilot</span>
         <div class="toggle-switch" id="pilot-toggle" onclick="toggleAutoPilot()"></div>
@@ -753,9 +806,20 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
     <!-- FEEDBACK -->
     <div id="tab-feedback" style="display:none">
       <div class="section-heading">Reviews & Feedback</div>
-      <div class="section-sub">Customer feedback with AI-generated reply drafts and Google review sync</div>
+      <div class="section-sub">Google reviews with AI reply drafts, profile health, and in-app feedback</div>
+
+      <!-- GB8: Google profile health (filled by loadGoogleAudit) -->
+      <div id="gbp-audit-panel" style="display:none;margin-bottom:18px"></div>
+
+      <!-- GB7: Google reviews inbox -->
+      <div id="gbp-reviews-section" style="margin-bottom:24px">
+        <div id="gbp-reviews-body"></div>
+      </div>
+
+      <!-- In-app (WhatsApp / web) feedback — unchanged -->
+      <div class="section-heading" style="font-size:15px">In-app feedback</div>
+      <div class="section-sub">Feedback left through your WhatsApp bot or website</div>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-        <button class="btn" onclick="syncGBP()">🔄 Sync Google Reviews</button>
         <button class="btn primary" onclick="loadFeedback()">Refresh</button>
       </div>
       <div id="feedback-list"></div>
@@ -846,7 +910,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
             <div style="font-family:var(--font-display);font-size:22px;color:var(--espresso)">Orders & Revenue</div>
             <div style="font-size:13px;color:#999;margin-top:4px">Live order queue + revenue analytics</div>
           </div>
-          <div style="display:flex;gap:10px;align-items:center">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <select id="order-filter" onchange="loadOrders()" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff">
               <option value="">All Orders</option>
               <option value="pending_approval">Awaiting Approval</option>
@@ -865,7 +929,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         </div>
 
         <!-- Order KPI strip (revenue hidden — admin only) -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px" id="revenue-kpis">
+        <div class="kpi-row" style="gap:14px;margin-bottom:28px" id="revenue-kpis">
           <div class="card" style="padding:18px 22px;text-align:center">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">Today</div>
             <div style="font-family:var(--font-display);font-size:26px;color:var(--espresso)" id="kpi-today-orders">—</div>
@@ -898,7 +962,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         </div>
 
         <!-- Two-column: order queue + top items -->
-        <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start">
+        <div class="orders-split">
 
           <!-- Order queue -->
           <div class="card" style="padding:0;overflow:hidden">
@@ -1300,7 +1364,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           <div class="panel" style="margin-bottom:16px">
             <div class="panel-head"><div class="panel-title">Café Theme</div><div class="panel-sub">Choose the visual style for your customer website</div></div>
             <div class="panel-body">
-              <div id="theme-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px"></div>
+              <div id="theme-grid" class="theme-grid"></div>
               <button class="btn primary full" onclick="saveTheme()">Apply Theme</button>
             </div>
           </div>
@@ -1869,7 +1933,7 @@ function showTab(id, el){
   else if(id==='crm') { loadCRM(); loadAtRiskCustomers(); }
   else if(id==='chats') loadChatConvos();
   else if(id==='expenses') { initExpenseDate(); loadExpenses(); }
-  else if(id==='feedback') loadFeedback();
+  else if(id==='feedback') { loadFeedback(); loadGoogleReviews(); loadGoogleAudit(); }
   else if(id==='offers') loadOffers();
   else if(id==='menu') loadMenu();
   else if(id==='settings') loadSettings();
@@ -2940,19 +3004,218 @@ async function submitReply(){
 }
 
 async function syncGBP(){
+  const btns=[...document.querySelectorAll('[data-gbp-sync]')];
+  btns.forEach(b=>b.disabled=true);
   try{
-    const r=await fetch(`/api/businesses/${branchId}/gbp/sync`,{method:'POST'});
-    const d=await r.json();
-    if(r.status===409||d.code==='GOOGLE_NOT_CONNECTED'){
-      toast('Connect Google in Settings first','error');
-      return;
-    }
+    const r=await fetch(`/api/businesses/${branchId}/google/sync`,{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===429){ toast(d.error||'Please wait before syncing again','error'); return; }
+    if(d.code==='GOOGLE_NOT_CONNECTED'){ toast('Connect Google in Settings first','error'); return; }
+    if(d.code==='GOOGLE_RECONNECT'){ toast('Google needs reconnecting — open Settings','error'); if(typeof loadGoogleStatus==='function') loadGoogleStatus(); return; }
     if(!r.ok) throw new Error(d.error||'Sync failed');
-    const msg=d.addedCount!=null?`Synced ${d.addedCount} Google review(s)`:d.message||'Synced';
-    toast(msg,'success');
-    loadFeedback();
+    if(d.skipped==='in_progress') toast('A sync is already running…');
+    else if(d.skipped) toast('Nothing to sync yet');
+    else toast(`Synced — ${d.inserted||0} new, ${d.updated||0} updated`,'success');
+    loadGoogleReviews(); loadGoogleAudit();
+    if(typeof loadGoogleStatus==='function') loadGoogleStatus();
   }catch(e){ toast('Sync failed','error'); }
+  finally{ btns.forEach(b=>b.disabled=false); }
 }
+
+// ── Google reviews inbox (GB7) ──────────────────────────────────────────────
+let _gbpRev = { filter:'needs_reply', offset:0, items:[], mode:null, status:null, summary:null, lastBatch:0 };
+const GBP_FILTERS = [['needs_reply','Needs reply'],['negative','Negative'],['replied','Replied'],['all','All']];
+
+function gbpTimeAgo(iso){
+  if(!iso) return '';
+  const t=Date.parse(iso); if(isNaN(t)) return '';
+  const s=Math.floor((Date.now()-t)/1000);
+  if(s<60) return 'just now';
+  const m=Math.floor(s/60); if(m<60) return m+'m ago';
+  const h=Math.floor(m/60); if(h<24) return h+'h ago';
+  const d=Math.floor(h/24); if(d<30) return d+'d ago';
+  return new Date(t).toLocaleDateString();
+}
+
+async function loadGoogleReviews(reset=true){
+  const section=document.getElementById('gbp-reviews-section');
+  const body=document.getElementById('gbp-reviews-body');
+  if(!section||!body) return;
+  if(reset){ _gbpRev.offset=0; _gbpRev.items=[]; }
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/google/reviews?filter=${encodeURIComponent(_gbpRev.filter)}&limit=20&offset=${_gbpRev.offset}`);
+    if(r.status===503){ section.style.display='none'; return; }
+    section.style.display='';
+    const d=await r.json();
+    _gbpRev.mode=d.mode; _gbpRev.status=d.status; _gbpRev.summary=d.summary;
+    if(d.status!=='connected'){ renderGbpReviewsCTA(body); return; }
+    const batch=d.reviews||[];
+    _gbpRev.lastBatch=batch.length;
+    _gbpRev.items = reset ? batch : _gbpRev.items.concat(batch);
+    renderGbpReviews(body);
+  }catch(e){ console.error('[loadGoogleReviews]',e); }
+}
+
+function renderGbpReviewsCTA(body){
+  body.innerHTML=`
+    <div class="section-heading" style="font-size:15px">Google reviews</div>
+    <div class="gbp-rev-card" style="text-align:center">
+      <div style="font-size:13px;color:#888;margin-bottom:12px">Connect Google to manage your reviews here.</div>
+      <button class="btn primary" onclick="showTab('settings',document.querySelector('.nav-item[onclick*=settings]'))">Go to Settings</button>
+    </div>`;
+}
+
+function renderGbpReviews(body){
+  const s=_gbpRev.summary||{};
+  const demo=_gbpRev.mode==='mock'?'<span class="gbp-pill">DEMO DATA</span>':'';
+  const avg=s.avgRating!=null?s.avgRating.toFixed(1):'—';
+  const resp=s.responseRate90d!=null?s.responseRate90d+'%':'—';
+  const head=`
+    <div class="section-heading" style="font-size:15px;display:flex;align-items:center;gap:8px">Google reviews ${demo}</div>
+    <div class="gbp-rev-head">
+      <div class="gbp-stat"><b>${avg} ★</b><span>Average</span></div>
+      <div class="gbp-stat"><b>${s.total||0}</b><span>Total</span></div>
+      <div class="gbp-stat"><b>${s.needsReply||0}</b><span>Need a reply</span></div>
+      <div class="gbp-stat"><b>${resp}</b><span>Response rate</span></div>
+      <div style="flex:1"></div>
+      <button class="btn primary" data-gbp-sync onclick="syncGBP()">🔄 Sync now</button>
+    </div>
+    <div class="gbp-chips">
+      ${GBP_FILTERS.map(([k,label])=>`<button class="gbp-chip ${_gbpRev.filter===k?'active':''}" onclick="setGbpFilter('${k}')">${label}${k==='negative'&&s.negativeNeedsReply?` (${s.negativeNeedsReply})`:''}</button>`).join('')}
+    </div>`;
+
+  let cards;
+  if(!_gbpRev.items.length){
+    cards=`<div class="gbp-rev-card" style="text-align:center;color:#888;font-size:13px">No reviews in this view.</div>`;
+  }else{
+    cards=_gbpRev.items.map((rev,i)=>gbpReviewCard(rev,i)).join('');
+  }
+  const more=(_gbpRev.lastBatch===20)
+    ? `<div style="text-align:center;margin-top:12px"><button class="btn" onclick="loadMoreGoogleReviews()">Load more</button></div>` : '';
+  body.innerHTML=head+cards+more;
+}
+
+function gbpReviewCard(rev,i){
+  const stars='★'.repeat(rev.star_rating||0)+'☆'.repeat(5-(rev.star_rating||0));
+  const when=gbpTimeAgo(rev.create_time);
+  const topics=(rev.topics||[]).map(t=>`<span class="gbp-topic">${esc(String(t).replace(/_/g,' '))}</span>`).join('');
+  const text=(rev.comment&&rev.comment.trim())?esc(rev.comment):'<em style="color:#aaa">No written comment</em>';
+  const hasLiveReply=rev.reply_text&&String(rev.reply_text).trim();
+  const editing=!!rev._editing;
+
+  let bottom;
+  if(hasLiveReply&&!editing){
+    const who=rev.replied_by?'Replied by Zordical':'Replied';
+    bottom=`
+      <div class="gbp-draft-label">${who} · ${esc(gbpTimeAgo(rev.reply_time)||'')}</div>
+      <div class="gbp-rev-live">${esc(rev.reply_text)}</div>
+      <div class="gbp-rev-actions">
+        <button class="btn" onclick="editGbpReply(${i})">Edit</button>
+        <button class="btn" onclick="deleteGbpReply(${i})">Delete reply</button>
+      </div>`;
+  }else{
+    const prefill=editing?esc(rev.reply_text||''):esc(rev.ai_draft||'');
+    const failed=rev.draft_status==='failed';
+    const noDraft=!editing&&!rev.ai_draft&&rev.draft_status!=='drafted';
+    bottom=`
+      <div class="gbp-draft-label">${editing?'Edit your reply':'Your reply'}${rev.ai_draft&&!editing?' (AI draft — edit before publishing)':''}</div>
+      <textarea class="gbp-draft-ta" id="gbp-ta-${i}" placeholder="${noDraft?'Write a reply…':''}">${prefill}</textarea>
+      ${failed&&rev.publish_error?`<div class="gbp-rev-err">Couldn't publish: ${esc(rev.publish_error)} — edit and try again.</div>`:''}
+      <div class="gbp-rev-actions">
+        <button class="btn primary" onclick="publishGbpReply(${i})">${failed?'Retry publish':'Publish reply'}</button>
+        <div class="gbp-regen-wrap">
+          <button class="btn" onclick="toggleGbpRegen(${i})">Regenerate ▾</button>
+          <div class="gbp-regen-menu" id="gbp-regen-${i}" style="display:none">
+            <button onclick="regenGbp(${i},'')">Regenerate</button>
+            <button onclick="regenGbp(${i},'warmer')">Warmer</button>
+            <button onclick="regenGbp(${i},'shorter')">Shorter</button>
+            <button onclick="regenGbp(${i},'more_formal')">More formal</button>
+          </div>
+        </div>
+        ${editing?`<button class="btn" onclick="cancelGbpEdit(${i})">Cancel</button>`:`<button class="btn" onclick="skipGbp(${i})">Skip</button>`}
+      </div>`;
+  }
+
+  return `
+    <div class="gbp-rev-card">
+      <div class="gbp-rev-top">
+        <div>
+          <div class="gbp-rev-name">${esc(rev.reviewer_name||'Google user')}</div>
+          <div class="stars">${stars}</div>
+        </div>
+        <div class="gbp-rev-when">${esc(when)}</div>
+      </div>
+      <div class="gbp-rev-text">${text}</div>
+      ${topics?`<div style="margin-bottom:4px">${topics}</div>`:''}
+      ${bottom}
+    </div>`;
+}
+
+function setGbpFilter(f){ _gbpRev.filter=f; loadGoogleReviews(true); }
+function loadMoreGoogleReviews(){ _gbpRev.offset+=20; loadGoogleReviews(false); }
+function toggleGbpRegen(i){ const m=document.getElementById('gbp-regen-'+i); if(m) m.style.display=m.style.display==='none'?'block':'none'; }
+function editGbpReply(i){ _gbpRev.items[i]._editing=true; renderGbpReviews(document.getElementById('gbp-reviews-body')); }
+function cancelGbpEdit(i){ _gbpRev.items[i]._editing=false; renderGbpReviews(document.getElementById('gbp-reviews-body')); }
+
+async function publishGbpReply(i){
+  const rev=_gbpRev.items[i]; if(!rev) return;
+  const ta=document.getElementById('gbp-ta-'+i);
+  const text=(ta&&ta.value||'').trim();
+  if(!text){ toast('Write a reply first','error'); return; }
+  if((rev.star_rating||0)<=3 && !confirm('This reply will be public on Google. Publish?')) return;
+  const btn=ta&&ta.closest('.gbp-rev-card').querySelector('.btn.primary');
+  if(btn) btn.disabled=true;
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/google/reviews/${encodeURIComponent(rev.review_name)}/reply`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===409&&d.code==='ALREADY_PUBLISHING'){ toast('Already publishing — please wait','error'); return; }
+    if(!r.ok){ toast(d.error||'Publish failed','error'); loadGoogleReviews(true); return; }
+    toast('Reply published to Google','success');
+    loadGoogleReviews(true); loadGoogleAudit();
+  }catch(e){ toast('Publish failed','error'); }
+  finally{ if(btn) btn.disabled=false; }
+}
+
+async function regenGbp(i,tone){
+  const rev=_gbpRev.items[i]; if(!rev) return;
+  toggleGbpRegen(i);
+  const ta=document.getElementById('gbp-ta-'+i);
+  const prev=ta?ta.value:''; if(ta){ ta.value='Generating…'; ta.disabled=true; }
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/google/reviews/${encodeURIComponent(rev.review_name)}/draft`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(tone?{tone}:{})});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===429){ toast(d.error||'Too many requests — wait a minute','error'); if(ta){ta.value=prev;ta.disabled=false;} return; }
+    if(!r.ok||!d.draft){ toast('Couldn\'t draft a reply — write your own','error'); if(ta){ta.value=prev;ta.disabled=false;} return; }
+    rev.ai_draft=d.draft; rev.topics=d.topics||rev.topics; rev.draft_status='drafted';
+    renderGbpReviews(document.getElementById('gbp-reviews-body'));
+  }catch(e){ toast('Draft failed','error'); if(ta){ta.value=prev;ta.disabled=false;} }
+}
+
+async function skipGbp(i){
+  const rev=_gbpRev.items[i]; if(!rev) return;
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/google/reviews/${encodeURIComponent(rev.review_name)}/skip`,{method:'POST'});
+    if(!r.ok){ toast('Skip failed','error'); return; }
+    toast('Marked as skipped');
+    loadGoogleReviews(true);
+  }catch(e){ toast('Skip failed','error'); }
+}
+
+async function deleteGbpReply(i){
+  const rev=_gbpRev.items[i]; if(!rev) return;
+  if(!confirm('Delete this reply from Google? Customers will no longer see it.')) return;
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/google/reviews/${encodeURIComponent(rev.review_name)}/reply`,{method:'DELETE'});
+    if(!r.ok){ toast('Delete failed','error'); return; }
+    toast('Reply deleted');
+    loadGoogleReviews(true); loadGoogleAudit();
+  }catch(e){ toast('Delete failed','error'); }
+}
+
+// Profile health audit (GB8) — body added in GB8.
+async function loadGoogleAudit(){ const p=document.getElementById('gbp-audit-panel'); if(p) p.style.display='none'; }
 
 // AI Campaigns
 async function loadCampaigns(){
@@ -3169,6 +3432,28 @@ function handleGoogleReturn() {
   else if (ret.kind === 'error') toast(GBP_RETURN_ERRORS[ret.reason] || "Couldn't connect to Google. Please try again.", 'error');
 }
 
+// Deep-link from a Google-review notification: /manager/:id?tab=feedback&filter=negative
+let _deepLink = (function () {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab');
+  if (!tab) return null;
+  const filter = params.get('filter');
+  const clean = new URL(window.location.href);
+  clean.searchParams.delete('tab'); clean.searchParams.delete('filter');
+  window.history.replaceState({}, '', clean.toString());
+  return { tab, filter };
+})();
+
+function handleDeepLink() {
+  if (!_deepLink || !business) return;
+  const dl = _deepLink; _deepLink = null;
+  if (!TABS.includes(dl.tab)) return;
+  if (dl.tab === 'feedback' && dl.filter && ['needs_reply','negative','replied','all'].includes(dl.filter)) {
+    _gbpRev.filter = dl.filter;
+  }
+  showTab(dl.tab, document.querySelector(`.nav-item[onclick*=${dl.tab}]`));
+}
+
 async function loadGoogleStatus() {
   const body = document.getElementById('gbp-settings-body');
   if (!body) return;
@@ -3233,7 +3518,7 @@ function renderGbpCard(d) {
       ${/^https:\/\//.test(d.mapsUri || '') ? `<a href="${gbpAttr(d.mapsUri)}" target="_blank" rel="noopener" class="btn" style="font-size:11.5px;text-decoration:none">View on Maps ↗</a>` : ''}
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      ${d.syncAvailable ? '<button class="btn primary" id="gbp-sync-now-btn" onclick="syncGBP()">Sync now</button>' : ''}
+      ${d.syncAvailable ? '<button class="btn primary" id="gbp-sync-now-btn" data-gbp-sync onclick="syncGBP()">Sync now</button>' : ''}
       <button class="btn" onclick="disconnectGbp()">Disconnect</button>
     </div>
     <div id="gbp-sync-msg" style="font-size:12.5px;margin-top:8px;color:#888"></div>`;
@@ -3816,7 +4101,7 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m) m.classList.remove('open'); }));
 
 // Init
-loadBranch().then(handleGoogleReturn);
+loadBranch().then(() => { handleGoogleReturn(); handleDeepLink(); });
 
 // ════════════════════════════════ ORDERS & REVENUE ════════════════════════════
 let revenueChartInstance = null;
