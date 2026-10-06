@@ -473,6 +473,71 @@ Output ONLY the JSON object.`;
     } catch (e) { sendGoogleError(res, e); }
   });
 
+  // ── GB7: Reviews inbox + publish/delete/skip reply ────────────────────────
+
+  function humanGoogleError(e) {
+    if (e.code === 'AUTH') return 'Google connection needs to be reconnected';
+    if (e.code === 'PERMISSION' || e.code === 'NOT_FOUND') return "Google didn't accept this reply";
+    if (e.code === 'RATE_LIMIT') return 'Google is busy — try again shortly';
+    return "Google isn't responding — try again";
+  }
+
+  app.get('/api/businesses/:id/google/reviews', requireAuth, requireBranchAccess, (req, res) => {
+    const adapter = adapterOrNull();
+    if (!adapter || !db) return res.status(503).json(NOT_CONFIGURED);
+    const conn = db.getGoogleConnection(req.params.id);
+    const filter = ['needs_reply', 'negative', 'replied', 'all'].includes(req.query.filter) ? req.query.filter : 'needs_reply';
+    const reviews = db.listGoogleReviews(req.params.id, { filter, limit: req.query.limit, offset: req.query.offset });
+    const summary = db.countGoogleReviewSummary(req.params.id);
+    res.json({ mode: adapter.mode, status: conn ? conn.status : 'disconnected', filter, reviews, summary });
+  });
+
+  app.post('/api/businesses/:id/google/reviews/:reviewName/reply', requireAuth, requireBranchAccess, canManage, async (req, res) => {
+    const reviewName = decodeReviewName(req.params.reviewName);
+    const text = typeof (req.body && req.body.text) === 'string' ? req.body.text.trim() : '';
+    if (text.length < 1 || text.length > 4000) return res.status(400).json({ error: 'Reply must be 1–4000 characters', code: 'BAD_REPLY' });
+    const review = db.getGoogleReview(req.params.id, reviewName);
+    if (!review) return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    // Double-tap guard: claim synchronously (better-sqlite3 is sync, so no two requests interleave here).
+    if (review.draft_status === 'publishing') return res.status(409).json({ error: 'A reply is already being published', code: 'ALREADY_PUBLISHING' });
+    db.updateGoogleReviewDraft(req.params.id, reviewName, { draftStatus: 'publishing' });
+    try {
+      const accessToken = await getValidAccessToken(req.params.id);
+      await adapterOrNull().replyToReview(accessToken, reviewName, text);
+      const now = new Date().toISOString();
+      const aiDrafted = !!(review.ai_draft && String(review.ai_draft).trim());
+      const edited = aiDrafted ? (text !== String(review.ai_draft).trim()) : false;
+      db.updateGoogleReviewDraft(req.params.id, reviewName, {
+        replyText: text, replyTime: now, repliedBy: req.staff.id, draftStatus: 'published', publishError: null,
+      });
+      logEvent(req.params.id, 'review.replied', { actor: req.staff.id, metadata: { stars: review.star_rating, aiDrafted, edited } });
+      res.json({ ok: true, replyText: text, replyTime: now });
+    } catch (e) {
+      db.updateGoogleReviewDraft(req.params.id, reviewName, { draftStatus: 'failed', publishError: humanGoogleError(e) });
+      sendGoogleError(res, e);
+    }
+  });
+
+  app.delete('/api/businesses/:id/google/reviews/:reviewName/reply', requireAuth, requireBranchAccess, canManage, async (req, res) => {
+    const reviewName = decodeReviewName(req.params.reviewName);
+    const review = db.getGoogleReview(req.params.id, reviewName);
+    if (!review) return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    try {
+      const accessToken = await getValidAccessToken(req.params.id);
+      await adapterOrNull().deleteReply(accessToken, reviewName);
+      db.updateGoogleReviewDraft(req.params.id, reviewName, { replyText: null, replyTime: null, draftStatus: 'none' });
+      logEvent(req.params.id, 'review.reply_deleted', { actor: req.staff.id, metadata: { stars: review.star_rating } });
+      res.json({ ok: true });
+    } catch (e) { sendGoogleError(res, e); }
+  });
+
+  app.post('/api/businesses/:id/google/reviews/:reviewName/skip', requireAuth, requireBranchAccess, canManage, (req, res) => {
+    const reviewName = decodeReviewName(req.params.reviewName);
+    const changed = db.updateGoogleReviewDraft(req.params.id, reviewName, { draftStatus: 'skipped' });
+    if (!changed) return res.status(404).json({ error: 'Review not found', code: 'NOT_FOUND' });
+    res.json({ ok: true });
+  });
+
   ctx.analyzeAndDraftReview = analyzeAndDraftReview;
   ctx.syncGoogleReviews = syncGoogleReviews;
   ctx.getValidGoogleToken = getValidAccessToken;
