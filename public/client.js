@@ -4,6 +4,13 @@ socket.on('connect', () => {
   socket.emit('join_business', { token: localStorage.getItem('cafehq_token') });
 });
 
+// Escape for text nodes and quoted attribute values. admin.html defines the same helper
+// for its own inline script; this keeps the file safe if it is ever loaded without it.
+// Not for values inside inline-handler code — those go in data-* attributes instead.
+if (typeof window.esc !== 'function') {
+  window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 // Application State Variables
 let currentTab = 'hq';
 let businessesList = [];
@@ -101,20 +108,20 @@ function renderFranchiseGrid() {
     card.className = 'franchise-card';
     card.innerHTML = `
       <div class="franchise-header">
-        <h3>${b.name}</h3>
-        <div class="status-badge ${b.status}">
-          <span class="pulse ${b.status === 'online' ? 'green' : 'red'}"></span> ${b.status}
+        <h3>${esc(b.name)}</h3>
+        <div class="status-badge ${esc(b.status)}">
+          <span class="pulse ${b.status === 'online' ? 'green' : 'red'}"></span> ${esc(b.status)}
         </div>
       </div>
       <div class="franchise-body">
-        <div><strong>📍 Location:</strong> ${b.location}</div>
-        <div><strong>⏰ Timing:</strong> ${b.timings}</div>
-        <div><strong>📞 Contact:</strong> ${b.contact}</div>
-        <div><strong>📶 Guest WiFi:</strong> ${b.wifi.split('/')[0]}</div>
+        <div><strong>📍 Location:</strong> ${esc(b.location)}</div>
+        <div><strong>⏰ Timing:</strong> ${esc(b.timings)}</div>
+        <div><strong>📞 Contact:</strong> ${esc(b.contact)}</div>
+        <div><strong>📶 Guest WiFi:</strong> ${esc(String(b.wifi || '').split('/')[0])}</div>
       </div>
       <div class="franchise-footer" style="display: flex; gap: 8px;">
-        <button class="btn btn-primary" onclick="openBranchDeepdive('${b.id}')" style="flex: 1;">⚙️ Manage Branch</button>
-        <a class="btn btn-secondary" href="/cafe/${b.id}" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; flex: 1; font-size: 13px; font-weight: 500;">🌐 View Website</a>
+        <button class="btn btn-primary" data-id="${esc(b.id)}" onclick="openBranchDeepdive(this.dataset.id)" style="flex: 1;">⚙️ Manage Branch</button>
+        <a class="btn btn-secondary" href="/cafe/${esc(b.id)}" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; flex: 1; font-size: 13px; font-weight: 500;">🌐 View Website</a>
       </div>
     `;
     grid.appendChild(card);
@@ -282,13 +289,13 @@ function renderBranchMenuTable() {
   activeMenu.forEach((item, index) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><strong>${item.name}</strong></td>
-      <td><span class="crm-tag">${item.category}</span></td>
+      <td><strong>${esc(item.name)}</strong></td>
+      <td><span class="crm-tag">${esc(item.category)}</span></td>
       <td>
-        <input type="number" class="form-select-sm" style="width:70px;" value="${item.price}" onchange="updateMenuItemInline(${index}, 'price', this.value)" />
+        <input type="number" class="form-select-sm" style="width:70px;" value="${esc(item.price)}" onchange="updateMenuItemInline(${index}, 'price', this.value)" />
       </td>
       <td>
-        <input type="number" class="form-select-sm" style="width:60px;" value="${item.discount}" onchange="updateMenuItemInline(${index}, 'discount', this.value)" />
+        <input type="number" class="form-select-sm" style="width:60px;" value="${esc(item.discount)}" onchange="updateMenuItemInline(${index}, 'discount', this.value)" />
       </td>
       <td>
         <button class="btn-icon reject" onclick="deleteMenuItem(${index})">🗑️</button>
@@ -388,15 +395,15 @@ function renderReservationsTable(reservations) {
         </div>
       `;
     } else {
-      actionButtons = `<span class="text-muted small">${r.status.toUpperCase()}</span>`;
+      actionButtons = `<span class="text-muted small">${esc(String(r.status).toUpperCase())}</span>`;
     }
 
     tr.innerHTML = `
-      <td><strong>${r.name}</strong><br/><span class="text-muted small">${r.phone || 'N/A'}</span></td>
-      <td>👤 ${r.guests} guests</td>
-      <td>${r.datetime}</td>
+      <td><strong>${esc(r.name)}</strong><br/><span class="text-muted small">${esc(r.phone || 'N/A')}</span></td>
+      <td>👤 ${esc(r.guests)} guests</td>
+      <td>${esc(r.datetime)}</td>
       <td>
-        <span class="status-badge ${statusClass}">${r.status}</span>
+        <span class="status-badge ${statusClass}">${esc(r.status)}</span>
       </td>
       <td>${actionButtons}</td>
     `;
@@ -463,15 +470,15 @@ function renderOffersTable(offers) {
       `;
     } else if (o.status === 'approved') {
       statusBadgeHtml = `<span class="status-badge online">Approved</span>`;
-      actionsHtml = `<span class="text-muted small" title="${o.approvedOffer}">Sent: "${o.approvedOffer.substring(0, 35)}..."</span>`;
+      actionsHtml = `<span class="text-muted small" title="${esc(o.approvedOffer)}">Sent: "${esc(String(o.approvedOffer || '').substring(0, 35))}..."</span>`;
     } else {
       statusBadgeHtml = `<span class="status-badge outline" style="color:var(--text-muted); border-color:var(--border-color-solid)">Rejected</span>`;
       actionsHtml = `<span class="text-muted small">Politely declined</span>`;
     }
 
     tr.innerHTML = `
-      <td><strong>${o.customerName || 'Valued Customer'}</strong><br/><span class="text-muted small">${o.phone}</span></td>
-      <td><span style="font-style: italic;">"${o.requestText}"</span></td>
+      <td><strong>${esc(o.customerName || 'Valued Customer')}</strong><br/><span class="text-muted small">${esc(o.phone)}</span></td>
+      <td><span style="font-style: italic;">"${esc(o.requestText)}"</span></td>
       <td>${actionsHtml}</td>
       <td>${statusBadgeHtml}</td>
     `;
@@ -543,7 +550,7 @@ async function fetchBranchCampaigns() {
           const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
           const todayCamp = settings.lowTrafficCampaigns.find(c => c.day.toLowerCase() === today.toLowerCase());
           if (todayCamp) {
-            apStatusText.innerHTML = `Status: <strong class="green" style="color:var(--success-color)">Active & Ready</strong> (Targeting slow days: ${todayCamp.day})`;
+            apStatusText.innerHTML = `Status: <strong class="green" style="color:var(--success-color)">Active & Ready</strong> (Targeting slow days: ${esc(todayCamp.day)})`;
           } else {
             apStatusText.innerHTML = `Status: <strong class="green" style="color:var(--success-color)">Active & Ready</strong> (Watching traffic)`;
           }
@@ -610,14 +617,14 @@ function renderCrmTable(profiles) {
   profiles.forEach(p => {
     const tr = document.createElement('tr');
     let tagsStr = '';
-    p.tags.forEach(t => {
-      const displayTag = t.replace(/_/g, ' ');
-      tagsStr += `<span class="crm-tag">${displayTag}</span>`;
+    (p.tags || []).forEach(t => {
+      const displayTag = String(t).replace(/_/g, ' ');
+      tagsStr += `<span class="crm-tag">${esc(displayTag)}</span>`;
     });
 
     let ratingStr = '';
     if (p.averageRating > 0) {
-      ratingStr = ` <span style="color: var(--accent-amber); font-weight: 500;" title="Average Rating: ${p.averageRating}★ (${p.feedbackCount} reviews)">★ ${p.averageRating}</span>`;
+      ratingStr = ` <span style="color: var(--accent-amber); font-weight: 500;" title="Average Rating: ${esc(p.averageRating)}★ (${esc(p.feedbackCount)} reviews)">★ ${esc(p.averageRating)}</span>`;
     }
 
     // Determine loyalty tier badge styling
@@ -639,11 +646,11 @@ function renderCrmTable(profiles) {
       tierText = '#3B82F6';
     }
     
-    const tierBadge = `<span class="status-badge" style="font-size: 9px; padding: 2px 8px; border-radius: 12px; font-weight: bold; background: ${tierBg}; color: ${tierText}; border: 1px solid ${tierColor}; margin-left: 8px;">${tier}</span>`;
+    const tierBadge = `<span class="status-badge" style="font-size: 9px; padding: 2px 8px; border-radius: 12px; font-weight: bold; background: ${tierBg}; color: ${tierText}; border: 1px solid ${tierColor}; margin-left: 8px;">${esc(tier)}</span>`;
 
     tr.innerHTML = `
-      <td><strong>${p.name || 'Customer'}</strong>${ratingStr}${tierBadge}<br/><span class="text-muted small">${p.phone}</span></td>
-      <td>${p.visits} chats</td>
+      <td><strong>${esc(p.name || 'Customer')}</strong>${ratingStr}${tierBadge}<br/><span class="text-muted small">${esc(p.phone)}</span></td>
+      <td>${esc(p.visits)} chats</td>
       <td>${tagsStr}</td>
     `;
     tbody.appendChild(tr);
@@ -768,12 +775,12 @@ function appendChatBubble(sender, text, timestamp) {
   }
   bubble.className = `chat-bubble ${bubbleClass}`;
   
-  // Format linebreaks beautifully
-  const formattedText = text.replace(/\n/g, '<br/>');
-  
+  // Format linebreaks beautifully (escape first: this is the customer's own message text)
+  const formattedText = esc(text).replace(/\n/g, '<br/>');
+
   bubble.innerHTML = `
     <div>${formattedText}</div>
-    <div class="chat-bubble-meta">${timestamp || new Date().toLocaleTimeString()}</div>
+    <div class="chat-bubble-meta">${esc(timestamp || new Date().toLocaleTimeString())}</div>
   `;
   
   stream.appendChild(bubble);
@@ -820,7 +827,7 @@ socket.on('whatsapp_state', (data) => {
   const qrSpinner = document.querySelector('.qr-loading-spinner');
   const connectBtn = document.getElementById('btn-start-wa');
 
-  indicatorText.innerHTML = `Status: <strong>${status}</strong> ${number ? `(${number})` : ''}`;
+  indicatorText.innerHTML = `Status: <strong>${esc(status)}</strong> ${number ? `(${esc(number)})` : ''}`;
 
   if (status === 'Connected') {
     badge.className = 'branch-status-badge online';
@@ -914,7 +921,7 @@ async function renderHQBranchChart() {
       const pct = Math.min((count / 10) * 100, 100);
 
       row.innerHTML = `
-        <div class="chart-label">${b.name} (${b.location.split(',')[0]})</div>
+        <div class="chart-label">${esc(b.name)} (${esc(String(b.location || '').split(',')[0])})</div>
         <div class="chart-bar-container">
           <div class="chart-bar-fill" style="width: ${pct}%"></div>
         </div>
@@ -990,8 +997,8 @@ function renderGlobalMarketingForm() {
     const label = document.createElement('label');
     label.className = 'checkbox-label';
     label.innerHTML = `
-      <input type="checkbox" name="global-branch-select" value="${b.id}" checked />
-      ${b.name} (${b.location.split(',')[0]})
+      <input type="checkbox" name="global-branch-select" value="${esc(b.id)}" checked />
+      ${esc(b.name)} (${esc(String(b.location || '').split(',')[0])})
     `;
     container.appendChild(label);
   });
@@ -1206,18 +1213,18 @@ function renderFeedbackTable(feedback) {
     let replyHtml = '';
     if (f.managerReply) {
       replyHtml = `<div style="margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-left: 2px solid var(--accent-coffee); font-size: 12px; color: var(--text-primary); border-radius: 4px;">
-        <strong>Reply:</strong> ${f.managerReply} <span class="text-muted" style="font-size:10px; margin-left: 6px;">(${f.replyTimestamp || ''})</span>
+        <strong>Reply:</strong> ${esc(f.managerReply)} <span class="text-muted" style="font-size:10px; margin-left: 6px;">(${esc(f.replyTimestamp || '')})</span>
       </div>`;
     }
 
     tr.innerHTML = `
-      <td><strong>${f.customerName}</strong>${sourceBadge}</td>
-      <td><div style="font-size:16px;">${starsHtml} (${f.rating})</div></td>
+      <td><strong>${esc(f.customerName)}</strong>${sourceBadge}</td>
+      <td><div style="font-size:16px;">${starsHtml} (${esc(f.rating)})</div></td>
       <td>
-        <span style="font-style: italic;">"${f.comment}"</span>
+        <span style="font-style: italic;">"${esc(f.comment)}"</span>
         ${replyHtml}
       </td>
-      <td><span class="text-muted small">${f.timestamp}</span></td>
+      <td><span class="text-muted small">${esc(f.timestamp)}</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -1455,10 +1462,10 @@ function renderCommandPaletteItems() {
     item.className = `command-palette-item ${idx === commandPaletteSelectedIndex ? 'selected' : ''}`;
     item.innerHTML = `
       <div class="command-palette-item-left">
-        <span class="command-palette-item-icon">${c.icon}</span>
-        <span>${c.name}</span>
+        <span class="command-palette-item-icon">${esc(c.icon)}</span>
+        <span>${esc(c.name)}</span>
       </div>
-      <span class="command-palette-shortcut">${c.shortcut}</span>
+      <span class="command-palette-shortcut">${esc(c.shortcut)}</span>
     `;
     item.addEventListener('click', () => {
       c.action();
@@ -1558,20 +1565,20 @@ function renderAICampaigns(suggestions) {
       <div>
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
           <div>
-            <h4 style="margin:0; font-size:13px; color:#fff; font-weight: 600;">${sug.customerName}</h4>
-            <small style="color:var(--text-secondary); font-size: 11px;">${sug.customerPhone}</small>
+            <h4 style="margin:0; font-size:13px; color:#fff; font-weight: 600;">${esc(sug.customerName)}</h4>
+            <small style="color:var(--text-secondary); font-size: 11px;">${esc(sug.customerPhone)}</small>
           </div>
-          <span class="status-badge" style="font-size: 9px; padding: 2px 8px; border-radius: 12px; font-weight: bold; background: ${tierBg}; color: ${tierText}; border: 1px solid ${tierColor};">${tier}</span>
+          <span class="status-badge" style="font-size: 9px; padding: 2px 8px; border-radius: 12px; font-weight: bold; background: ${tierBg}; color: ${tierText}; border: 1px solid ${tierColor};">${esc(tier)}</span>
         </div>
         
         <div style="margin-bottom:12px; padding:10px; background:rgba(255, 255, 255, 0.03); border-radius:var(--radius-sm); border-left:3px solid var(--accent);">
           <strong style="font-size:10px; text-transform:uppercase; color:var(--accent); display:block; margin-bottom:4px; letter-spacing: 0.5px;">Customer Psychology</strong>
-          <p style="font-size:11.5px; color:var(--text-secondary); margin:0; line-height:1.4;">${sug.psychology}</p>
+          <p style="font-size:11.5px; color:var(--text-secondary); margin:0; line-height:1.4;">${esc(sug.psychology)}</p>
         </div>
         
         <div class="form-group" style="margin-bottom:12px;">
           <label style="font-size:10px; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:6px; font-weight: 600; letter-spacing: 0.5px;">Draft Campaign Text</label>
-          <textarea id="sug-text-${sug.id}" rows="3" ${isApproved ? 'readonly' : ''} style="width:100%; background:var(--bg-overlay); border:1px solid var(--border); color:#fff; padding:8px 10px; border-radius:var(--radius-sm); font-size:12px; resize:vertical; line-height:1.4; outline:none; transition: border-color var(--ease);">${sug.offerText}</textarea>
+          <textarea id="sug-text-${sug.id}" rows="3" ${isApproved ? 'readonly' : ''} style="width:100%; background:var(--bg-overlay); border:1px solid var(--border); color:#fff; padding:8px 10px; border-radius:var(--radius-sm); font-size:12px; resize:vertical; line-height:1.4; outline:none; transition: border-color var(--ease);">${esc(sug.offerText)}</textarea>
         </div>
       </div>
       
@@ -1655,7 +1662,7 @@ async function loadBilling() {
     if (tbody) {
       tbody.innerHTML = (billing.branches || []).map(b => `
         <tr>
-          <td><strong>${b.name || b.business_id}</strong></td>
+          <td><strong>${esc(b.name || b.business_id)}</strong></td>
           <td>${fmt(b.today_revenue)}</td>
           <td>${fmt(b.week_revenue)}</td>
           <td>${fmt(b.month_revenue)}</td>
@@ -1670,10 +1677,10 @@ async function loadBilling() {
     if (ctbody && customers.length) {
       ctbody.innerHTML = customers.slice(0,20).map((c,i) => `
         <tr>
-          <td>${i+1}. ${c.name||'—'}</td>
-          <td>${c.phone}</td>
-          <td>${c.branchName||c.business_id}</td>
-          <td>${c.visits}</td>
+          <td>${i+1}. ${esc(c.name||'—')}</td>
+          <td>${esc(c.phone)}</td>
+          <td>${esc(c.branchName||c.business_id)}</td>
+          <td>${esc(c.visits)}</td>
           <td><strong>${fmt(c.total_spend)}</strong></td>
           <td>${c.last_visit ? new Date(c.last_visit).toLocaleDateString('en-IN') : '—'}</td>
         </tr>`).join('');
@@ -1710,7 +1717,7 @@ function initAccountingControls(branches) {
     if (!isGst) el.innerHTML = '<option value="all">All Branches</option>';
     else        el.innerHTML = '<option value="">Select Branch</option>';
     branches.forEach(b => {
-      el.innerHTML += `<option value="${b.business_id||b.id}">${b.name||b.business_id}</option>`;
+      el.innerHTML += `<option value="${esc(b.business_id||b.id)}">${esc(b.name||b.business_id)}</option>`;
     });
   });
 
@@ -1770,12 +1777,12 @@ async function loadPL() {
       data = await res.json();
     }
 
-    if (data.error) { if(body) body.innerHTML='<div style="color:#e57;padding:16px">'+data.error+'</div>'; return; }
+    if (data.error) { if(body) body.innerHTML='<div style="color:#e57;padding:16px">'+esc(data.error)+'</div>'; return; }
 
     const pl = data;
     const profitColor = pl.summary.isProfit ? '#22c55e' : '#ef4444';
     const catRows = Object.entries(pl.expenses.byCategory||{}).map(([cat,v]) =>
-      `<tr><td style="text-transform:capitalize;padding:6px 0">${cat}</td><td style="text-align:right;color:#666">${fmt(v.total)}</td></tr>`
+      `<tr><td style="text-transform:capitalize;padding:6px 0">${esc(cat)}</td><td style="text-align:right;color:#666">${fmt(v.total)}</td></tr>`
     ).join('') || '<tr><td colspan="2" style="color:#bbb;padding:6px 0">No expenses recorded</td></tr>';
 
     if (body) body.innerHTML = `
@@ -1783,7 +1790,7 @@ async function loadPL() {
         <div>
           <div style="font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:10px">Revenue</div>
           <table style="width:100%;font-size:14px">
-            <tr><td style="padding:6px 0">Orders (${pl.revenue.orderCount})</td><td style="text-align:right;font-weight:600">${fmt(pl.revenue.subtotal)}</td></tr>
+            <tr><td style="padding:6px 0">Orders (${esc(pl.revenue.orderCount)})</td><td style="text-align:right;font-weight:600">${fmt(pl.revenue.subtotal)}</td></tr>
             <tr><td style="padding:6px 0;color:#aaa">GST Collected</td><td style="text-align:right;color:#aaa">${fmt(pl.revenue.gstCollected)}</td></tr>
             <tr style="border-top:2px solid #eee"><td style="padding:8px 0;font-weight:700">Gross Revenue</td><td style="text-align:right;font-weight:700">${fmt(pl.revenue.grossRevenue)}</td></tr>
           </table>
@@ -1795,11 +1802,11 @@ async function loadPL() {
         <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;background:#fafafa;border-radius:12px;padding:24px;text-align:center">
           <div style="font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">Net ${pl.summary.isProfit?'Profit':'Loss'}</div>
           <div style="font-size:42px;font-weight:800;color:${profitColor};margin-bottom:4px">${fmt(Math.abs(pl.summary.netProfit))}</div>
-          <div style="font-size:16px;font-weight:600;color:${profitColor}">${pl.summary.profitMargin}% margin</div>
-          <div style="font-size:12px;color:#aaa;margin-top:8px">${pl.period.from} → ${pl.period.to}</div>
+          <div style="font-size:16px;font-weight:600;color:${profitColor}">${esc(pl.summary.profitMargin)}% margin</div>
+          <div style="font-size:12px;color:#aaa;margin-top:8px">${esc(pl.period.from)} → ${esc(pl.period.to)}</div>
         </div>
       </div>`;
-  } catch(e) { if(body) body.innerHTML='<div style="color:#e57;padding:16px">'+e.message+'</div>'; }
+  } catch(e) { if(body) body.innerHTML='<div style="color:#e57;padding:16px">'+esc(e.message)+'</div>'; }
 }
 
 async function loadGST() {
@@ -1814,15 +1821,15 @@ async function loadGST() {
 
   try {
     const data = await fetch(`/api/businesses/${branch}/accounting/gst?month=${month}&year=${year}`, { headers: { 'x-admin-token': token } }).then(r=>r.json());
-    if (data.error) { if(body) body.innerHTML='<div style="color:#e57;padding:16px">'+data.error+'</div>'; return; }
+    if (data.error) { if(body) body.innerHTML='<div style="color:#e57;padding:16px">'+esc(data.error)+'</div>'; return; }
     const g = data;
     const fmt = n => '₹' + (Math.round(n*100)/100).toLocaleString('en-IN');
     if (body) body.innerHTML = `
       <div style="max-width:560px">
-        <div style="font-weight:700;font-size:15px;margin-bottom:16px">Filing Period: ${g.period.label}</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:16px">Filing Period: ${esc(g.period.label)}</div>
         <table style="width:100%;font-size:14px;border-collapse:collapse">
           <tr style="background:#f9f9f9"><td style="padding:10px;border:1px solid #eee;font-weight:600" colspan="2">Outward Supplies (Sales)</td></tr>
-          <tr><td style="padding:8px 10px;border:1px solid #eee">Total Invoices</td><td style="padding:8px 10px;border:1px solid #eee;text-align:right">${g.outwardSupplies.invoiceCount}</td></tr>
+          <tr><td style="padding:8px 10px;border:1px solid #eee">Total Invoices</td><td style="padding:8px 10px;border:1px solid #eee;text-align:right">${esc(g.outwardSupplies.invoiceCount)}</td></tr>
           <tr><td style="padding:8px 10px;border:1px solid #eee">Taxable Value</td><td style="padding:8px 10px;border:1px solid #eee;text-align:right;font-weight:600">${fmt(g.outwardSupplies.taxableValue)}</td></tr>
           <tr><td style="padding:8px 10px;border:1px solid #eee">CGST (2.5%)</td><td style="padding:8px 10px;border:1px solid #eee;text-align:right">${fmt(g.outwardSupplies.cgst)}</td></tr>
           <tr><td style="padding:8px 10px;border:1px solid #eee">SGST (2.5%)</td><td style="padding:8px 10px;border:1px solid #eee;text-align:right">${fmt(g.outwardSupplies.sgst)}</td></tr>
@@ -1832,5 +1839,5 @@ async function loadGST() {
         </table>
         <div style="margin-top:12px;font-size:12px;color:#aaa">* File via GST portal (gst.gov.in) under GSTR-1 for outward supplies</div>
       </div>`;
-  } catch(e) { if(body) body.innerHTML='<div style="color:#e57;padding:16px">'+e.message+'</div>'; }
+  } catch(e) { if(body) body.innerHTML='<div style="color:#e57;padding:16px">'+esc(e.message)+'</div>'; }
 }
