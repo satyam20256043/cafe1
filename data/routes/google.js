@@ -228,6 +228,9 @@ module.exports = function googleRoutes(ctx) {
       if (typeof ctx.syncGoogleReviews === 'function') {
         ctx.syncGoogleReviews(req.params.id).catch(e => console.error('[google/location] initial sync failed:', e.message));
       }
+      if (typeof ctx.runGoogleAudit === 'function') {
+        ctx.runGoogleAudit(req.params.id).catch(e => console.error('[google/location] initial audit failed:', e.message));
+      }
       res.json({ ok: true, locationTitle: loc.title });
     } catch (e) { sendGoogleError(res, e); }
   });
@@ -538,7 +541,123 @@ Output ONLY the JSON object.`;
     res.json({ ok: true });
   });
 
+  // ── GB8: Profile health audit (deterministic, no AI) ──────────────────────
+
+  const AUDIT_FIX_URL = 'https://business.google.com/';
+
+  function withinNext60Days(sd) {
+    if (!sd || !sd.year) return false;
+    const t = Date.UTC(sd.year, (sd.month || 1) - 1, sd.day || 1);
+    const now = Date.now();
+    return t >= now - 24 * 3600 * 1000 && t <= now + 60 * 24 * 3600 * 1000;
+  }
+
+  // Build the findings list. state: true=pass (good), false=fail, null=couldn't check (excluded from score).
+  function buildAuditFindings(loc, businessId, business) {
+    const F = [];
+    const add = (id, area, points, failSeverity, state, title, why, fix) => {
+      if (state === null) { F.push({ id, area, severity: 'couldnt_check', points, earned: 0, title, why: "We couldn't read this from Google.", fix, fixUrl: AUDIT_FIX_URL }); return; }
+      F.push({ id, area, severity: state ? 'good' : failSeverity, points, earned: state ? points : 0, title, why, fix, fixUrl: AUDIT_FIX_URL });
+    };
+
+    const cats = loc.categories || {};
+    const hasPrimary = !!(cats.primaryCategory && (cats.primaryCategory.displayName || cats.primaryCategory.name));
+    const addlCount = Array.isArray(cats.additionalCategories) ? cats.additionalCategories.length : 0;
+    const phone = loc.phoneNumbers && loc.phoneNumbers.primaryPhone;
+    const desc = (loc.profile && loc.profile.description) || '';
+    const regularSet = !!(loc.regularHours && Array.isArray(loc.regularHours.periods) && loc.regularHours.periods.length);
+    const specialPeriods = (loc.specialHours && loc.specialHours.specialHourPeriods) || [];
+    const specialSoon = specialPeriods.some(p => withinNext60Days(p.startDate));
+    const svcCount = Array.isArray(loc.serviceItems) ? loc.serviceItems.length : 0;
+    const statusOpen = !!(loc.openInfo && loc.openInfo.status === 'OPEN');
+    const addrTokens = String(loc.address || '').split(/[,\s]+/)
+      .concat(String((business && business.location) || '').split(/[,\s]+/))
+      .filter(t => t && t.length >= 4);
+    const cityMention = !!desc && addrTokens.some(t => desc.toLowerCase().includes(t.toLowerCase()));
+
+    add('title', 'Basics', 5, 'critical', !!loc.title, 'Business name is set', 'Customers search by name — a listing without one is hard to find.', 'Set your business name on Google.');
+    add('primary_category', 'Basics', 10, 'critical', hasPrimary, 'Primary category is set', 'Your main category decides which searches show your business.', 'Pick the most accurate primary category.');
+    add('phone', 'Basics', 8, 'critical', !!phone, 'Phone number is listed', 'Customers tap to call you straight from Google.', 'Add your public phone number.');
+    add('address', 'Basics', 7, 'critical', !!loc.address, 'Address is set', 'A full address powers Maps directions and local search.', 'Add your full storefront address.');
+    add('website', 'Basics', 5, 'needs_attention', !!loc.websiteUri, 'Website link is set', 'A website link helps customers learn more and choose you.', 'Add your website, menu or a social link.');
+
+    add('regular_hours', 'Hours', 10, 'critical', regularSet, 'Opening hours are set', "Customers avoid places with no hours — they assume you might be closed.", 'Set your weekly opening hours.');
+    add('holiday_hours', 'Hours', 5, 'needs_attention', specialSoon, 'Holiday hours set for the next 60 days', 'Festival and holiday hours (Diwali, Christmas, New Year) stop customers arriving to a closed door.', 'Add special hours for upcoming holidays.');
+
+    add('description_length', 'Description', 8, 'needs_attention', desc.length >= 250, 'Description is detailed (250+ characters)', 'A fuller description helps customers find and choose you.', 'Write at least 250 characters about your place.');
+    add('description_city', 'Description', 2, 'needs_attention', cityMention, 'Description mentions your city or area', 'Mentioning your area helps nearby customers recognise you.', 'Name your neighbourhood or city in the description.');
+
+    add('additional_category', 'Categories', 5, 'needs_attention', addlCount >= 1, 'Extra categories are set', 'Extra categories surface you for more related searches.', 'Add one or two accurate extra categories.');
+
+    add('services', 'Menu/Services', 5, 'needs_attention', svcCount >= 1, 'Services or menu items are listed', 'Listed services and items help customers find and choose you.', 'Add your key services or menu items.');
+
+    const summary = db.countGoogleReviewSummary(businessId);
+    const raw = db.raw();
+    const now = Date.now();
+    const cutoff48 = new Date(now - 48 * 3600 * 1000).toISOString();
+    const since90 = new Date(now - 90 * 24 * 3600 * 1000).toISOString();
+
+    const rr = summary.responseRate90d; // null when there were no reviews in the window
+    if (rr === null) {
+      add('response_rate', 'Reviews', 10, 'needs_attention', null, 'Reply rate (last 90 days)', '', 'Reply to your Google reviews.');
+    } else {
+      add('response_rate', 'Reviews', 10, rr < 50 ? 'critical' : 'needs_attention', rr >= 80, `Reply rate is ${rr}% (last 90 days)`, 'Replying shows customers you listen — it helps them choose you.', 'Reply to more reviews (aim for 80%+).');
+    }
+
+    const oldUnansweredNeg = raw.prepare("SELECT COUNT(*) n FROM google_reviews WHERE business_id=? AND star_rating<=3 AND (reply_text IS NULL OR reply_text='') AND create_time < ?").get(businessId, cutoff48).n;
+    add('neg_backlog', 'Reviews', 10, 'critical', oldUnansweredNeg === 0, 'No low-star reviews left unanswered over 48h', 'A quick, kind reply to an unhappy customer reassures everyone reading.', 'Reply to low-star reviews within two days.');
+
+    const replied = raw.prepare("SELECT create_time, reply_time FROM google_reviews WHERE business_id=? AND replied_by IS NOT NULL AND reply_time IS NOT NULL AND create_time>=?").all(businessId, since90);
+    if (!replied.length) {
+      add('reply_speed', 'Reviews', 5, 'needs_attention', null, 'Median reply time (last 90 days)', '', 'Reply to reviews soon after they arrive.');
+    } else {
+      const hours = replied.map(r => (Date.parse(r.reply_time) - Date.parse(r.create_time)) / 3600000).filter(h => !isNaN(h) && h >= 0).sort((a, b) => a - b);
+      const mid = Math.floor(hours.length / 2);
+      const median = hours.length % 2 ? hours[mid] : (hours[mid - 1] + hours[mid]) / 2;
+      add('reply_speed', 'Reviews', 5, 'needs_attention', median <= 48, `Median reply time is about ${Math.round(median)}h`, 'Fast replies show customers you are attentive.', 'Aim to reply within 48 hours.');
+    }
+
+    add('status_open', 'Status', 5, 'critical', statusOpen, 'Listing is marked Open', 'A listing not marked Open can be hidden or look closed.', 'Make sure your listing status is Open.');
+
+    return F;
+  }
+
+  async function runGoogleAudit(businessId) {
+    const conn = db.getGoogleConnection(businessId);
+    if (!conn || conn.status !== 'connected') throw typedError('NOT_CONNECTED', 'No Google connection');
+    const accessToken = await getValidAccessToken(businessId);
+    const loc = await adapterOrNull().getLocation(accessToken, conn.location_name);
+    const business = (ctx.businesses || []).find(b => b.id === businessId);
+    const findings = buildAuditFindings(loc, businessId, business);
+    const checkable = findings.filter(f => f.severity !== 'couldnt_check');
+    const earned = checkable.reduce((s, f) => s + (f.earned || 0), 0);
+    const possible = checkable.reduce((s, f) => s + f.points, 0);
+    const score = possible > 0 ? Math.round((earned / possible) * 100) : 0;
+    db.saveGoogleAudit(businessId, score, findings);
+    logEvent(businessId, 'google.audit', { metadata: { score } });
+    return { score, findings };
+  }
+
+  const auditRateLimit = rateLimit({
+    windowMs: 5 * 60 * 1000, max: 1,
+    keyFn: req => `google_audit:${req.params.id}`,
+    message: 'Audit is rate-limited — try again in a few minutes.',
+  });
+
+  app.post('/api/businesses/:id/google/audit', requireAuth, requireBranchAccess, canManage, auditRateLimit, async (req, res) => {
+    try { res.json(await runGoogleAudit(req.params.id)); }
+    catch (e) { sendGoogleError(res, e); }
+  });
+
+  app.get('/api/businesses/:id/google/audit', requireAuth, requireBranchAccess, (req, res) => {
+    const adapter = adapterOrNull();
+    if (!adapter || !db) return res.status(503).json(NOT_CONFIGURED);
+    const audits = db.getLatestGoogleAudits(req.params.id, 2);
+    res.json({ mode: adapter.mode, latest: audits[0] || null, previous: audits[1] || null });
+  });
+
   ctx.analyzeAndDraftReview = analyzeAndDraftReview;
   ctx.syncGoogleReviews = syncGoogleReviews;
+  ctx.runGoogleAudit = runGoogleAudit;
   ctx.getValidGoogleToken = getValidAccessToken;
 };

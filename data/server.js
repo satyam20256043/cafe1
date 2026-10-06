@@ -2439,6 +2439,19 @@ function scheduleGoogleReviewSync() {
       } catch (e) {
         console.error(`[google/scheduler] ${id}: sync error:`, e.message);
       }
+      // Weekly profile-health audit: run only if the latest audit is missing or older than 7 days.
+      if (typeof routeCtx.runGoogleAudit === 'function') {
+        try {
+          const last = db.getLatestGoogleAudits(id, 1)[0];
+          const lastMs = last ? new Date(String(last.created_at).replace(' ', 'T') + 'Z').getTime() : 0;
+          if (!lastMs || Date.now() - lastMs > 7 * 24 * 60 * 60 * 1000) {
+            await routeCtx.runGoogleAudit(id);
+            console.log(`[google/scheduler] ${id}: audit refreshed`);
+          }
+        } catch (e) {
+          console.error(`[google/scheduler] ${id}: audit error:`, e.message);
+        }
+      }
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }, 30 * 60 * 1000);

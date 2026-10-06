@@ -3202,8 +3202,101 @@ async function deleteGbpReply(i){
   }catch(e){ toast('Delete failed','error'); }
 }
 
-// Profile health audit (GB8) — body added in GB8.
-async function loadGoogleAudit(){ const p=document.getElementById('gbp-audit-panel'); if(p) p.style.display='none'; }
+// ── Profile health audit (GB8) ──────────────────────────────────────────────
+const GBP_AREA_ORDER = ['Basics','Hours','Description','Categories','Menu/Services','Reviews','Status'];
+
+async function loadGoogleAudit(){
+  const panel=document.getElementById('gbp-audit-panel');
+  if(!panel) return;
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/google/audit`);
+    if(!r.ok){ panel.style.display='none'; return; }
+    const d=await r.json();
+    if(!d.latest){ panel.style.display='none'; return; }
+    renderAuditPanel(d);
+    panel.style.display='block';
+  }catch(e){ panel.style.display='none'; }
+}
+
+function gbpScoreColor(s){ return s>=80?'#2e7d32':s>=50?'#b8860b':'#c0392b'; }
+
+function renderAuditPanel(d){
+  const panel=document.getElementById('gbp-audit-panel');
+  const a=d.latest;
+  const findings=Array.isArray(a.findings)?a.findings:[];
+  const score=a.score;
+  const demo=d.mode==='mock'?'<span class="gbp-pill" style="margin-left:8px">DEMO DATA</span>':'';
+
+  let trend='';
+  if(d.previous&&typeof d.previous.score==='number'){
+    const diff=score-d.previous.score;
+    if(diff!==0){
+      const up=diff>0;
+      trend=`<span style="font-size:12px;color:${up?'#2e7d32':'#c0392b'};font-weight:600">${up?'▲':'▼'} ${Math.abs(diff)} since last check</span>`;
+    } else trend='<span style="font-size:12px;color:#999">No change since last check</span>';
+  }
+
+  const critical=findings.filter(f=>f.severity==='critical');
+  const attention=findings.filter(f=>f.severity==='needs_attention');
+  const good=findings.filter(f=>f.severity==='good');
+  const cant=findings.filter(f=>f.severity==='couldnt_check');
+
+  const fixBtn=`<a class="btn" href="https://business.google.com/" target="_blank" rel="noopener" style="font-size:11.5px;text-decoration:none;white-space:nowrap">Fix on Google ↗</a>`;
+  const item=(f,color)=>`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-top:1px solid var(--border)">
+      <div style="width:7px;height:7px;border-radius:50%;background:${color};margin-top:6px;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--espresso)">${esc(f.title)}</div>
+        ${f.why?`<div style="font-size:12px;color:#888;line-height:1.5;margin-top:2px">${esc(f.why)}</div>`:''}
+        ${f.fix?`<div style="font-size:12px;color:#aa7d3c;margin-top:2px">${esc(f.fix)}</div>`:''}
+      </div>
+      ${fixBtn}
+    </div>`;
+
+  const group=(title,arr,color)=>arr.length?`
+    <div style="margin-top:14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${color}">${title} (${arr.length})</div>
+      ${arr.map(f=>item(f,color)).join('')}
+    </div>`:'';
+
+  panel.innerHTML=`
+    <div class="panel" style="padding:18px">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="width:78px;height:78px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:conic-gradient(${gbpScoreColor(score)} ${score}%, var(--border) 0);">
+          <div style="width:62px;height:62px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:21px;font-weight:700;color:${gbpScoreColor(score)};line-height:1">${score}</div>
+            <div style="font-size:9px;color:#999">/ 100</div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:140px">
+          <div style="font-size:14.5px;font-weight:700;color:var(--espresso)">Google profile health ${demo}</div>
+          <div style="font-size:11.5px;color:#999;margin:2px 0 4px">Zordical profile health: our checklist, not a Google ranking</div>
+          ${trend}
+        </div>
+        <button class="btn" id="gbp-audit-btn" onclick="runGbpAudit()" style="font-size:12.5px">Check again</button>
+      </div>
+      ${critical.length||attention.length?'':'<div style="font-size:12.5px;color:#2e7d32;margin-top:12px;font-weight:600">Everything on our checklist looks good. 🎉</div>'}
+      ${group('Fix first',critical,'#c0392b')}
+      ${group('Worth improving',attention,'#b8860b')}
+      ${cant.length?`<div style="margin-top:14px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#999">Couldn't check (${cant.length})</div>${cant.map(f=>`<div style="font-size:12px;color:#aaa;padding:8px 0 0">${esc(f.title)}</div>`).join('')}</div>`:''}
+      ${good.length?`<details style="margin-top:14px"><summary style="font-size:12px;color:#2e7d32;cursor:pointer;font-weight:600">${good.length} checks passing</summary><div style="margin-top:6px">${good.map(f=>`<div style="font-size:12px;color:#777;padding:4px 0">✓ ${esc(f.title)}</div>`).join('')}</div></details>`:''}
+      <div style="font-size:11px;color:#bbb;margin-top:14px">These checks help customers find and choose you — they are Zordical's own list, not a Google ranking.</div>
+    </div>`;
+}
+
+async function runGbpAudit(){
+  const btn=document.getElementById('gbp-audit-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Checking…'; }
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/google/audit`,{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===429){ toast(d.error||'Please wait before re-checking','error'); return; }
+    if(!r.ok){ toast(d.error||'Audit failed','error'); return; }
+    toast('Profile health updated','success');
+    loadGoogleAudit();
+  }catch(e){ toast('Audit failed','error'); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent='Check again'; } }
+}
 
 // AI Campaigns
 async function loadCampaigns(){
