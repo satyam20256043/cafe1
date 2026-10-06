@@ -656,8 +656,218 @@ Output ONLY the JSON object.`;
     res.json({ mode: adapter.mode, latest: audits[0] || null, previous: audits[1] || null });
   });
 
+  // ── GB9: Google posts (draft → approve → publish/schedule) ────────────────
+
+  const POST_TOPIC_TYPES = new Set(['STANDARD', 'OFFER', 'EVENT']);
+  const POST_CTA_TYPES   = new Set(['CALL', 'ORDER', 'BOOK', 'LEARN_MORE']);
+  const POST_LANGS       = { english: 'English', hindi: 'Hindi', hinglish: 'Hinglish (Roman Hindi)' };
+
+  // Normalize + validate a request body into google_posts columns. Returns { fields } or { error }.
+  function buildPostFields(body, { aiGenerated } = {}) {
+    const topic_type = POST_TOPIC_TYPES.has(body.topicType) ? body.topicType : 'STANDARD';
+    const summary = typeof body.summary === 'string' ? body.summary.trim() : '';
+    if (summary.length < 1 || summary.length > 1500) return { error: 'Post text must be 1–1500 characters' };
+    const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) : '';
+    const startDate = typeof body.startDate === 'string' ? body.startDate.trim() : '';
+    const endDate = typeof body.endDate === 'string' ? body.endDate.trim() : '';
+    if ((topic_type === 'EVENT' || topic_type === 'OFFER')) {
+      if (!title) return { error: `${topic_type === 'OFFER' ? 'Offer' : 'Event'} posts need a title` };
+      if (!/^\d{4}-\d{2}-\d{2}/.test(startDate) || !/^\d{4}-\d{2}-\d{2}/.test(endDate)) return { error: `${topic_type === 'OFFER' ? 'Offer' : 'Event'} posts need a start and end date` };
+    }
+    const cta_type = POST_CTA_TYPES.has(body.ctaType) ? body.ctaType : null;
+    let cta_url = null;
+    if (cta_type && cta_type !== 'CALL') {
+      if (typeof body.ctaUrl === 'string' && /^https?:\/\//.test(body.ctaUrl)) cta_url = body.ctaUrl.trim();
+      else return { error: 'That call-to-action needs a valid https link' };
+    }
+    // Only https images can be shown by Google; anything else publishes text-only.
+    const image_url = (typeof body.imageUrl === 'string' && /^https:\/\//.test(body.imageUrl)) ? body.imageUrl.trim() : null;
+    return { fields: {
+      topic_type, summary, title: title || null,
+      start_date: startDate || null, end_date: endDate || null,
+      cta_type, cta_url,
+      coupon_code: (typeof body.couponCode === 'string' && body.couponCode.trim()) ? body.couponCode.trim().slice(0, 60) : null,
+      image_url,
+      ai_generated: aiGenerated ? 1 : 0,
+    } };
+  }
+
+  async function generatePostDraft(businessId, body) {
+    const business = (ctx.businesses || []).find(b => b.id === businessId) || {};
+    const vert = vertical(business);
+    const facts = ((ctx.getBranchData && ctx.getBranchData(businessId, 'knowledge.json')) || [])
+      .filter(k => k && k.q && k.a && String(k.a).trim()).map(k => `- ${k.q} → ${k.a}`).join('\n') || '(none)';
+    const menu = ((ctx.getBranchData && ctx.getBranchData(businessId, 'menu.json')) || [])
+      .slice(0, 30).map(i => `- ${i.name}${i.category ? ' (' + i.category + ')' : ''}`).join('\n') || '(none)';
+    const topicType = POST_TOPIC_TYPES.has(body.topicType) ? body.topicType : 'STANDARD';
+    const lang = POST_LANGS[body.language] || 'English';
+    const goal = typeof body.goal === 'string' ? body.goal.trim().slice(0, 300) : '';
+    const offerText = typeof body.offerText === 'string' ? body.offerText.trim().slice(0, 300) : '';
+    const dates = (body.startDate && body.endDate) ? `The ${topicType.toLowerCase()} runs ${body.startDate} to ${body.endDate}.` : '';
+
+    const prompt = `You write Google Business Profile posts for "${business.name || 'our ' + vert}", a ${vert} in India.
+Write a ${topicType === 'STANDARD' ? 'general update' : topicType.toLowerCase()} post. Goal: ${goal || 'engage local customers'}.
+${offerText ? 'Offer details the owner supplied: ' + offerText : ''}
+${dates}
+
+Business facts (use ONLY these for any specific claim):
+${facts}
+
+Menu items (names only — never state a price):
+${menu}
+
+Output ONLY a JSON object, nothing else:
+{"summary":"the post text","title":${topicType === 'STANDARD' ? 'null' : '"a short title (max 58 chars)"'},"cta":"CALL|ORDER|BOOK|LEARN_MORE|null"}
+
+Rules:
+- Write in ${lang}.
+- "summary": 300–600 characters, warm and specific, no line of hashtags.
+- NEVER state a price, a discount percentage, or an amount — unless it appears in the owner's offer details above.
+- NEVER invent a date, offer or fact not given above.
+- NEVER mention loyalty points or Zordical.
+- At most one emoji.
+Output ONLY the JSON object.`;
+
+    const raw = await ctx.callClaude(prompt);
+    if (!raw) return null;
+    const start = raw.indexOf('{'), end = raw.lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    let obj; try { obj = JSON.parse(raw.slice(start, end + 1)); } catch (_) { return null; }
+    if (!obj || typeof obj.summary !== 'string' || !obj.summary.trim()) return null;
+    let summary = obj.summary.trim(); if (summary.length > 1500) summary = summary.slice(0, 1500);
+    const title = (typeof obj.title === 'string' && obj.title.trim()) ? obj.title.trim().slice(0, 58) : null;
+    const cta = POST_CTA_TYPES.has(obj.cta) ? obj.cta : null;
+    return { topicType, summary, title, cta };
+  }
+
+  function notifyPostFailed(businessId, post) {
+    const business = (ctx.businesses || []).find(b => b.id === businessId);
+    if (business && business.ownerPhone) {
+      ctx.sendWhatsAppToCustomer(businessId, business.ownerPhone,
+        `⚠️ Your Google post couldn't be published after 3 tries — tap to retry:\n${(process.env.BASE_URL || 'http://localhost:3010')}/manager/${businessId}?tab=campaigns`
+      ).catch(() => {});
+    }
+  }
+
+  async function publishGooglePost(businessId, postId, opts = {}) {
+    if (!db.claimGooglePostForPublishing(businessId, postId)) return { skipped: 'not_claimable' };
+    if (opts.approvedBy) db.updateGooglePost(businessId, postId, { approved_by: opts.approvedBy });
+    const post = db.getGooglePost(businessId, postId);
+    try {
+      const conn = db.getGoogleConnection(businessId);
+      if (!conn || conn.status !== 'connected') throw typedError('NOT_CONNECTED', 'No Google connection');
+      const accessToken = await getValidAccessToken(businessId);
+      const result = await adapterOrNull().createLocalPost(accessToken, conn.account_name, conn.location_name, {
+        topicType: post.topic_type, summary: post.summary, ctaType: post.cta_type, ctaUrl: post.cta_url,
+        title: post.title, startDate: post.start_date, endDate: post.end_date, couponCode: post.coupon_code, imageUrl: post.image_url,
+      });
+      db.updateGooglePost(businessId, postId, { status: 'published', google_post_name: result.name, last_error: null });
+      logEvent(businessId, 'google.post_published', { actor: opts.approvedBy || null, metadata: { topicType: post.topic_type } });
+      return { ok: true, status: 'published', googlePostName: result.name };
+    } catch (e) {
+      const attempts = (post.attempts || 0) + 1;
+      if (e.code === 'AUTH') markNeedsReconnect(businessId, e.message);
+      if (attempts < 3) {
+        const retryAt = new Date(Date.now() + 5 * 60 * 1000 * attempts).toISOString();
+        db.updateGooglePost(businessId, postId, { status: 'scheduled', attempts, last_error: humanGoogleError(e), scheduled_for: retryAt });
+        return { ok: false, status: 'scheduled', attempts, retryAt };
+      }
+      db.updateGooglePost(businessId, postId, { status: 'failed', attempts, last_error: humanGoogleError(e) });
+      notifyPostFailed(businessId, post);
+      return { ok: false, status: 'failed', attempts };
+    }
+  }
+
+  const postGenRateLimit = rateLimit({ windowMs: 60 * 1000, max: 10, keyFn: req => `google_postgen:${req.params.id}`, message: 'Too many requests — try again in a minute.' });
+
+  app.post('/api/businesses/:id/google/posts/generate', requireAuth, requireBranchAccess, canManage, postGenRateLimit, async (req, res) => {
+    if (!adapterOrNull()) return res.status(503).json(NOT_CONFIGURED);
+    try {
+      const draft = await generatePostDraft(req.params.id, req.body || {});
+      if (!draft) return res.status(502).json({ error: "Couldn't write a draft right now. Please try again or write your own.", code: 'DRAFT_FAILED' });
+      res.json(draft);
+    } catch (e) { sendGoogleError(res, e); }
+  });
+
+  app.get('/api/businesses/:id/google/posts', requireAuth, requireBranchAccess, (req, res) => {
+    const adapter = adapterOrNull();
+    if (!adapter || !db) return res.status(503).json(NOT_CONFIGURED);
+    const conn = db.getGoogleConnection(req.params.id);
+    const status = ['draft', 'scheduled', 'publishing', 'published', 'failed', 'rejected'].includes(req.query.status) ? req.query.status : undefined;
+    res.json({ mode: adapter.mode, status: conn ? conn.status : 'disconnected', posts: db.listGooglePosts(req.params.id, { status, limit: req.query.limit, offset: req.query.offset }) });
+  });
+
+  app.post('/api/businesses/:id/google/posts', requireAuth, requireBranchAccess, canManage, (req, res) => {
+    if (!adapterOrNull()) return res.status(503).json(NOT_CONFIGURED);
+    const { fields, error } = buildPostFields(req.body || {}, { aiGenerated: !!(req.body && req.body.aiGenerated) });
+    if (error) return res.status(400).json({ error, code: 'BAD_POST' });
+    const post = db.createGooglePost(req.params.id, { ...fields, status: 'draft', created_by: req.staff.id });
+    res.json({ ok: true, post });
+  });
+
+  app.put('/api/businesses/:id/google/posts/:postId', requireAuth, requireBranchAccess, canManage, (req, res) => {
+    if (!adapterOrNull()) return res.status(503).json(NOT_CONFIGURED);
+    const existing = db.getGooglePost(req.params.id, req.params.postId);
+    if (!existing) return res.status(404).json({ error: 'Post not found', code: 'NOT_FOUND' });
+    if (existing.status !== 'draft') return res.status(409).json({ error: 'Only draft posts can be edited', code: 'NOT_EDITABLE' });
+    const { fields, error } = buildPostFields(req.body || {}, { aiGenerated: !!existing.ai_generated });
+    if (error) return res.status(400).json({ error, code: 'BAD_POST' });
+    res.json({ ok: true, post: db.updateGooglePost(req.params.id, req.params.postId, fields) });
+  });
+
+  app.post('/api/businesses/:id/google/posts/:postId/approve', requireAuth, requireBranchAccess, canManage, async (req, res) => {
+    if (!adapterOrNull()) return res.status(503).json(NOT_CONFIGURED);
+    const post = db.getGooglePost(req.params.id, req.params.postId);
+    if (!post) return res.status(404).json({ error: 'Post not found', code: 'NOT_FOUND' });
+    if (post.status !== 'draft') return res.status(409).json({ error: 'This post has already been handled', code: 'NOT_DRAFT' });
+
+    const scheduledFor = req.body && req.body.scheduledFor;
+    if (scheduledFor) {
+      const when = new Date(scheduledFor);
+      if (isNaN(when.getTime())) return res.status(400).json({ error: 'Invalid schedule time', code: 'BAD_SCHEDULE' });
+      if (when.getTime() > Date.now() + 60 * 1000) {
+        db.updateGooglePost(req.params.id, req.params.postId, { status: 'scheduled', scheduled_for: when.toISOString(), approved_by: req.staff.id });
+        return res.json({ ok: true, status: 'scheduled', scheduledFor: when.toISOString() });
+      }
+    }
+    // Publish now
+    try {
+      const result = await publishGooglePost(req.params.id, req.params.postId, { approvedBy: req.staff.id });
+      if (result.skipped) return res.status(409).json({ error: 'This post is already being published', code: 'ALREADY_PUBLISHING' });
+      res.json(result);
+    } catch (e) { sendGoogleError(res, e); }
+  });
+
+  app.post('/api/businesses/:id/google/posts/:postId/retry', requireAuth, requireBranchAccess, canManage, async (req, res) => {
+    if (!adapterOrNull()) return res.status(503).json(NOT_CONFIGURED);
+    const post = db.getGooglePost(req.params.id, req.params.postId);
+    if (!post) return res.status(404).json({ error: 'Post not found', code: 'NOT_FOUND' });
+    if (post.status !== 'failed') return res.status(409).json({ error: 'Only failed posts can be retried', code: 'NOT_FAILED' });
+    db.updateGooglePost(req.params.id, req.params.postId, { status: 'scheduled', scheduled_for: new Date().toISOString(), attempts: 0, last_error: null });
+    try {
+      const result = await publishGooglePost(req.params.id, req.params.postId, { approvedBy: req.staff.id });
+      res.json(result);
+    } catch (e) { sendGoogleError(res, e); }
+  });
+
+  app.post('/api/businesses/:id/google/posts/:postId/reject', requireAuth, requireBranchAccess, canManage, (req, res) => {
+    const post = db.getGooglePost(req.params.id, req.params.postId);
+    if (!post) return res.status(404).json({ error: 'Post not found', code: 'NOT_FOUND' });
+    db.updateGooglePost(req.params.id, req.params.postId, { status: 'rejected' });
+    res.json({ ok: true });
+  });
+
+  app.delete('/api/businesses/:id/google/posts/:postId', requireAuth, requireBranchAccess, canManage, (req, res) => {
+    const post = db.getGooglePost(req.params.id, req.params.postId);
+    if (!post) return res.status(404).json({ error: 'Post not found', code: 'NOT_FOUND' });
+    if (!['draft', 'rejected', 'failed'].includes(post.status)) return res.status(409).json({ error: 'Only draft, rejected or failed posts can be deleted', code: 'NOT_DELETABLE' });
+    db.deleteGooglePost(req.params.id, req.params.postId);
+    res.json({ ok: true });
+  });
+
   ctx.analyzeAndDraftReview = analyzeAndDraftReview;
   ctx.syncGoogleReviews = syncGoogleReviews;
   ctx.runGoogleAudit = runGoogleAudit;
+  ctx.publishGooglePost = publishGooglePost;
   ctx.getValidGoogleToken = getValidAccessToken;
 };

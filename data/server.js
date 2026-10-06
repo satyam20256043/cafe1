@@ -2458,6 +2458,25 @@ function scheduleGoogleReviewSync() {
 }
 scheduleGoogleReviewSync();
 
+// GB9 — every 5 min, publish scheduled Google posts whose time has come, sequentially, 1 s apart.
+function scheduleGooglePostPublisher() {
+  setInterval(async () => {
+    if (!db || typeof routeCtx.publishGooglePost !== 'function') return;
+    let due;
+    try { due = db.listDueGooglePosts(50); } catch (e) { console.error('[google/posts] listDue failed:', e.message); return; }
+    for (const post of due) {
+      try {
+        const result = await routeCtx.publishGooglePost(post.business_id, post.id);
+        console.log(`[google/posts] ${post.business_id}/${post.id}: ${result.status || result.skipped}`);
+      } catch (e) {
+        console.error(`[google/posts] ${post.business_id}/${post.id}: publish error:`, e.message);
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }, 5 * 60 * 1000);
+}
+scheduleGooglePostPublisher();
+
 // Socket.io Real-time Event Handling
 // -------------------------------------------------------------
 // ══════════════════════════════════════════════════════════════════════════════

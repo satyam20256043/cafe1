@@ -2051,6 +2051,18 @@ function claimGooglePostForPublishing(businessId, id) {
   ).run(new Date().toISOString(), id, businessId).changes === 1;
 }
 
+function deleteGooglePost(businessId, id) {
+  return db.prepare('DELETE FROM google_posts WHERE id = ? AND business_id = ?').run(id, businessId).changes;
+}
+
+// Scheduled posts whose time has come (status='scheduled' and scheduled_for <= now).
+function listDueGooglePosts(limit) {
+  const now = new Date().toISOString();
+  return db.prepare(
+    "SELECT * FROM google_posts WHERE status = 'scheduled' AND scheduled_for IS NOT NULL AND scheduled_for <= ? ORDER BY scheduled_for ASC LIMIT ?"
+  ).all(now, Math.min(parseInt(limit) || 50, 200));
+}
+
 // ── Google daily metrics ──────────────────────────────────────────────────────
 
 function upsertGoogleMetric(businessId, date, metric, value) {
@@ -2093,6 +2105,7 @@ Object.assign(module.exports, {
   getGoogleConnection, upsertGoogleConnection, findGoogleLocationOwner,
   upsertGoogleReview, updateGoogleReviewDraft, getGoogleReview, listGoogleReviews, countGoogleReviewSummary,
   createGooglePost, updateGooglePost, getGooglePost, listGooglePosts, claimGooglePostForPublishing,
+  deleteGooglePost, listDueGooglePosts,
   upsertGoogleMetric, getGoogleMetrics,
   saveGoogleAudit, getLatestGoogleAudits,
   listConnectedGoogleBusinessIds,
