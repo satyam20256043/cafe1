@@ -23,7 +23,9 @@ try {
 
 // Respect an explicit 0 (kill-switch: refuse all QR links) — `|| 2` would not.
 const _maxEnv = parseInt(process.env.WA_QR_MAX_CLIENTS, 10);
-const MAX_CLIENTS = Number.isNaN(_maxEnv) ? 2 : _maxEnv;
+// Default sized for the 4 GB zordical.com server (~200 MB per linked café). Set
+// WA_QR_MAX_CLIENTS lower on smaller boxes (e.g. 1–2 on a 512 MB instance).
+const MAX_CLIENTS = Number.isNaN(_maxEnv) ? 10 : _maxEnv;
 
 // Session auth data lives beside the code (gitignored). Keep it OUT of data/<id>/
 // so tenant purges / backups never touch live WhatsApp credentials.
