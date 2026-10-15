@@ -2542,6 +2542,34 @@ function scheduleGooglePostPublisher() {
 }
 scheduleGooglePostPublisher();
 
+// GB10 — nightly at 03:30 server time, refresh the last 35 days of Google metrics for every
+// connected café (63 days the first time, so the previous-28-day comparison has data).
+async function runNightlyGoogleMetrics() {
+  if (!db || typeof routeCtx.syncGoogleMetrics !== 'function') return;
+  let ids;
+  try { ids = db.listConnectedGoogleBusinessIds(); } catch (e) { console.error('[google/metrics] list failed:', e.message); return; }
+  for (const id of ids) {
+    try {
+      const days = db.getLatestGoogleMetricDate(id) ? 35 : 63;
+      const r = await routeCtx.syncGoogleMetrics(id, days);
+      console.log(`[google/metrics] ${id}: ${r.skipped ? 'skipped (' + r.skipped + ')' : r.rows + ' rows ' + r.start + '..' + r.end}`);
+    } catch (e) {
+      console.error(`[google/metrics] ${id}: sync error:`, e.message);
+    }
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+}
+(function scheduleNightlyGoogleMetrics() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(3, 30, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  setTimeout(() => {
+    runNightlyGoogleMetrics();
+    setInterval(runNightlyGoogleMetrics, 24 * 60 * 60 * 1000);
+  }, next - now);
+})();
+
 // Socket.io Real-time Event Handling
 // -------------------------------------------------------------
 // ══════════════════════════════════════════════════════════════════════════════

@@ -231,6 +231,10 @@ module.exports = function googleRoutes(ctx) {
       if (typeof ctx.runGoogleAudit === 'function') {
         ctx.runGoogleAudit(req.params.id).catch(e => console.error('[google/location] initial audit failed:', e.message));
       }
+      // Two 28-day windows plus a week, so "vs previous 28 days" works from day one.
+      if (typeof ctx.syncGoogleMetrics === 'function') {
+        ctx.syncGoogleMetrics(req.params.id, 63).catch(e => console.error('[google/location] initial metrics failed:', e.message));
+      }
       res.json({ ok: true, locationTitle: loc.title });
     } catch (e) { sendGoogleError(res, e); }
   });
@@ -865,9 +869,97 @@ Output ONLY the JSON object.`;
     res.json({ ok: true });
   });
 
+  // ── GB10: Google insights next to real orders ─────────────────────────────
+
+  const INSIGHT_METRICS = ['BUSINESS_IMPRESSIONS_DESKTOP_MAPS', 'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+    'BUSINESS_IMPRESSIONS_MOBILE_MAPS', 'BUSINESS_IMPRESSIONS_MOBILE_SEARCH', 'CALL_CLICKS', 'WEBSITE_CLICKS',
+    'BUSINESS_DIRECTION_REQUESTS', 'BUSINESS_BOOKINGS', 'BUSINESS_FOOD_ORDERS'];
+  const METRIC_GROUP = {
+    BUSINESS_IMPRESSIONS_DESKTOP_MAPS: 'views', BUSINESS_IMPRESSIONS_DESKTOP_SEARCH: 'views',
+    BUSINESS_IMPRESSIONS_MOBILE_MAPS: 'views', BUSINESS_IMPRESSIONS_MOBILE_SEARCH: 'views',
+    CALL_CLICKS: 'calls', WEBSITE_CLICKS: 'website', BUSINESS_DIRECTION_REQUESTS: 'directions',
+    BUSINESS_BOOKINGS: 'bookings', BUSINESS_FOOD_ORDERS: 'bookings',
+  };
+  const emptyTotals = () => ({ views: 0, calls: 0, website: 0, directions: 0, bookings: 0 });
+
+  // Dates are India-local, matching how order revenue is grouped (db LOCAL_TZ_OFFSET = +330 min).
+  const todayLocal = () => new Date(Date.now() + 330 * 60 * 1000).toISOString().slice(0, 10);
+  const shiftDay = (ymd, n) => new Date(Date.parse(ymd + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
+
+  // Re-fetching overlapping days is intentional: Google revises recent days.
+  async function syncGoogleMetrics(businessId, days = 35) {
+    const conn = db.getGoogleConnection(businessId);
+    if (!conn || conn.status !== 'connected') return { skipped: 'not_connected' };
+    const adapter = adapterOrNull();
+    if (!adapter) throw typedError('NOT_CONFIGURED', 'Google is not configured');
+    try {
+      const accessToken = await getValidAccessToken(businessId);
+      const end = shiftDay(todayLocal(), -1); // today's numbers are always incomplete
+      const start = shiftDay(end, -(days - 1));
+      const rows = await adapter.fetchDailyMetrics(accessToken, conn.location_name, INSIGHT_METRICS, start, end);
+      for (const r of rows) db.upsertGoogleMetric(businessId, r.date, r.metric, r.value);
+      return { rows: rows.length, start, end };
+    } catch (e) {
+      if (e.code === 'AUTH') markNeedsReconnect(businessId, e.message);
+      throw e;
+    }
+  }
+
+  app.get('/api/businesses/:id/google/insights', requireAuth, requireBranchAccess, (req, res) => {
+    const adapter = adapterOrNull();
+    if (!adapter || !db) return res.status(503).json(NOT_CONFIGURED);
+    const conn = db.getGoogleConnection(req.params.id);
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 28, 7), 90);
+    const end = shiftDay(todayLocal(), -1);
+    const start = shiftDay(end, -(days - 1));
+    const prevEnd = shiftDay(start, -1);
+    const prevStart = shiftDay(prevEnd, -(days - 1));
+
+    const rows = db.getGoogleMetricsBetween(req.params.id, prevStart, end);
+    const totals = emptyTotals(), previous = emptyTotals();
+    const byDate = {};
+    let curRows = 0, prevRows = 0;
+    for (const r of rows) {
+      const key = METRIC_GROUP[r.metric];
+      if (!key) continue;
+      if (r.date >= start) {
+        curRows++;
+        totals[key] += r.value;
+        (byDate[r.date] = byDate[r.date] || emptyTotals())[key] += r.value;
+      } else { prevRows++; previous[key] += r.value; }
+    }
+
+    const orderRows = db.getDailyOrderSeries(req.params.id, start, end);
+    const ordersByDate = Object.fromEntries(orderRows.map(o => [o.date, o]));
+    const prevOrders = db.getDailyOrderSeries(req.params.id, prevStart, prevEnd);
+    const sum = (list, k) => list.reduce((s, o) => s + (o[k] || 0), 0);
+
+    const series = [];
+    for (let d = start; d <= end; d = shiftDay(d, 1)) {
+      const g = byDate[d];
+      series.push({ date: d, views: g ? g.views : null, orders: ordersByDate[d] ? ordersByDate[d].orders : 0 });
+    }
+
+    res.json({
+      mode: adapter.mode,
+      status: conn ? conn.status : 'disconnected',
+      days, start, end,
+      hasData: curRows > 0,
+      latestDate: db.getLatestGoogleMetricDate(req.params.id),
+      totals,
+      previous: prevRows > 0 ? previous : null, // a gap, not zeros, when there's no earlier data
+      zordical: {
+        orders: sum(orderRows, 'orders'), revenue: Math.round(sum(orderRows, 'revenue')),
+        previousOrders: sum(prevOrders, 'orders'), previousRevenue: Math.round(sum(prevOrders, 'revenue')),
+      },
+      series,
+    });
+  });
+
   ctx.analyzeAndDraftReview = analyzeAndDraftReview;
   ctx.syncGoogleReviews = syncGoogleReviews;
   ctx.runGoogleAudit = runGoogleAudit;
+  ctx.syncGoogleMetrics = syncGoogleMetrics;
   ctx.publishGooglePost = publishGooglePost;
   ctx.getValidGoogleToken = getValidAccessToken;
 };

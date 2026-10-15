@@ -229,6 +229,21 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 .gbp-rev-live{background:var(--cream);border-radius:8px;padding:10px 12px;font-size:12.5px;color:#555;border-left:3px solid #2e7d32;margin-top:4px}
 .gbp-rev-err{font-size:12px;color:var(--rose,#ef4444);margin-top:8px}
 
+/* Google insights (GB10) */
+.gbi-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+@media(max-width:640px){.gbi-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.gbi-tile{background:var(--cream);border-radius:10px;padding:12px}
+.gbi-val{font-size:22px;font-weight:700;color:var(--espresso);line-height:1.1}
+.gbi-lbl{font-size:11px;color:#8a7d70;margin-top:3px}
+.gbi-chg{font-size:11.5px;margin-top:6px;color:#8a7d70}
+.gbi-chg.up{color:#2d7a2d}.gbi-chg.down{color:#b8505a}
+.gbi-line{font-size:13px;color:#555;margin:2px 0 12px}
+.gbi-chart-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#8a7d70;margin:10px 0 4px}
+.gbi-chart{position:relative;height:112px}
+.gbi-foot{font-size:11.5px;color:#9a8870;margin-top:12px;line-height:1.5}
+.gbi-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.gbi-table th,.gbi-table td{padding:5px 8px;border-bottom:1px solid var(--border);text-align:right}
+.gbi-table th:first-child,.gbi-table td:first-child{text-align:left}
 /* Google posts (GB9) */
 .gbp-field{margin-bottom:12px}
 .gbp-field label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;margin-bottom:5px}
@@ -615,6 +630,10 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
         <div class="kpi-card amber"><div class="kpi-label">CRM Customers</div><div class="kpi-value" id="kpi-cust">—</div><div class="kpi-sub" id="kpi-cust-sub">—</div></div>
         <div class="kpi-card rose"><div class="kpi-label">Reviews</div><div class="kpi-value" id="kpi-reviews">—</div><div class="kpi-sub" id="kpi-reviews-sub">Avg rating</div></div>
         <div class="kpi-card sky"><div class="kpi-label">Pending Offers</div><div class="kpi-value" id="kpi-offers">—</div><div class="kpi-sub">Awaiting approval</div></div>
+      </div>
+      <div class="panel" id="gbp-insights-card" style="display:none;margin-bottom:20px">
+        <div class="panel-head"><div><div class="panel-title">From Google, last 28 days <span id="gbi-pill"></span></div><div class="panel-sub">How people find you on Google, shown next to your Zordical orders</div></div></div>
+        <div class="panel-body" id="gbp-insights-body"></div>
       </div>
       <div class="two-col">
         <div class="panel">
@@ -2028,6 +2047,7 @@ async function loadBranch(){
     `;
     renderTrialBanner();
     await loadOverviewKPIs();
+    loadGoogleInsights();
     loadTrafficChart();
     loadSetupChecklist();
     loadEscalations();
@@ -3330,6 +3350,88 @@ async function runGbpAudit(){
     loadGoogleAudit();
   }catch(e){ toast('Audit failed','error'); }
   finally{ if(btn){ btn.disabled=false; btn.textContent='Check again'; } }
+}
+
+// ── Google insights (GB10) ──────────────────────────────────────────────────
+// Two single-series charts on a shared date axis rather than one dual-axis chart:
+// views and orders are on very different scales. Side by side, never cause and effect.
+let _gbiCharts = [];
+const GBI_TILES = [['views','Views on Google'],['calls','Calls'],['directions','Direction requests'],['website','Website clicks']];
+const GBI_COLORS = { views: '#2C6E9E', orders: '#A07830' };
+
+async function loadGoogleInsights(){
+  const card=document.getElementById('gbp-insights-card');
+  if(!card) return;
+  try{
+    const r=await fetch(`/api/businesses/${branchId}/google/insights?days=28`);
+    if(!r.ok){ card.style.display='none'; return; }
+    const d=await r.json();
+    if(d.status!=='connected'){ card.style.display='none'; return; }
+    card.style.display='';
+    renderGoogleInsights(d);
+  }catch(e){ card.style.display='none'; }
+}
+
+function gbiDay(ymd){ const d=new Date(ymd+'T00:00:00'); return d.toLocaleDateString(undefined,{day:'numeric',month:'short'}); }
+
+function gbiChange(cur, prev){
+  if(prev==null) return '<div class="gbi-chg">No earlier data yet</div>';
+  if(!prev) return cur ? '<div class="gbi-chg">New this period</div>' : '<div class="gbi-chg">No change</div>';
+  const pct=Math.round((cur-prev)/prev*100);
+  if(pct===0) return '<div class="gbi-chg">No change vs previous 28 days</div>';
+  return `<div class="gbi-chg ${pct>0?'up':'down'}">${pct>0?'▲':'▼'} ${Math.abs(pct)}% vs previous 28 days</div>`;
+}
+
+function renderGoogleInsights(d){
+  const body=document.getElementById('gbp-insights-body');
+  const pill=document.getElementById('gbi-pill');
+  if(pill) pill.innerHTML=d.mode==='mock'?'<span class="gbp-pill" style="margin-left:6px">DEMO DATA</span>':'';
+  _gbiCharts.forEach(c=>c.destroy()); _gbiCharts=[];
+  if(!d.hasData){
+    body.innerHTML='<div style="font-size:13px;color:#888">Google insights will appear after the first nightly sync.</div>';
+    return;
+  }
+  const t=d.totals, p=d.previous, z=d.zordical;
+  const tiles=GBI_TILES.map(([k,label])=>`
+    <div class="gbi-tile"><div class="gbi-val">${Number(t[k]||0).toLocaleString('en-IN')}</div><div class="gbi-lbl">${label}</div>${gbiChange(t[k]||0, p?p[k]:null)}</div>`).join('');
+  const bookings=t.bookings?`<div class="gbi-line">Google bookings &amp; food orders: <strong>${t.bookings.toLocaleString('en-IN')}</strong></div>`:'';
+  const zChange=z.previousOrders?` (${z.orders>=z.previousOrders?'▲':'▼'} ${Math.abs(Math.round((z.orders-z.previousOrders)/z.previousOrders*100))}% vs previous 28 days)`:'';
+  const rows=d.series.map(s=>`<tr><td>${gbiDay(s.date)}</td><td>${s.views==null?'—':s.views.toLocaleString('en-IN')}</td><td>${s.orders}</td></tr>`).join('');
+  body.innerHTML=`
+    <div class="gbi-tiles">${tiles}</div>
+    ${bookings}
+    <div class="gbi-line">Your Zordical orders in the same days: <strong>${z.orders.toLocaleString('en-IN')}</strong> · ₹${z.revenue.toLocaleString('en-IN')}${zChange}</div>
+    <div class="gbi-chart-title">Views on Google per day</div>
+    <div class="gbi-chart"><canvas id="gbi-views" aria-label="Views on Google per day" role="img"></canvas></div>
+    <div class="gbi-chart-title">Zordical orders per day</div>
+    <div class="gbi-chart"><canvas id="gbi-orders" aria-label="Zordical orders per day" role="img"></canvas></div>
+    <details style="margin-top:10px"><summary style="font-size:12px;color:#8a7d70;cursor:pointer">See the numbers by day</summary>
+      <table class="gbi-table"><thead><tr><th>Day</th><th>Views on Google</th><th>Zordical orders</th></tr></thead><tbody>${rows}</tbody></table>
+    </details>
+    <div class="gbi-foot">Google numbers arrive with a delay of a few days. A blank day means Google hasn't reported it yet. These are shown side by side, not as cause and effect.</div>`;
+  if(typeof Chart==='undefined') return;
+  const labels=d.series.map(s=>s.date);
+  _gbiCharts.push(gbiLine('gbi-views', labels, d.series.map(s=>s.views), GBI_COLORS.views, 'views', false));
+  _gbiCharts.push(gbiLine('gbi-orders', labels, d.series.map(s=>s.orders), GBI_COLORS.orders, 'orders', true));
+}
+
+function gbiLine(id, labels, data, color, unit, showX){
+  const el=document.getElementById(id);
+  return new Chart(el,{
+    type:'line',
+    data:{ labels, datasets:[{ data, borderColor:color, backgroundColor:color, borderWidth:2, pointRadius:0, pointHoverRadius:4, pointHitRadius:12, cubicInterpolationMode:'monotone', spanGaps:false, fill:false }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ display:false },
+        tooltip:{ displayColors:false, callbacks:{
+          title:items=>gbiDay(items[0].label),
+          label:it=>it.raw==null?'Not reported yet':`${Number(it.raw).toLocaleString('en-IN')} ${unit}` } } },
+      scales:{
+        x:{ display:showX, grid:{ display:false }, border:{ display:false },
+            ticks:{ maxTicksLimit:5, color:'#9a8870', font:{ size:10 }, callback(v){ return gbiDay(this.getLabelForValue(v)); } } },
+        y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,0.05)' }, border:{ display:false },
+            ticks:{ maxTicksLimit:3, precision:0, color:'#9a8870', font:{ size:10 } } } } } });
 }
 
 // ── Google posts (GB9) ──────────────────────────────────────────────────────

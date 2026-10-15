@@ -2123,6 +2123,28 @@ function getGoogleMetrics(businessId, { days, metrics } = {}) {
   return db.prepare(q + ' ORDER BY date ASC').all(...params);
 }
 
+function getGoogleMetricsBetween(businessId, startDate, endDate) {
+  return db.prepare('SELECT date, metric, value FROM google_daily_metrics WHERE business_id = ? AND date >= ? AND date <= ? ORDER BY date ASC')
+    .all(businessId, startDate, endDate);
+}
+
+function getLatestGoogleMetricDate(businessId) {
+  const row = db.prepare('SELECT MAX(date) AS d FROM google_daily_metrics WHERE business_id = ?').get(businessId);
+  return row && row.d ? row.d : null;
+}
+
+// Orders and revenue per local day — same rule as getRevenueStats (cancelled and
+// not-yet-approved orders don't count).
+function getDailyOrderSeries(businessId, startDate, endDate) {
+  return db.prepare(`
+    SELECT date(created_at, @tz) AS date, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
+    FROM orders
+    WHERE business_id = @biz AND status NOT IN ('cancelled','pending_approval')
+      AND date(created_at, @tz) >= @start AND date(created_at, @tz) <= @end
+    GROUP BY date(created_at, @tz) ORDER BY date ASC
+  `).all({ tz: LOCAL_TZ_OFFSET, biz: businessId, start: startDate, end: endDate });
+}
+
 function listConnectedGoogleBusinessIds() {
   return db.prepare("SELECT business_id FROM google_connections WHERE status = 'connected'").all().map(r => r.business_id);
 }
@@ -2145,7 +2167,7 @@ Object.assign(module.exports, {
   upsertGoogleReview, updateGoogleReviewDraft, getGoogleReview, listGoogleReviews, countGoogleReviewSummary,
   createGooglePost, updateGooglePost, getGooglePost, listGooglePosts, claimGooglePostForPublishing,
   deleteGooglePost, listDueGooglePosts,
-  upsertGoogleMetric, getGoogleMetrics,
+  upsertGoogleMetric, getGoogleMetrics, getGoogleMetricsBetween, getLatestGoogleMetricDate, getDailyOrderSeries,
   saveGoogleAudit, getLatestGoogleAudits,
   listConnectedGoogleBusinessIds,
 });
