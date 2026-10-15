@@ -273,7 +273,7 @@ app.get('/api/businesses/:id/at-risk-customers', requireAuth, requireBranchAcces
   res.json(atRisk);
 });
 
-app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requireBranchAccess, async (req, res) => {
+app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requireBranchAccess, requireActiveSubscription, async (req, res) => {
   const { id } = req.params;
   const { phone, name, offerText } = req.body;
   if (!phone) return res.status(400).json({ error: 'Phone required' });

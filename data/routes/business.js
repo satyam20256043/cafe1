@@ -457,6 +457,14 @@ app.get('/api/agency/clients', requireAuth, requireRole('agency_admin', 'admin')
       subscriptionStatus: b.subscriptionStatus || 'active',
       subscriptionPlan: b.subscriptionPlan || null,
       trialEndsAt: b.trialEndsAt || null,
+      subscriptionEnd: b.subscriptionEnd || null,
+      lastPayment: b.lastPayment || null,
+      // What actually applies right now: active/trial, grace (ended, AI still on), or expired/paused.
+      planState: (() => {
+        const sub = typeof getSubscriptionStatus === 'function' ? getSubscriptionStatus(b) : { ok: true };
+        const effective = !sub.ok ? sub.status : sub.inGrace ? 'grace' : (b.subscriptionStatus || 'trial');
+        return { effective, endsAt: sub.endsAt || null, daysLeft: sub.daysLeft ?? null, graceEndsAt: sub.graceEndsAt || null };
+      })(),
       daysLeft,
       onboardedAt: b.onboardedAt || null,
       brandColor: b.brandColor || '#C9A84C',
@@ -490,6 +498,13 @@ app.post('/api/agency/clients/:id/status', requireAuth, requireRole('agency_admi
   }
   const idx = businesses.findIndex(b => b.id === id);
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  // Approve / Renew: each activation starts (or extends) one 30-day billing period, the same
+  // as a Razorpay payment, so manually-billed cafés lapse too if not renewed.
+  if (subscriptionStatus === 'active' && typeof ctx.nextPlanEnd === 'function') {
+    let days = 30;
+    try { const p = (JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'plans.json'), 'utf-8')).plans || []).find(x => x.id === (subscriptionPlan || businesses[idx].plan || businesses[idx].subscriptionPlan)); if (p && p.duration_days) days = p.duration_days; } catch (e) {}
+    businesses[idx].subscriptionEnd = ctx.nextPlanEnd(businesses[idx], days);
+  }
   if (subscriptionStatus !== undefined) businesses[idx].subscriptionStatus = subscriptionStatus;
   if (subscriptionPlan !== undefined) {
     // Keep both historical plan fields in sync: `plan` is what the AI-tier
@@ -500,7 +515,7 @@ app.post('/api/agency/clients/:id/status', requireAuth, requireRole('agency_admi
     businesses[idx].plan = subscriptionPlan;
   }
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
-  res.json({ success: true, id, subscriptionStatus: businesses[idx].subscriptionStatus, subscriptionPlan: businesses[idx].subscriptionPlan });
+  res.json({ success: true, id, subscriptionStatus: businesses[idx].subscriptionStatus, subscriptionPlan: businesses[idx].subscriptionPlan, subscriptionEnd: businesses[idx].subscriptionEnd || null });
 });
 
 // POST /api/agency/clients/:id/payments — operator logs a real payment received;

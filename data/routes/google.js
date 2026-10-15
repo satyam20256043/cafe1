@@ -86,6 +86,9 @@ function sendGoogleError(res, e) {
 module.exports = function googleRoutes(ctx) {
   const { app, db, requireAuth, requireBranchAccess, requireRole, getGoogleAdapter, opsAlerts, logEvent } = ctx;
   const canManage = requireRole(...MANAGE_ROLES);
+  // AI features pause when the café's plan has lapsed (server.js getSubscriptionStatus).
+  const requireLivePlan = ctx.requireActiveSubscription || ((req, res, next) => next());
+  const planActive = id => (typeof ctx.isServiceActive === 'function' ? ctx.isServiceActive(id) : true);
   const adapterOrNull = () => (db ? getGoogleAdapter() : null);
 
   function markNeedsReconnect(businessId, reason) {
@@ -329,7 +332,7 @@ module.exports = function googleRoutes(ctx) {
       }
 
       // Queue new unreplied reviews for AI analysis (GB6). Non-blocking, sequential, max SYNC_NOTIFY_LIMIT per run.
-      if (typeof ctx.analyzeAndDraftReview === 'function') {
+      if (typeof ctx.analyzeAndDraftReview === 'function' && planActive(businessId)) {
         const toAnalyze = newUnreplied.slice(0, SYNC_NOTIFY_LIMIT);
         setImmediate(async () => {
           for (const rev of toAnalyze) {
@@ -468,7 +471,7 @@ Output ONLY the JSON object.`;
     message: 'Too many draft requests — try again in a minute.',
   });
 
-  app.post('/api/businesses/:id/google/reviews/:reviewName/draft', requireAuth, requireBranchAccess, canManage, draftRateLimit, async (req, res) => {
+  app.post('/api/businesses/:id/google/reviews/:reviewName/draft', requireAuth, requireBranchAccess, canManage, requireLivePlan, draftRateLimit, async (req, res) => {
     const reviewName = decodeReviewName(req.params.reviewName);
     const tone = ['warmer', 'shorter', 'more_formal'].includes(req.body && req.body.tone) ? req.body.tone : undefined;
     const review = db.getGoogleReview(req.params.id, reviewName);
@@ -784,7 +787,7 @@ Output ONLY the JSON object.`;
 
   const postGenRateLimit = rateLimit({ windowMs: 60 * 1000, max: 10, keyFn: req => `google_postgen:${req.params.id}`, message: 'Too many requests — try again in a minute.' });
 
-  app.post('/api/businesses/:id/google/posts/generate', requireAuth, requireBranchAccess, canManage, postGenRateLimit, async (req, res) => {
+  app.post('/api/businesses/:id/google/posts/generate', requireAuth, requireBranchAccess, canManage, requireLivePlan, postGenRateLimit, async (req, res) => {
     if (!adapterOrNull()) return res.status(503).json(NOT_CONFIGURED);
     try {
       const draft = await generatePostDraft(req.params.id, req.body || {});

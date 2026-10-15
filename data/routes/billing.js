@@ -154,7 +154,8 @@ module.exports = function register(ctx) {
     biz.plan = plan.id;
     biz.subscriptionPlan = plan.id; // keep in sync with the HQ billing UI's field
     biz.subscriptionStatus = plan.id === 'trial' ? 'trial' : 'active';
-    biz.subscriptionEnd = end.toISOString();
+    // Renewing adds to time still left on an active plan (server.js nextPlanEnd).
+    biz.subscriptionEnd = ctx.nextPlanEnd ? ctx.nextPlanEnd(biz, plan.duration_days) : end.toISOString();
     biz.lastPayment = {
       amount: plan.price,
       planId: plan.id,
@@ -274,7 +275,7 @@ module.exports = function register(ctx) {
             biz.plan               = plan.id;
             biz.subscriptionPlan   = plan.id; // keep in sync with the HQ billing UI's field
             biz.subscriptionStatus = plan.id === 'trial' ? 'trial' : 'active';
-            biz.subscriptionEnd    = end.toISOString();
+            biz.subscriptionEnd    = ctx.nextPlanEnd ? ctx.nextPlanEnd(biz, plan.duration_days) : end.toISOString();
             biz.lastPayment        = {
               amount:            entity.amount / 100,
               planId:            plan.id,

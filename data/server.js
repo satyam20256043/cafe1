@@ -426,40 +426,72 @@ const PLAN_FEATURES = {
   enterprise: { tables: 999,menu_items: 999,staff: 999,analytics: true,  whatsapp: true  },
 };
 
+// After a trial or paid period ends, AI features keep running for this many days
+// before they pause (user decision 2026-10-15: "stop AI, keep basics").
+const PLAN_GRACE_DAYS = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// A trial end is stored as a date ("2026-11-14") and runs to the end of that day in India;
+// a paid end is a full timestamp.
+function planEndMs(value) {
+  if (!value) return null;
+  const s = String(value);
+  const ms = /^\d{4}-\d{2}-\d{2}$/.test(s) ? Date.parse(s + 'T23:59:59+05:30') : Date.parse(s);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+// ok=false means AI features are paused. QR ordering, the café page, the dashboard and the
+// café's data keep working whatever this says. No end date on record = never lapses.
 function getSubscriptionStatus(business) {
   if (!business) return { ok: false, reason: 'Business not found' };
   const status = business.subscriptionStatus || 'trial';
-  const end    = business.subscriptionEnd ? new Date(business.subscriptionEnd) : null;
-  const now    = new Date();
   // `plan` (Razorpay checkout) and `subscriptionPlan` (HQ manual assignment) are
   // kept in sync by writers now, but read both for old records.
   const plan   = business.plan || business.subscriptionPlan || 'starter';
-  if (status === 'active') return { ok: true, status: 'active', plan };
-  if (status === 'trial') {
-    if (!end || now < end) {
-      const daysLeft = end ? Math.ceil((end - now) / 86400000) : 30;
-      return { ok: true, status: 'trial', daysLeft, plan };
-    }
-    return { ok: false, status: 'expired', reason: 'Trial expired. Please upgrade to continue.' };
+  if (status === 'paused')    return { ok: false, status: 'paused', plan, reason: 'Your Zordical plan is paused. Contact Zordical to switch it back on.' };
+  if (status === 'cancelled') return { ok: false, status: 'cancelled', plan, reason: 'Your Zordical plan was cancelled.' };
+  if (status === 'expired')   return { ok: false, status: 'expired', plan, reason: 'Your Zordical plan has ended. Renew to switch AI features back on.' };
+
+  const end = planEndMs(status === 'trial' ? (business.trialEndsAt || business.subscriptionEnd) : business.subscriptionEnd);
+  if (!end) return { ok: true, status, plan };
+  const now = Date.now();
+  const endsAt = new Date(end).toISOString();
+  if (now < end) return { ok: true, status, plan, endsAt, daysLeft: Math.ceil((end - now) / DAY_MS) };
+  const graceEnd = end + PLAN_GRACE_DAYS * DAY_MS;
+  if (now < graceEnd) {
+    return { ok: true, status, plan, endsAt, inGrace: true, graceEndsAt: new Date(graceEnd).toISOString(),
+      graceDaysLeft: Math.ceil((graceEnd - now) / DAY_MS) };
   }
-  if (status === 'expired') return { ok: false, status: 'expired', reason: 'Subscription expired.' };
-  return { ok: true, status, plan };
+  return { ok: false, status: 'expired', lapsedFrom: status, plan, endsAt,
+    reason: status === 'trial' ? 'Your free trial has ended. Choose a plan to switch AI features back on.'
+                               : 'Your Zordical plan has ended. Renew to switch AI features back on.' };
+}
+
+function isServiceActive(branchId) {
+  return getSubscriptionStatus(businesses.find(b => b.id === branchId)).ok;
+}
+
+// A renewal adds to the time still left on an active plan instead of restarting from today.
+function nextPlanEnd(biz, days) {
+  const now = Date.now();
+  const cur = biz.subscriptionStatus === 'active' ? planEndMs(biz.subscriptionEnd) : null;
+  return new Date((cur && cur > now ? cur : now) + days * DAY_MS).toISOString();
 }
 
 function requireActiveSubscription(req, res, next) {
   const biz = businesses.find(b => b.id === req.params.id);
   const sub = getSubscriptionStatus(biz);
-  if (!sub.ok) return res.status(402).json({ error: sub.reason, subscriptionRequired: true, status: sub.status });
+  if (!sub.ok) return res.status(402).json({ error: sub.reason, code: 'PLAN_LAPSED', subscriptionRequired: true, status: sub.status });
   req.subscription = sub;
   next();
 }
 
 // ── API: get subscription status ──────────────────────────────────────────────
-app.get('/api/businesses/:id/subscription', (req, res) => {
+// Staff of the café only (it used to be open to anyone and included the owner's name).
+app.get('/api/businesses/:id/subscription', requireAuth, requireBranchAccess, (req, res) => {
   const biz = businesses.find(b => b.id === req.params.id);
   if (!biz) return res.status(404).json({ error: 'Not found' });
-  const sub = getSubscriptionStatus(biz);
-  res.json({ ...sub, business: { name: biz.name, plan: biz.plan, ownerName: biz.ownerName } });
+  res.json({ ...getSubscriptionStatus(biz), graceDays: PLAN_GRACE_DAYS, business: { name: biz.name, plan: biz.plan } });
 });
 
 // ── API: upgrade plan (admin only) ────────────────────────────────────────────
@@ -467,7 +499,7 @@ app.post('/api/businesses/:id/subscription', requireAuth, requireRole('agency_ad
   const { plan, status, durationDays } = req.body;
   const biz = businesses.find(b => b.id === req.params.id);
   if (!biz) return res.status(404).json({ error: 'Not found' });
-  if (plan) biz.plan = plan;
+  if (plan) { biz.plan = plan; biz.subscriptionPlan = plan; } // keep both plan fields in sync
   if (status) biz.subscriptionStatus = status;
   if (durationDays) {
     const end = new Date();
@@ -1267,6 +1299,7 @@ function computeGrowthSuggestion(branchId) {
 async function runWeeklyGrowthSuggestions() {
   for (const b of businesses) {
     try {
+      if (!isServiceActive(b.id)) continue;
       const suggestion = computeGrowthSuggestion(b.id);
       if (!suggestion) continue;
       const record = { ...suggestion, status: 'suggested', computedAt: new Date().toISOString() };
@@ -1288,28 +1321,54 @@ async function runWeeklyGrowthSuggestions() {
 // NOT `subscriptionEnd` (that's a separate field billing.js sets on payment
 // activation). Sends are tracked per branch in trial_notices.json so a daily
 // re-run (or a restart landing on the same day) never double-sends.
-function runTrialReminders() {
+// Zordical's own support WhatsApp (shown on the website footer).
+const SUPPORT_WHATSAPP = process.env.SUPPORT_WHATSAPP || '918004284193';
+const PLAN_LABEL = { starter: 'Starter', growth: 'Growth', pro: 'Pro' };
+
+// Daily owner reminders for trials and paid plans: before the end, when it ends (grace
+// starts) and when AI features pause. Keys include the end date, so each new period gets
+// its own reminders; trial "5"/"1" keys are kept from the original trial-only version.
+function runTrialReminders(now = Date.now()) {
   for (const b of businesses) {
     try {
-      if (b.subscriptionStatus !== 'trial' || !b.trialEndsAt) continue;
-      const daysLeft = Math.ceil((new Date(b.trialEndsAt) - Date.now()) / 86400000);
-      if (daysLeft !== 5 && daysLeft !== 1) continue;
       if (!b.ownerPhone) continue;
+      const sub = getSubscriptionStatus(b);
+      if (!sub.endsAt) continue; // no end date on record (or paused) — nothing to remind about
+      const isTrial = (sub.lapsedFrom || b.subscriptionStatus || 'trial') === 'trial';
+      const what = isTrial ? 'free trial' : `${PLAN_LABEL[sub.plan] || 'Zordical'} plan`;
+      const endKey = sub.endsAt.slice(0, 10);
+      const renew = `Renew any time from your Owner Portal: ${(process.env.BASE_URL || 'http://localhost:3010')}/portal/${b.id}\nOr message Zordical on WhatsApp: https://wa.me/${SUPPORT_WHATSAPP}`;
+
+      let key = null, msg = null;
+      if (sub.ok && !sub.inGrace) {
+        if (isTrial && (sub.daysLeft === 5 || sub.daysLeft === 1)) {
+          key = String(sub.daysLeft);
+          msg = `⏳ Your Zordical free trial for ${b.name} ends in ${sub.daysLeft} day${sub.daysLeft === 1 ? '' : 's'}. Pick a plan to keep your AI receptionist working.\n\n${renew}`;
+        } else if (!isTrial && sub.daysLeft === 3) {
+          key = 'paid3:' + endKey;
+          msg = `⏳ Your Zordical ${what} for ${b.name} ends in 3 days. Renew to keep your AI receptionist, campaigns and follow-ups running.\n\n${renew}`;
+        }
+      } else if (sub.ok && sub.inGrace) {
+        key = (isTrial ? 'trialEnded:' : 'paidEnded:') + endKey;
+        msg = `Your Zordical ${what} for ${b.name} has ended. Your AI receptionist, campaigns and follow-ups keep working for ${sub.graceDaysLeft} more day${sub.graceDaysLeft === 1 ? '' : 's'}, then pause.\n\n${renew}`;
+      } else if (sub.status === 'expired') {
+        key = 'lapsed:' + endKey;
+        msg = `⏸️ AI replies, campaigns and follow-ups for ${b.name} are paused because your Zordical ${what} has ended. QR ordering, your menu and all your data are safe.\n\n${renew}`;
+      }
+      if (!key) continue;
 
       const noticesFile = path.join(DATA_DIR, b.id, 'trial_notices.json');
       let notices = { sent: {} };
       try { if (fs.existsSync(noticesFile)) notices = JSON.parse(fs.readFileSync(noticesFile, 'utf-8')); } catch (e) {}
-      if (notices.sent && notices.sent[String(daysLeft)]) continue; // already sent, ever
-
-      const msg = `⏳ Your Zordical free trial ends in ${daysLeft} day(s)! Keep your AI receptionist working — reply here or visit your dashboard to pick a plan. ☕`;
-      sendWhatsAppToCustomer(b.id, b.ownerPhone, msg).catch(() => {});
-
       notices.sent = notices.sent || {};
-      notices.sent[String(daysLeft)] = new Date().toISOString();
+      if (notices.sent[key]) continue; // already sent
+
+      sendWhatsAppToCustomer(b.id, b.ownerPhone, msg).catch(() => {});
+      notices.sent[key] = new Date(now).toISOString();
       fs.mkdirSync(path.dirname(noticesFile), { recursive: true });
       fs.writeFileSync(noticesFile, JSON.stringify(notices, null, 2));
     } catch (e) {
-      console.error(`[Trial Reminders] Failed for branch ${b.id}:`, e.message);
+      console.error(`[Plan Reminders] Failed for branch ${b.id}:`, e.message);
     }
   }
 }
@@ -1403,6 +1462,7 @@ async function sweepReengagementNudgesInner() {
       const branchId = t.business_id, phone = t.phone;
       const business = businesses.find(b => b.id === branchId);
       if (!business) continue;
+      if (!isServiceActive(branchId)) continue; // follow-ups pause with the plan
 
       let row = db.getReengagementRow(branchId, phone);
       if (!row || row.anchor_at !== t.created_at) {
@@ -1536,6 +1596,14 @@ async function processCafeBotReply(branchId, fromPhone, incomingMessage, opts = 
   if (db) {
     db.logEvent(branchId, 'chat.inbound', { customerPhone: fromPhone, actor: 'customer', metadata: { text: incomingMessage } });
     db.saveChatMessage(branchId, fromPhone, customerName, 'in', incomingMessage, channel);
+  }
+  // Plan lapsed (trial/paid period over + grace, or paused): no automated replies. The message
+  // is already saved above, so the owner sees it in Customer Chats and can answer by hand.
+  if (!isServiceActive(branchId)) {
+    if (db) db.logEvent(branchId, 'ai.paused_plan_lapsed', { customerPhone: fromPhone, actor: 'system', metadata: { channel } });
+    if (channel === 'simulator') return 'AI replies are paused because this café\'s Zordical plan has ended. Renew to switch them back on.';
+    if (channel === 'web') return 'Thanks for your message! The café has received it and will get back to you.';
+    return null;
   }
   const reply = await processCafeBotReplyInner(branchId, fromPhone, incomingMessage);
   // reply may be null when a Starter café is over its daily Haiku cap (stay silent) —
@@ -2271,6 +2339,8 @@ function runAutoPilotCampaign(branchId, forceDay = null) {
     console.log(`[Auto-Pilot Campaign] Skipped for branch ${branchId} - Auto-Pilot is disabled.`);
     return { success: false, reason: 'Auto-Pilot is disabled' };
   }
+  // Checked before anything is built, so no coupons get minted for a campaign that can't send.
+  if (!isServiceActive(branchId)) return { success: false, reason: 'Plan ended — renew to run Auto-Pilot campaigns' };
   // Auto-pilot is a bulk broadcast — refuse it on QR (unofficial) numbers.
   if (qrBulkBlocked(branchId)) {
     console.log(`[WA QR] bulk send skipped — autopilot campaign not sent for ${branchId} (QR mode is conversational-only; use the Business API for campaigns)`);
@@ -2460,7 +2530,7 @@ const routeCtx = {
   whatsappConnectionStatus: 'Disconnected',
   requireAuth, requireBranchAccess, requireRole,
   signToken, verifyToken, loadStaff, STAFF_FILE,
-  getSubscriptionStatus, requireActiveSubscription,
+  getSubscriptionStatus, requireActiveSubscription, isServiceActive, nextPlanEnd,
   auth,
   db,   // null in JSON mode; SQLite handle when available
   get whatsappClient() { return whatsappClient; }, // live reference
@@ -2866,6 +2936,8 @@ async function sendWhatsAppToCustomer(branchId, phone, text, opts = {}) {
   if (opts.bulk && qrBulkBlocked(branchId)) {
     return false; // caller surfaces the "use Business API" notice; stay silent here to avoid per-recipient log spam
   }
+  // Campaigns are an AI/marketing feature: none go out while the café's plan has lapsed.
+  if (opts.bulk && !isServiceActive(branchId)) return false;
   if (cfg.mode === 'qr') {
     if (!waweb || !waweb.available) { console.warn('[WA QR] module unavailable for', branchId); return false; }
     // `phone` is NOT always a bare number — the live-reply path (onMessage)
@@ -3178,7 +3250,7 @@ app.get('/api/admin/events', requireAuth, requireRole('agency_admin', 'admin'), 
   res.json(db.getAllEvents({ type, from, to, limit: limit ? parseInt(limit) : undefined }));
 });
 
-app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requireBranchAccess, async (req, res) => {
+app.post('/api/businesses/:id/at-risk-customers/send-offer', requireAuth, requireBranchAccess, requireActiveSubscription, async (req, res) => {
   const { id } = req.params;
   const { phone, name, offerText } = req.body;
   if (!phone) return res.status(400).json({ error: 'Phone required' });

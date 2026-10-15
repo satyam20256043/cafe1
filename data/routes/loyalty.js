@@ -167,7 +167,7 @@ app.get('/api/businesses/:id/loyalty/:phone', requireAuth, requireBranchAccess, 
 
 // POST /api/businesses/:id/loyalty/birthday-campaign  — send WhatsApp birthday msg
 // Body: { phone, name } for single, or {} for all upcoming birthdays
-app.post('/api/businesses/:id/loyalty/birthday-campaign', requireAuth, requireBranchAccess, async (req, res) => {
+app.post('/api/businesses/:id/loyalty/birthday-campaign', requireAuth, requireBranchAccess, requireActiveSubscription, async (req, res) => {
   const { phone: singlePhone, name: singleName } = req.body;
   const business = businesses.find(b => b.id === req.params.id) || {};
   const bizName  = business.name || 'Café Team';

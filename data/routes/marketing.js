@@ -366,7 +366,7 @@ function getDefaultDraftReply(customerName, rating) {
 // Generate draft AI reply for feedback — staff only. Claude first (user
 // decision 2026-07-30), Gemini as a fallback if Claude misses, then a static
 // template — every AI feature here keeps a non-AI fallback.
-app.post('/api/businesses/:id/feedback/:feedbackId/reply-draft', requireAuth, requireBranchAccess, async (req, res) => {
+app.post('/api/businesses/:id/feedback/:feedbackId/reply-draft', requireAuth, requireBranchAccess, requireActiveSubscription, async (req, res) => {
   const { id, feedbackId } = req.params;
   const feedback = getBranchData(id, 'feedback.json');
   const item = feedback.find(f => f.id === feedbackId);
@@ -416,7 +416,7 @@ app.post('/api/businesses/:id/autopilot/toggle', requireAuth, requireBranchAcces
 });
 
 // 10c. Manual trigger Auto-Pilot campaign
-app.post('/api/businesses/:id/autopilot/trigger', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
+app.post('/api/businesses/:id/autopilot/trigger', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), requireActiveSubscription, (req, res) => {
   const { id } = req.params;
   const { forceDay } = req.body;
   // runAutoPilotCampaign lives in server.js and is shared via ctx (was a ReferenceError here)
@@ -521,7 +521,7 @@ function getLocalCampaignSuggestions(profiles, feedback, branchId) {
 }
 
 // Generate AI suggestions for campaigns
-app.get('/api/businesses/:id/ai-campaign-suggestions', requireAuth, requireBranchAccess, async (req, res) => {
+app.get('/api/businesses/:id/ai-campaign-suggestions', requireAuth, requireBranchAccess, requireActiveSubscription, async (req, res) => {
   const { id } = req.params;
   const profiles = getBranchData(id, 'customer_profiles.json');
   const feedback = getBranchData(id, 'feedback.json');
@@ -579,7 +579,7 @@ Output a raw JSON array of objects. Do not wrap in markdown code blocks. Each ob
 });
 
 // Approve and send campaign
-app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
+app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), requireActiveSubscription, (req, res) => {
   const { id, suggestionId } = req.params;
   const { customOfferText } = req.body;
   
@@ -787,7 +787,7 @@ app.post('/api/businesses/:id/growth-suggestion/dismiss', requireAuth, requireBr
 // - winback / birthday: sends the offer to every currently-qualifying
 //   customer via the café's own connected WhatsApp number (degrades
 //   silently if not connected, same as everywhere else).
-app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), async (req, res) => {
+app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), requireActiveSubscription, async (req, res) => {
   const { id } = req.params;
   const current = loadGrowthSuggestion(id);
   if (!current || current.status !== 'suggested') {

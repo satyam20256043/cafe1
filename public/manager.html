@@ -47,6 +47,7 @@ body{font-family:var(--font-body);background:var(--cream);color:var(--ink);min-h
 
 /* Layout */
 .main{margin-left:210px;min-height:100vh}
+#trial-banner{margin-left:210px}
 .topbar{position:sticky;top:0;z-index:50;background:rgba(250,246,241,0.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 26px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 /* The left side gives way first. It is one line tall and clips: when the branch id no longer fits
    beside the café name it wraps onto the hidden second line, then the name truncates. */
@@ -325,6 +326,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
 @media(max-width:768px){
   .sidebar{display:none}
   .main{margin-left:0;padding-bottom:70px}
+  #trial-banner{margin-left:0}
   .mobile-bottom-nav{
     display:flex;position:fixed;bottom:0;left:0;right:0;height:60px;z-index:400;
     background:var(--espresso);border-top:1px solid rgba(255,255,255,0.08);
@@ -2066,15 +2068,28 @@ async function loadBranch(){
 
 // Trial countdown banner (IMP5) — slim top banner while on a trial, red-tinted
 // once 5 days or fewer remain.
-function renderTrialBanner(){
+// Plan banner: trial days left, plan ending soon, grace period, or AI paused.
+async function renderTrialBanner(){
   const banner = document.getElementById('trial-banner');
   const text = document.getElementById('trial-banner-text');
   if (!banner || !text) return;
-  if (business.subscriptionStatus !== 'trial' || !business.trialEndsAt) { banner.style.display = 'none'; return; }
-  const daysLeft = Math.max(0, Math.ceil((new Date(business.trialEndsAt) - Date.now()) / 86400000));
-  text.textContent = `⏳ Free trial — ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. Contact us to activate your plan.`;
-  banner.style.background = daysLeft <= 5 ? 'var(--rose-light)' : 'var(--cream)';
-  banner.style.color = daysLeft <= 5 ? 'var(--rose)' : 'var(--ink)';
+  let sub = null;
+  try { const r = await fetch(`/api/businesses/${branchId}/subscription`); if (r.ok) sub = await r.json(); } catch (e) {}
+  if (!sub) { banner.style.display = 'none'; return; }
+  const what = (sub.lapsedFrom || sub.status) === 'trial' ? 'free trial' : 'plan';
+  const plural = n => n === 1 ? '' : 's';
+  const wa = 'https://wa.me/918004284193?text=' + encodeURIComponent(`Hi, I'd like to renew Zordical for ${business.name} (${branchId})`);
+  const links = `<a href="${esc('/portal/' + encodeURIComponent(branchId) + '#renew')}" style="color:inherit;text-decoration:underline">Renew online</a> · <a href="${esc(wa)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">WhatsApp us</a>`;
+  let msg = null, urgent = false, showLinks = true;
+  if (!sub.ok && sub.status === 'paused') { msg = '⏸️ Your Zordical plan is paused: AI replies, campaigns and follow-ups are off. Orders, your QR menu and your data keep working.'; urgent = true; }
+  else if (!sub.ok) { msg = `⏸️ AI replies, campaigns and follow-ups are paused because your ${what} has ended. Orders, your QR menu and your data are safe.`; urgent = true; }
+  else if (sub.inGrace) { msg = `⚠️ Your ${what} has ended. AI features keep working for ${sub.graceDaysLeft} more day${plural(sub.graceDaysLeft)}, then pause.`; urgent = true; }
+  else if (sub.status === 'trial' && sub.daysLeft != null) { msg = `⏳ Free trial — ${sub.daysLeft} day${plural(sub.daysLeft)} left.`; urgent = sub.daysLeft <= 5; }
+  else if (sub.status === 'active' && sub.daysLeft != null && sub.daysLeft <= 5) { msg = `⏳ Your plan ends in ${sub.daysLeft} day${plural(sub.daysLeft)}.`; urgent = true; }
+  if (!msg) { banner.style.display = 'none'; return; }
+  text.innerHTML = esc(msg) + (showLinks ? ' ' + links : '');
+  banner.style.background = urgent ? 'var(--rose-light)' : 'var(--cream)';
+  banner.style.color = urgent ? 'var(--rose)' : 'var(--ink)';
   banner.style.display = 'block';
 }
 

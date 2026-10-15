@@ -406,27 +406,65 @@ async function showApp() {
   }
 }
 
-function showSubscriptionBanner(biz) {
-  const status = biz.subscriptionStatus || 'active';
+// Real plan state from /subscription (set by showSubscriptionBanner); tiles fall back to the stored
+// label until it arrives, then get updated in place.
+let _portalSub = null;
+function subChipText(biz) {
+  const s = _portalSub;
+  if (!s) return biz.subscriptionStatus === 'trial' ? daysLeftText(biz) : '✓ Active';
+  if (!s.ok) return s.status === 'paused' ? 'Paused' : 'Expired';
+  if (s.inGrace) return 'Ended';
+  if (s.status === 'trial') return s.daysLeft != null ? s.daysLeft + ' day' + (s.daysLeft === 1 ? '' : 's') + ' left' : 'Trial';
+  return '✓ Active';
+}
+function subDescText(biz) {
+  const s = _portalSub;
+  if (!s) return biz.subscriptionStatus === 'trial' ? 'Trial · ' + daysLeftText(biz) + ' remaining' : 'Active plan';
+  if (!s.ok) return s.status === 'paused' ? 'Paused — AI features are off' : 'Ended — AI features are paused';
+  if (s.inGrace) return 'Ended — AI stays on for ' + s.graceDaysLeft + ' more day' + (s.graceDaysLeft === 1 ? '' : 's');
+  if (s.status === 'trial') return s.daysLeft != null ? 'Trial · ' + s.daysLeft + ' days remaining' : 'Trial';
+  return s.daysLeft != null ? 'Active plan · ' + s.daysLeft + ' days left' : 'Active plan';
+}
+
+async function showSubscriptionBanner(biz) {
   const badge  = document.getElementById('sub-badge');
   const banner = document.getElementById('sub-banner');
-  if (status === 'trial') {
-    const daysLeft = (biz.subscriptionEnd || biz.trialEndsAt)
-      ? Math.max(0, Math.ceil((new Date(biz.subscriptionEnd || biz.trialEndsAt) - Date.now()) / 86400000))
-      : 14;
-    badge.className = 'sub-badge sb-trial';
-    badge.textContent = 'Trial';
-    banner.className = 'trial'; banner.style.display = 'block';
-    const urgency = daysLeft <= 3 ? '🚨' : daysLeft <= 7 ? '⚠️' : '⏳';
-    banner.innerHTML = `${urgency} Trial ends in <strong>${daysLeft} day${daysLeft===1?'':'s'}</strong> — <a data-id="${escHtml(biz.id)}" onclick="openBillingModal(this.dataset.id)">Upgrade to Pro →</a>`;
-  } else if (status === 'active') {
-    badge.className = 'sub-badge sb-active';
-    badge.textContent = 'Active';
+  let sub = null;
+  try { const r = await fetch('/api/businesses/' + encodeURIComponent(biz.id) + '/subscription', { headers: { 'Authorization': 'Bearer ' + authToken } }); if (r.ok) sub = await r.json(); } catch (e) {}
+  if (!sub || !badge || !banner) return;
+  _portalSub = sub;
+  const chip = document.getElementById('sub-chip-val'), qa = document.getElementById('sub-qa-desc');
+  if (chip) chip.textContent = subChipText(biz);
+  if (qa) qa.textContent = subDescText(biz);
+  const renew = label => `<a data-id="${escHtml(biz.id)}" onclick="openBillingModal(this.dataset.id)" style="cursor:pointer;text-decoration:underline">${label} →</a>`;
+  const setBadge = (cls, label) => { badge.className = 'sub-badge ' + cls; badge.textContent = label; };
+  const show = (cls, html) => { banner.className = cls; banner.style.display = 'block'; banner.innerHTML = html; };
+  const plural = n => n === 1 ? '' : 's';
+  const what = (sub.lapsedFrom || sub.status) === 'trial' ? 'free trial' : 'plan';
+  banner.style.display = 'none';
+  if (!sub.ok && sub.status === 'paused') {
+    setBadge('sb-expired', 'Paused');
+    show('expired', '⏸️ Your plan is paused: AI replies, campaigns and follow-ups are off. Orders, your QR menu and your data keep working. Message Zordical to switch it back on.');
+  } else if (!sub.ok) {
+    setBadge('sb-expired', 'Expired');
+    show('expired', `⏸️ AI replies, campaigns and follow-ups are paused because your ${what} has ended. Orders, your QR menu and your data are safe. ${renew('Renew now')}`);
+  } else if (sub.inGrace) {
+    setBadge('sb-trial', 'Ended');
+    show('trial', `⚠️ Your ${what} has ended. AI features keep working for <strong>${sub.graceDaysLeft} more day${plural(sub.graceDaysLeft)}</strong>, then pause. ${renew('Renew now')}`);
+  } else if (sub.status === 'trial') {
+    setBadge('sb-trial', 'Trial');
+    if (sub.daysLeft != null) {
+      const u = sub.daysLeft <= 3 ? '🚨' : sub.daysLeft <= 7 ? '⚠️' : '⏳';
+      show('trial', `${u} Trial ends in <strong>${sub.daysLeft} day${plural(sub.daysLeft)}</strong> — ${renew('Choose a plan')}`);
+    }
   } else {
-    badge.className = 'sub-badge sb-expired';
-    badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-    banner.className = 'expired'; banner.style.display = 'block';
-    banner.innerHTML = `❌ Your subscription is <strong>${escHtml(status)}</strong>. Contact your agency to reactivate.`;
+    setBadge('sb-active', 'Active');
+    if (sub.daysLeft != null && sub.daysLeft <= 5) show('trial', `⏳ Your plan ends in <strong>${sub.daysLeft} day${plural(sub.daysLeft)}</strong>. ${renew('Renew now')}`);
+  }
+  // Arrived from the dashboard's "Renew online" link: open the payment options straight away.
+  if (location.hash === '#renew' && sub.status !== 'paused') {
+    history.replaceState(null, '', location.pathname + location.search);
+    openBillingModal(biz.id);
   }
 }
 
@@ -456,7 +494,7 @@ async function renderSingleBranch(biz) {
         <div class="kpi-chip"><div class="kpi-chip-val">${orders}</div><div class="kpi-chip-lbl">Today's Orders</div></div>
         <div class="kpi-chip"><div class="kpi-chip-val">₹${Math.round(revenue).toLocaleString('en-IN')}</div><div class="kpi-chip-lbl">Today's Revenue</div></div>
         <div class="kpi-chip"><div class="kpi-chip-val">${escHtml(biz.timings||'—')}</div><div class="kpi-chip-lbl">Timings</div></div>
-        <div class="kpi-chip"><div class="kpi-chip-val">${biz.subscriptionStatus==='trial'?daysLeftText(biz):'✓ Active'}</div><div class="kpi-chip-lbl">Subscription</div></div>
+        <div class="kpi-chip"><div class="kpi-chip-val" id="sub-chip-val">${escHtml(subChipText(biz))}</div><div class="kpi-chip-lbl">Subscription</div></div>
       </div>
     </div>
     <div style="font-family:var(--font-d);font-size:17px;color:var(--ink-2);margin-bottom:14px">Quick Access</div>
@@ -499,7 +537,7 @@ async function renderSingleBranch(biz) {
       <a class="qa-card" data-id="${escHtml(biz.id)}" onclick="openBillingModal(this.dataset.id)">
         <div class="qa-icon">💳</div>
         <div class="qa-title">Subscription</div>
-        <div class="qa-desc">${biz.subscriptionStatus==='trial'?'Trial · '+daysLeftText(biz)+' remaining':'Active plan'}</div>
+        <div class="qa-desc" id="sub-qa-desc">${escHtml(subDescText(biz))}</div>
       </a>
     </div>`;
   loadSetupChecklistPortal(biz.id);
