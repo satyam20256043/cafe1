@@ -139,8 +139,10 @@ function changePasswordHandler(req, res) {
   }
 
   const staff = db.getStaffById(id);
+  // Not 401: the dashboard treats any 401 as an expired login and signs the user out,
+  // so a mistyped current password used to bounce them to the login page.
   if (!staff || !checkPassword(currentPassword, staff.password_hash)) {
-    return res.status(401).json({ error: 'Current password is incorrect' });
+    return res.status(400).json({ error: 'Current password is incorrect', code: 'WRONG_PASSWORD' });
   }
 
   db.updateStaffPassword(id, hashPassword(newPassword));
