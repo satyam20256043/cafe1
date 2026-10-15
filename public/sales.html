@@ -127,7 +127,7 @@ let _earnings = null;
 let _cafes = null;
 let _plans = null;
 
-function esc(s){ const d=document.createElement('div'); d.textContent=String(s??''); return d.innerHTML; }
+function esc(s){ const d=document.createElement('div'); d.textContent=String(s??''); return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function friendly(e){
   const msg=(e&&e.message)||String(e||'');
   const m=msg.match(/(?:^HTTP|Server error)\D*(\d{3})/i);

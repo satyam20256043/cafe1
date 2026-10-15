@@ -38,6 +38,51 @@ function sanitizePlatformLinks(input) {
     .filter(l => l.label && /^https?:\/\//i.test(l.url))
     .slice(0, 8);
 }
+
+// What a café may change about itself through POST /api/businesses/:id — the fields
+// the Settings forms edit. Everything else on the record (id, subscription status and
+// plan, trial dates, owner contact, sales attribution, payment history) is set by the
+// platform and must never be taken from that request body.
+const EDITABLE_TEXT = { name: 120, location: 300, timings: 200, contact: 120, wifi: 200 };
+const EDITABLE_LINKS = { map: 'Google Maps link', review: 'Review link', website: 'Website', heroImageUrl: 'Cover image link' };
+
+// '' clears a link. Otherwise it must be an http(s) URL, or carry no scheme at all
+// (older records hold bare hosts and Google place ids here) — never javascript:,
+// data: or any other scheme. Returns null when the value has to be rejected.
+function cleanLink(value) {
+  if (typeof value !== 'string') return null;
+  const s = value.replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 500);
+  if (!s) return '';
+  try { return /^https?:$/.test(new URL(s).protocol) ? s : null; }
+  catch (e) { return s; } // not an absolute URL, so there is no scheme to abuse
+}
+
+// Returns { edits } or { error }. Unknown keys are dropped rather than rejected, so
+// a client that still posts extra fields keeps working.
+function pickBusinessEdits(body) {
+  const edits = {};
+  if (!body || typeof body !== 'object') return { edits };
+  for (const [key, max] of Object.entries(EDITABLE_TEXT)) {
+    if (body[key] === undefined) continue;
+    if (typeof body[key] !== 'string') return { error: `${key} must be text.` };
+    edits[key] = body[key].trim().slice(0, max);
+  }
+  if (edits.name !== undefined && !edits.name) return { error: 'The café name cannot be empty.' };
+  for (const [key, label] of Object.entries(EDITABLE_LINKS)) {
+    if (body[key] === undefined) continue;
+    const link = cleanLink(body[key]);
+    if (link === null) return { error: `${label} must start with http:// or https://.` };
+    edits[key] = link;
+  }
+  if (body.galleryUrls !== undefined) {
+    if (!Array.isArray(body.galleryUrls)) return { error: 'Gallery images must be a list of links.' };
+    const urls = body.galleryUrls.map(cleanLink);
+    if (urls.includes(null)) return { error: 'Gallery image links must start with http:// or https://.' };
+    edits.galleryUrls = urls.filter(Boolean).slice(0, 24);
+  }
+  if (body.platformLinks !== undefined) edits.platformLinks = sanitizePlatformLinks(body.platformLinks);
+  return { edits };
+}
 function publicBusinessView(b) {
   const out = {};
   PUBLIC_BUSINESS_FIELDS.forEach(k => { if (b[k] !== undefined) out[k] = b[k]; });
@@ -140,21 +185,24 @@ app.post('/api/businesses/:id', requireAuth, requireBranchAccess, (req, res) => 
   const index = businesses.findIndex(b => b.id === id);
   if (index === -1) return res.status(404).json({ error: 'Business not found' });
 
-  if (req.body.platformLinks !== undefined) {
-    req.body.platformLinks = sanitizePlatformLinks(req.body.platformLinks);
+  // Café configuration is for owners and managers (and the agency), not waiter or kitchen logins.
+  if (!['owner', 'manager', 'agency_admin', 'admin'].includes(req.staff && req.staff.role)) {
+    return res.status(403).json({ error: 'Only an owner or manager can change café details.' });
   }
-  businesses[index] = { ...businesses[index], ...req.body };
+  const { edits, error } = pickBusinessEdits(req.body);
+  if (error) return res.status(400).json({ error });
+  businesses[index] = { ...businesses[index], ...edits };
   fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
   if (db) { try { db.upsertBusinessRow(businesses[index]); } catch(e) { console.error('[UpdateBusiness] SQLite business sync failed:', e.message); } }
 
   // Sync with settings.json for Google Business Profile
   try {
     const settingsFile = path.join(DATA_DIR, id, 'settings.json');
-    if (fs.existsSync(settingsFile)) {
+    if (edits.review !== undefined && fs.existsSync(settingsFile)) {
       const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
-      if (req.body.review && req.body.review.trim() !== '') {
+      if (edits.review) {
         settings.gbpLinked = true;
-        settings.gbpLocationId = req.body.review.trim();
+        settings.gbpLocationId = edits.review;
       } else {
         settings.gbpLinked = false;
         settings.gbpLocationId = '';
