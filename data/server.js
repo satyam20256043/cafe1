@@ -224,6 +224,11 @@ app.get('/onboard', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'onboard.html'));
 });
 
+// Legal pages (linked from the site footer and signup; Razorpay and Google ask for these URLs)
+app.get(['/privacy', '/privacy-policy'], (req, res) => res.sendFile(path.join(ROOT_DIR, 'public', 'privacy.html')));
+app.get(['/terms', '/terms-of-service'], (req, res) => res.sendFile(path.join(ROOT_DIR, 'public', 'terms.html')));
+app.get(['/refund', '/refund-policy', '/cancellation'], (req, res) => res.sendFile(path.join(ROOT_DIR, 'public', 'refund.html')));
+
 // ── Sales pitch deck (share with prospective café owners) ────────────────────
 app.get('/pitch', (req, res) => {
   res.sendFile(path.join(ROOT_DIR, 'public', 'pitch.html'));

@@ -7,7 +7,7 @@
       "duration_days": 30,
       "badge": "",
       "features": [
-        "AI WhatsApp receptionist — never miss an order enquiry (30 replies/day)",
+        "AI WhatsApp receptionist — never miss an order enquiry (30 AI replies/day)",
         "QR table ordering",
         "Basic customer CRM"
       ]
@@ -20,10 +20,11 @@
       "badge": "Most Popular",
       "features": [
         "Everything in Starter",
-        "Premium AI receptionist powered by Claude — smarter, warmer replies",
+        "Unlimited AI receptionist replies — no daily cap",
         "Loyalty & rewards — turn one-time visitors into regulars",
-        "AI win-back campaigns for lapsed customers",
-        "Google review management"
+        "AI win-back offers for lapsed customers (needs the official WhatsApp Business API)",
+        "Customer feedback with AI-drafted replies",
+        "Google Business Profile — AI review replies, posts & profile health (coming soon)"
       ]
     },
     {
@@ -34,8 +35,9 @@
       "badge": "Best Value",
       "features": [
         "Everything in Growth",
-        "Full AI marketing automation",
-        "Weekly growth & revenue reports",
+        "AI marketing auto-pilot — campaigns run for you (needs the official WhatsApp Business API)",
+        "A weekly growth idea, ready to approve every Monday",
+        "Weekly growth & revenue report on WhatsApp (coming soon)",
         "Priority WhatsApp support"
       ]
     }
