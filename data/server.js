@@ -2485,6 +2485,7 @@ require('./routes/feedback')(routeCtx);
 require('./routes/leads')(routeCtx);
 require('./routes/wa-qr')(routeCtx);
 require('./routes/google')(routeCtx);
+require('./routes/reports')(routeCtx);
 getGoogleAdapter(); // logs at boot whether Google is mock, live or disabled
 
 // GB5 — 30-min Google review sync scheduler: syncs all connected businesses sequentially with 2 s between them.
@@ -2541,6 +2542,10 @@ function scheduleGooglePostPublisher() {
   }, 5 * 60 * 1000);
 }
 scheduleGooglePostPublisher();
+
+// Weekly growth & revenue report — hourly check; sends once per café per week from Monday 09:30 IST.
+setTimeout(() => { if (typeof routeCtx.runWeeklyReports === 'function') routeCtx.runWeeklyReports(); }, 2 * 60 * 1000);
+setInterval(() => { if (typeof routeCtx.runWeeklyReports === 'function') routeCtx.runWeeklyReports(); }, 60 * 60 * 1000);
 
 // GB10 — nightly at 03:30 server time, refresh the last 35 days of Google metrics for every
 // connected café (63 days the first time, so the previous-28-day comparison has data).

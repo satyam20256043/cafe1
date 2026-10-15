@@ -26,6 +26,7 @@ data/ops_alerts.json
 data/user_states_snapshot.json
 data/knowledge_interviews_snapshot.json
 data/wa_message_ids_snapshot.json
+data/weekly_reports_sent.json
 *.bak
 *.pre-launch.bak
 
