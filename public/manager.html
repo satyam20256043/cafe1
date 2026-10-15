@@ -851,7 +851,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
       </div>
 
       <div class="section-heading">AI Campaign Suggestions</div>
-      <div class="section-sub">Gemini analyses your CRM and generates personalised offers per customer. Approve to send via WhatsApp.</div>
+      <div class="section-sub">AI looks at your customer list and suggests a personalised offer for each group. Nothing is sent until you approve it.</div>
       <div style="margin-bottom:14px;display:flex;gap:10px">
         <button class="btn primary" onclick="loadCampaigns()">✨ Generate AI Suggestions</button>
         <button class="btn" onclick="triggerAutoPilot()">▶ Run Auto-Pilot Now</button>
@@ -3569,7 +3569,7 @@ function gbpPostCard(p){
 // AI Campaigns
 async function loadCampaigns(){
   try {
-    document.getElementById('campaigns-list').innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Analysing CRM with Gemini…</div></div>';
+    document.getElementById('campaigns-list').innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Looking at your customers…</div></div>';
     const r=await fetch(`/api/businesses/${branchId}/ai-campaign-suggestions`);
     campaignSuggestions=await r.json();
     renderCampaigns();
