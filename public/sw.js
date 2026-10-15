@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // Zordical — Service Worker (Phase 5 PWA)
 // ══════════════════════════════════════════════════════════════════════════════
-const CACHE_NAME    = 'cafe-hq-v3';
+const CACHE_NAME    = 'cafe-hq-v4';
 const OFFLINE_PAGE  = '/offline.html';
 
 // Assets to pre-cache on install
@@ -16,6 +16,10 @@ const NEVER_CACHE = [
   '/api/',
   '/socket.io/',
 ];
+
+// Pages behind the server's password pop-up (Caddy basic auth). The browser must load these
+// itself: when this worker fetched them, Chrome kept re-asking for the pop-up password.
+const BROWSER_ONLY = ['/hq', '/admin-login'];
 
 // ── Install: pre-cache shell ──────────────────────────────────────────────────
 self.addEventListener('install', event => {
@@ -41,14 +45,18 @@ self.addEventListener('fetch', event => {
   // Skip non-GET and API/socket calls — always go to network
   if (event.request.method !== 'GET') return;
   if (NEVER_CACHE.some(p => url.pathname.startsWith(p))) return;
+  if (BROWSER_ONLY.some(p => url.pathname === p || url.pathname.startsWith(p + '/') || url.pathname.startsWith(p + '.'))) return;
 
   // For navigation (page loads): network first, fallback to cache, then offline
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          // Only keep good pages for offline use — never a 401/404/500.
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          }
           return res;
         })
         .catch(() => caches.match(event.request).then(cached => cached || caches.match(OFFLINE_PAGE)))
