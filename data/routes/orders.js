@@ -44,18 +44,24 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
   }
 
   try {
-    // Fetch live prices from menu to prevent tampering
+    // Fetch live prices from menu to prevent tampering. Every item MUST
+    // resolve to a real menu row — no client-supplied price/name fallback.
+    // An order with an unrecognized item id is rejected outright rather than
+    // silently priced from whatever the client sent.
     const menu = getBranchData(businessId, 'menu.json');
     let subtotal = 0, discount = 0;
     const validatedItems = items.map(item => {
       const menuItem = menu.find(m => String(m.id) === String(item.id));
-      const price    = menuItem ? menuItem.price : (item.price || 0);
-      const disc     = menuItem ? (menuItem.discount || 0) : 0;
+      if (!menuItem) {
+        throw Object.assign(new Error(`Item not found in menu: ${item.id}`), { statusCode: 400 });
+      }
+      const price    = menuItem.price;
+      const disc     = menuItem.discount || 0;
       const qty      = Math.max(1, parseInt(item.qty) || 1);
       const lineTotal = price * qty * (1 - disc / 100);
       subtotal  += price * qty;
       discount  += price * qty * (disc / 100);
-      return { id: item.id, name: menuItem?.name || item.name, price, discount: disc, qty, lineTotal };
+      return { id: item.id, name: menuItem.name, price, discount: disc, qty, lineTotal };
     });
 
     // Apply the coupon's discount on top of any menu-item discounts
@@ -77,6 +83,14 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
     // dcfg is read once and reused for both the fee and the approval decision.
     let deliveryFee = 0, needsApproval = false;
     if ((orderType || 'dine_in') === 'delivery') {
+      // A delivery order with no way to reach the customer or find their door
+      // isn't fixable after the fact — required here, not just in the UI.
+      if (!customerPhone || !String(customerPhone).trim()) {
+        throw Object.assign(new Error('A phone number is required for delivery orders.'), { statusCode: 400 });
+      }
+      if (!deliveryAddress || !String(deliveryAddress).trim()) {
+        throw Object.assign(new Error('A delivery address is required for delivery orders.'), { statusCode: 400 });
+      }
       const dcfg = getDeliverySettings(businessId);
       if (!dcfg.enabled) {
         return res.status(400).json({ error: 'This café is not accepting delivery orders right now.' });
@@ -128,6 +142,7 @@ app.post('/api/businesses/:id/orders', async (req, res) => {
     res.status(201).json(orderWithIsoTimes(order));
   } catch (err) {
     console.error('[orders] Failed to create order:', err.message);
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     res.status(500).json({ error: 'Could not place order. Please try again or ask staff for help.' });
   }
 });
@@ -174,13 +189,22 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
-  let order;
+  let order, previousStatus = null;
   if (db) {
+    // S5/cross-tenant: confirm this order actually belongs to the business in
+    // the URL before touching it — updateOrderStatus itself has no business_id
+    // filter, so this is the only thing standing between "my café's order" and
+    // "any order id on the platform."
+    const existing = db.getOrderById(orderId);
+    if (!existing || existing.business_id !== req.params.id) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    previousStatus = existing.status;
     order = db.updateOrderStatus(orderId, status);
   } else {
     const orders = getBranchData(req.params.id, 'orders.json') || [];
     order = orders.find(o => o.id === orderId);
-    if (order) { order.status = status; writeBranchData(req.params.id, 'orders.json', orders); }
+    if (order) { previousStatus = order.status; order.status = status; writeBranchData(req.params.id, 'orders.json', orders); }
   }
   if (!order) return res.status(404).json({ error: 'Order not found' });
   // Phase 4B: Auto-award loyalty stamp + points on order completion
@@ -192,8 +216,13 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
   if (db) db.logEvent(bizId, 'order.status',
     { customerPhone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { orderId, status, total: orderTotal } });
 
-  // public: the customer's table-order tracking page needs this event too
-  emitToBranch(req.params.id, 'order_status_update', { businessId: req.params.id, orderId, status }, { public: true });
+  // Staff/kitchen/agency get the normal branch-scoped broadcast; the tracking
+  // customer gets it via their own order-scoped room, joined client-side only
+  // after they placed this specific order — not the whole branch's public
+  // room, which used to leak every other customer's order id/status to
+  // anyone with the ordering page open, order or no order.
+  emitToBranch(req.params.id, 'order_status_update', { businessId: req.params.id, orderId, status });
+  io.to(`order:${orderId}`).emit('order_status_update', { businessId: req.params.id, orderId, status });
 
   // Push notification to customer browser on key status changes
   if (customerPhone && (status === 'ready' || status === 'preparing' || status === 'cancelled')) {
@@ -211,7 +240,12 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
   // message at the end of a completed order carrying the customer's updated
   // loyalty card: a receipt and a retention nudge, not status spam, so the
   // per-conversation Cloud API cost is a defensible spend regardless of type.
-  if (db && customerPhone && (status === 'served' || status === 'delivered')) {
+  // Only the transition INTO a completed state earns points — a repeat call
+  // (double-tap, client retry, or flipping back and re-completing) must not
+  // re-award, since previousStatus already being served/delivered means this
+  // exact order already ran through this block once.
+  const alreadyCompleted = previousStatus === 'served' || previousStatus === 'delivered';
+  if (db && customerPhone && (status === 'served' || status === 'delivered') && !alreadyCompleted) {
     try {
       const phone = customerPhone.replace(/[^0-9]/g,'').slice(-10);
       const card  = db.awardPoints(bizId, phone, customerName, orderTotal, orderId, getLoyaltySettings(bizId).loyalty);
@@ -272,7 +306,7 @@ app.post('/api/businesses/:id/orders/:orderId/status', requireAuth, requireBranc
 // it off the kitchen board), so a plain status update to 'pending' would leave
 // it invisible until the kitchen's next poll. This fires 'new_order' itself,
 // the exact event a genuinely-new order triggers, so it appears live.
-app.post('/api/businesses/:id/orders/:orderId/approve', requireAuth, requireBranchAccess, (req, res) => {
+app.post('/api/businesses/:id/orders/:orderId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const order = db.getOrderById(req.params.orderId);
   if (!order || order.business_id !== req.params.id) {
@@ -288,6 +322,13 @@ app.post('/api/businesses/:id/orders/:orderId/approve', requireAuth, requireBran
     metadata: { orderId: updated.id },
   });
   emitToBranch(req.params.id, 'new_order', { businessId: req.params.id, order: orderWithIsoTimes(updated) });
+  // The customer watching their own tracking screen also needs this — without
+  // it an approved delivery order sat on "awaiting approval" on their phone
+  // until some later transition happened to move it, even though the café had
+  // already accepted it. Same order-scoped room the status endpoint uses.
+  io.to(`order:${req.params.orderId}`).emit('order_status_update', {
+    businessId: req.params.id, orderId: req.params.orderId, status: 'pending',
+  });
   res.json(orderWithIsoTimes(updated));
 });
 
@@ -300,6 +341,10 @@ app.post('/api/businesses/:id/orders/:orderId/approve', requireAuth, requireBran
 app.post('/api/businesses/:id/orders/:orderId/confirm-payment', requireAuth, requireBranchAccess, (req, res) => {
   const { orderId } = req.params;
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
+  const existing = db.getOrderById(orderId);
+  if (!existing || existing.business_id !== req.params.id) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
   const order = db.confirmOrderPayment(orderId);
   if (!order) return res.status(404).json({ error: 'Order not found' });
 
@@ -309,7 +354,8 @@ app.post('/api/businesses/:id/orders/:orderId/confirm-payment', requireAuth, req
     metadata: { orderId, total: order.total, method: order.payment_method },
   });
 
-  emitToBranch(req.params.id, 'payment_confirmed', { businessId: req.params.id, orderId }, { public: true });
+  emitToBranch(req.params.id, 'payment_confirmed', { businessId: req.params.id, orderId });
+  io.to(`order:${orderId}`).emit('payment_confirmed', { businessId: req.params.id, orderId });
   res.json(orderWithIsoTimes(order));
 });
 
@@ -321,7 +367,7 @@ app.post('/api/businesses/:id/orders/:orderId/razorpay', async (req, res) => {
     return res.status(503).json({ error: 'Razorpay not configured', cashOnly: true });
   }
   const order = db ? db.getOrderById(req.params.orderId) : null;
-  if (!order) return res.status(404).json({ error: 'Order not found' });
+  if (!order || order.business_id !== req.params.id) return res.status(404).json({ error: 'Order not found' });
 
   try {
     const razorpay = new (require('razorpay'))({ key_id: keyId, key_secret: keySecret });
@@ -384,7 +430,8 @@ app.post('/api/businesses/:id/orders/:orderId/verify-payment', (req, res) => {
     });
   }
 
-  emitToBranch(req.params.id, 'payment_confirmed', { businessId: req.params.id, orderId: req.params.orderId }, { public: true });
+  emitToBranch(req.params.id, 'payment_confirmed', { businessId: req.params.id, orderId: req.params.orderId });
+  io.to(`order:${req.params.orderId}`).emit('payment_confirmed', { businessId: req.params.id, orderId: req.params.orderId });
   res.json({ success: true });
 });
 

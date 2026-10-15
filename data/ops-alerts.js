@@ -49,9 +49,19 @@ function raiseAlert(kind, branchId, message) {
   console.log(`[OPS ALERT] ${kind} (${branchId}): ${message}`);
 
   const phone = process.env.OPERATOR_ALERT_PHONE;
-  if (phone && _sendWhatsAppToCustomer) {
+  // Send FROM a dedicated, known-good WhatsApp connection — never from
+  // branchId, the subject of the alert. Sending 'global' alerts through a
+  // config keyed 'global' always failed (no such business, no such config
+  // directory exists), and a wa_send_failed/wa_qr_disconnected alert is
+  // specifically about THAT branch's own connection being broken, so routing
+  // the alert back out through the exact channel that just failed typically
+  // fails the same way — defeating the point of alerting at all. Set
+  // OPERATOR_ALERT_BRANCH_ID to a café whose WhatsApp connection is reliably
+  // up; without it, alerts still log to console and this file, just not WhatsApp.
+  const alertBranchId = process.env.OPERATOR_ALERT_BRANCH_ID;
+  if (phone && alertBranchId && _sendWhatsAppToCustomer) {
     try {
-      Promise.resolve(_sendWhatsAppToCustomer(branchId, phone, `🔔 Zordical ops alert\n${kind} — ${branchId}\n${message}`))
+      Promise.resolve(_sendWhatsAppToCustomer(alertBranchId, phone, `🔔 Zordical ops alert\n${kind} — ${branchId}\n${message}`))
         .catch(() => {});
     } catch (e) { /* best-effort — never let alerting itself break the caller */ }
   }

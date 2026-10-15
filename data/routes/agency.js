@@ -10,7 +10,7 @@ module.exports = function register(ctx) {
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
-    db, opsAlerts,
+    db, opsAlerts, backup,
   } = ctx;
 
 // ── Agency Website — Contact / Lead Capture ──────────────────────────────────
@@ -82,6 +82,20 @@ app.get('/api/agency/ops-alerts', requireAuth, requireRole('agency_admin', 'admi
 app.post('/api/agency/ops-alerts/clear', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   opsAlerts.clearAlerts();
   res.json({ success: true });
+});
+
+// ── Backups — list existing, trigger one on demand ────────────────────────────
+// backup.js exported these "for API endpoint" but nothing ever registered a
+// route to call them — there was no way to manually trigger or list backups
+// over HTTP at all.
+app.get('/api/agency/backups', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
+  if (!backup) return res.status(503).json({ error: 'Backup module not loaded' });
+  res.json({ backups: backup.listBackups() });
+});
+
+app.post('/api/agency/backups/trigger', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
+  if (!backup) return res.status(503).json({ error: 'Backup module not loaded' });
+  res.json(backup.triggerManualBackup());
 });
 
 // Socket.io and server.listen are managed in server.js

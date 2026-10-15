@@ -22,6 +22,10 @@ data/_archive_demo_data_*/
 data/*.txt
 data/server_log.txt
 data/activity_log.json
+data/ops_alerts.json
+data/user_states_snapshot.json
+data/knowledge_interviews_snapshot.json
+data/wa_message_ids_snapshot.json
 *.bak
 *.pre-launch.bak
 

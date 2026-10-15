@@ -4037,10 +4037,11 @@ function addCampaignRow(){
 // ─── Branch API Keys (Razorpay) ──────────────────────────────────────────────
 async function loadBranchApiKeys() {
   try {
-    const r = await apiFetch(`/api/businesses/${BIZ}/settings`);
-    if (!r) return;
-    document.getElementById('rzp-key-id').value     = r.razorpay?.keyId     || '';
-    document.getElementById('rzp-key-secret').value = r.razorpay?.keySecret || '';
+    const r = await fetch(`/api/businesses/${branchId}/settings`, { headers: getAuthHeaders() });
+    if (!r.ok) return;
+    const s = await r.json();
+    document.getElementById('rzp-key-id').value     = s.razorpay?.keyId     || '';
+    document.getElementById('rzp-key-secret').value = s.razorpay?.keySecret || '';
   } catch(e) { console.warn('Branch API keys load:', e.message); }
 }
 
@@ -4055,16 +4056,17 @@ async function saveBranchApiKeys() {
         keySecret: document.getElementById('rzp-key-secret').value,
       }
     };
-    const r = await apiFetch(`/api/businesses/${BIZ}/settings`, {
+    const r = await fetch(`/api/businesses/${branchId}/settings`, {
       method: 'PUT',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type':'application/json', ...getAuthHeaders()},
       body: JSON.stringify(body)
     });
-    if (r?.success) {
+    const d = await r.json();
+    if (r.ok && d?.success !== false) {
       msg.textContent = '✅ Saved'; msg.style.color = '#22c55e';
       setTimeout(loadBranchApiKeys, 600);
     } else {
-      msg.textContent = '❌ ' + (r?.error || 'Failed'); msg.style.color = '#ef4444';
+      msg.textContent = '❌ ' + (d?.error || 'Failed'); msg.style.color = '#ef4444';
     }
   } catch(e) {
     msg.textContent = '❌ Error'; msg.style.color = '#ef4444';
@@ -4265,7 +4267,7 @@ async function simSend(preset){
     const phone=document.getElementById('sim-phone').value||'9999999999';
     const customerName=document.getElementById('sim-name').value||'Test Customer';
     addSimBubble(text,'user');
-    socket.emit('simulate_chat',{branchId,phone,text,customerName});
+    socket.emit('simulate_chat',{branchId,phone,text,customerName,token:localStorage.getItem('cafehq_token')});
 
   } catch(e) {
     console.error('[simSend]', e);
@@ -4551,9 +4553,19 @@ function renderOrdersList(orders) {
     const statusFlow = (o.order_type === 'delivery') ? DELIVERY_FLOW : DINE_FLOW;
     const idx = statusFlow.indexOf(o.status);
     const nextStatuses = idx >= 0 ? statusFlow.slice(idx+1).filter(s=>s!=='cancelled') : [];
-    const btns = nextStatuses.map(s =>
-      '<button class="status-btn" onclick="updateOrderStatus(\''+o.id+'\',\''+s+'\')">'+nextStatusLabel(s, o.status)+'</button>'
-    ).join('');
+    const btns = nextStatuses.map(s => {
+      // pending_approval -> pending is not an ordinary status advance: only
+      // the dedicated /approve endpoint fires the new_order event the kitchen
+      // display actually listens for. Routing this specific transition through
+      // the generic status endpoint (like every other ladder button here does)
+      // left the order approved-but-invisible until the kitchen's next poll,
+      // with no alert. Call the same approveOrder() the Awaiting Approval panel
+      // above uses, instead of updateOrderStatus.
+      const action = (o.status === 'pending_approval' && s === 'pending')
+        ? 'approveOrder(\''+o.id+'\')'
+        : 'updateOrderStatus(\''+o.id+'\',\''+s+'\')';
+      return '<button class="status-btn" onclick="'+action+'">'+nextStatusLabel(s, o.status)+'</button>';
+    }).join('');
     const cancelBtn = !['served','delivered','cancelled'].includes(o.status)
       ? '<button class="status-btn" style="color:#c0392b;border-color:#f5c6cb" onclick="updateOrderStatus(\''+o.id+'\',\'cancelled\')">Cancel</button>' : '';
     const tableInfo = (o.table_no||o.tableNo) ? ' · Table ' + esc(o.table_no||o.tableNo) : '';

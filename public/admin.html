@@ -13,6 +13,39 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<script>
+// This file had no client-side role gate at all — unlike hq.html, which
+// checks this before rendering anything (same check, copied from there).
+// A low-trust staff member who simply navigated here could reach the Staff
+// tab and trigger a request to the agency-only business-roster endpoint with
+// their own token. The backend now also requires agency_admin/admin for that
+// endpoint, but this gate stops the request from even firing for anyone else.
+(function(){try{const r=localStorage.getItem('cafehq_staff')||sessionStorage.getItem('cafehq_staff');if(!r){window.location.href='/admin-login';return;}const s=JSON.parse(r);if(!s||!['agency_admin','admin'].includes(s.role)){alert('Access denied.');window.location.href='/admin-login';}}catch(e){window.location.href='/admin-login';}})();
+
+// client.js (loaded at the bottom of this page) makes ~33 API calls and sends
+// an Authorization header on none of them, so every authenticated endpoint it
+// touches was already failing. Same auto-injecting fetch wrapper manager.html
+// uses — installed here, before client.js loads, so all of its calls get the
+// token without touching 33 call sites individually.
+(function(){
+  const _origFetch = window.fetch;
+  window.fetch = function(input, init) {
+    init = init || {};
+    try {
+      const url = (typeof input === 'string') ? input : (input && input.url) || '';
+      if (url.startsWith('/api/')) {
+        const token = localStorage.getItem('cafehq_token');
+        if (token) {
+          const headers = new Headers(init.headers || {});
+          if (!headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + token);
+          init = Object.assign({}, init, { headers });
+        }
+      }
+    } catch(e) {}
+    return _origFetch.call(this, input, init);
+  };
+})();
+</script>
 
   <!-- Super Admin Main Layout Container -->
   <div class="app-container">

@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
   <link rel="icon" type="image/svg+xml" href="/logo-mark.svg">
+  <!-- Found missing while verifying the join_business token fix (#57): this
+       page's real-time-update code was already defensively written to no-op
+       when `io` is undefined, so it failed silently rather than erroring —
+       but with no socket.io client loaded at all, live dashboard updates
+       could never have worked regardless of the token fix. Same CDN source
+       manager.html already uses successfully. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Owner Portal — Zordical</title>
@@ -451,6 +458,12 @@
 let authToken = null;
 let bizId     = null;
 let ownerInfo = null;
+// Declared up here (not down by initOwnerSocket) because the auto-login IIFE
+// below can call showApp() -> joinOwnerRoom() synchronously on page load,
+// before execution ever reaches initOwnerSocket further down the file — a
+// `let` referenced before its own declaration line throws, so this needs to
+// exist from the very start of the script.
+let ownerSocket = null;
 
 const fmt = n => '₹' + Math.round(n||0).toLocaleString('en-IN');
 const fmtDate = s => s ? new Date(s).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'2-digit'}) : '—';
@@ -463,33 +476,43 @@ function showToast(msg, isErr=false) {
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 
-// ── Load branches on page load ───────────────────────────────────────────────
+// ── Load branch on page load ─────────────────────────────────────────────────
+// This used to call the full, unauthenticated GET /api/businesses list — which
+// always returned empty before login (no token yet to prove which business you
+// are), so the dropdown never had anything in it and login failed on "fill all
+// fields" before the password was even checked, for every owner, every time.
+// Owners come in via their own café-specific /owner/:bizId link, so the fix is
+// to look up just that one business — the same scoped, unauthenticated
+// GET /api/businesses/:id endpoint portal.html uses — instead of the full roster.
 async function loadBranches() {
-  try {
-    const r = await fetch('/api/businesses');
-    if (!r.ok) return;
-    const branches = await r.json();
-    const sel = document.getElementById('login-branch');
-    sel.innerHTML = branches.map(b => `<option value="${b.id}">${b.name} — ${b.location||b.id}</option>`).join('');
+  const sel  = document.getElementById('login-branch');
+  const hint = document.getElementById('login-branch-hint');
+  const urlBizId = window.location.pathname.split('/').filter(Boolean)[1];
 
-    // Pre-select branch from URL: /owner/:bizId
-    const urlBizId = window.location.pathname.split('/').filter(Boolean)[1];
-    if (urlBizId) {
-      const match = branches.find(b => b.id === urlBizId);
-      if (match) {
-        sel.value = urlBizId;
-        // Pre-fill username hint
-        const uInput = document.getElementById('login-username');
-        if (uInput && !uInput.value) {
-          const lastPart = urlBizId.split('_').pop();
-          uInput.placeholder = 'e.g. owner_' + lastPart;
-        }
-        // Show branch name prominently on login card
-        const hint = document.getElementById('login-branch-hint');
-        if (hint) hint.textContent = '🏠 ' + match.name;
-      }
+  if (!urlBizId) {
+    sel.innerHTML = '<option value="">No café selected</option>';
+    if (hint) hint.textContent = "Please use your café's own owner link (e.g. yoursite.com/owner/your-cafe-id).";
+    return;
+  }
+
+  try {
+    const r = await fetch('/api/businesses/' + encodeURIComponent(urlBizId));
+    if (!r.ok) { sel.innerHTML = '<option value="">Café not found</option>'; return; }
+    const biz = await r.json();
+    sel.innerHTML = `<option value="${esc(biz.id)}">${esc(biz.name)} — ${esc(biz.location||biz.id)}</option>`;
+    sel.value = biz.id;
+
+    // Pre-fill username hint
+    const uInput = document.getElementById('login-username');
+    if (uInput && !uInput.value) {
+      const lastPart = urlBizId.split('_').pop();
+      uInput.placeholder = 'e.g. owner_' + lastPart;
     }
-  } catch(e) {}
+    // Show branch name prominently on login card
+    if (hint) hint.textContent = '🏠 ' + biz.name;
+  } catch(e) {
+    sel.innerHTML = '<option value="">Could not load café</option>';
+  }
 }
 loadBranches();
 
@@ -580,11 +603,15 @@ function showApp() {
   const name = sessionStorage.getItem('owner_name') || 'Owner';
   document.getElementById('header-owner').textContent = name;
 
-  // Get branch name
-  fetch('/api/businesses').then(r=>r.json()).then(branches => {
-    const b = branches.find(x => x.id === bizId);
-    document.getElementById('header-branch').textContent = b ? b.name : bizId;
+  // Get branch name — the scoped, single-business lookup, not the full
+  // roster (same fix as loadBranches(); this call had the identical gap).
+  fetch('/api/businesses/' + encodeURIComponent(bizId)).then(r=>r.json()).then(b => {
+    document.getElementById('header-branch').textContent = (b && b.name) ? b.name : bizId;
   }).catch(()=>{});
+
+  // Now that authToken/bizId are populated, (re-)join with the real token —
+  // covers the case where the socket already connected before login finished.
+  joinOwnerRoom();
 
   // Load dashboard data
   loadDashboard();
@@ -608,6 +635,12 @@ function showTab(name, btn) {
 function authHeaders() {
   return { 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' };
 }
+
+// This file had no escape helper at all — customer-supplied names (captured
+// through ordering/chat, no staff account needed) were rendered straight into
+// innerHTML on the At-Risk and customer-lookup views, reaching the owner's
+// own session the moment they opened either tab.
+function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
@@ -823,8 +856,8 @@ async function loadAtRisk() {
     }
     tb.innerHTML = list.map(c => `
       <tr>
-        <td>${c.name || '—'}</td>
-        <td>${c.phone}</td>
+        <td>${esc(c.name) || '—'}</td>
+        <td>${esc(c.phone)}</td>
         <td>${fmtDate(c.lastActive)}</td>
         <td><span class="badge red">${c.daysSinceLastVisit ?? '—'}d</span></td>
         <td>${c.visits || 0}</td>
@@ -847,14 +880,14 @@ async function lookupCustomer() {
     const segClass = 'seg-' + (p.segment || 'new');
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:16px">
-        <div class="kpi-card"><div class="kpi-label">Name</div><div style="font-weight:700">${p.name||'—'}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Name</div><div style="font-weight:700">${esc(p.name)||'—'}</div></div>
         <div class="kpi-card"><div class="kpi-label">Total Visits</div><div class="kpi-value" style="font-size:22px">${p.totalVisits||0}</div></div>
         <div class="kpi-card"><div class="kpi-label">Total Spend</div><div class="kpi-value" style="font-size:22px">${fmt(p.totalSpend)}</div></div>
         <div class="kpi-card"><div class="kpi-label">Avg Spend</div><div class="kpi-value" style="font-size:22px">${fmt(p.avgSpend)}</div></div>
         <div class="kpi-card"><div class="kpi-label">Last Visit</div><div style="font-weight:600">${fmtDate(p.lastVisit)}</div><div style="font-size:12px;color:var(--muted)">${p.daysSinceLastVisit||0}d ago</div></div>
-        <div class="kpi-card"><div class="kpi-label">Segment</div><div class="kpi-value" style="font-size:16px;text-transform:capitalize" class="${segClass}">${p.segment||'—'}</div></div>
-        <div class="kpi-card"><div class="kpi-label">Favourite Items</div><div style="font-size:13px">${(p.favourites||[]).slice(0,3).map(f=>f.name).join(', ')||'—'}</div></div>
-        <div class="kpi-card"><div class="kpi-label">Peak Day/Hour</div><div style="font-size:13px">${p.peakDay||'—'}, ${p.peakHour!==undefined ? p.peakHour+':00' : '—'}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Segment</div><div class="kpi-value" style="font-size:16px;text-transform:capitalize" class="${segClass}">${esc(p.segment)||'—'}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Favourite Items</div><div style="font-size:13px">${esc((p.favourites||[]).slice(0,3).map(f=>f.name).join(', '))||'—'}</div></div>
+        <div class="kpi-card"><div class="kpi-label">Peak Day/Hour</div><div style="font-size:13px">${esc(p.peakDay)||'—'}, ${p.peakHour!==undefined ? p.peakHour+':00' : '—'}</div></div>
       </div>`;
   } catch(e) { el.innerHTML = '<div class="loading-row">Error looking up customer</div>'; }
 }
@@ -943,13 +976,24 @@ async function changePassword() {
 }
 
 // ── Real-time sync via Socket.io ──────────────────────────────────────────────
+// join_business used to read localStorage.getItem('cafehq_token') — but
+// doLogin() only ever writes the owner's session token to sessionStorage
+// ('owner_token'), so this always sent a null token, which only ever joins
+// the public room, never the staff room order/status events actually come
+// through on. joinOwnerRoom() below uses the real in-memory authToken instead,
+// and is called both on socket connect AND from showApp() — covering both
+// orderings of "socket connects first" and "login completes first."
+function joinOwnerRoom() {
+  if (ownerSocket && ownerSocket.connected && bizId) {
+    ownerSocket.emit('join_business', { businessId: bizId, token: authToken });
+  }
+}
 (function initOwnerSocket() {
   try {
     if (typeof io === 'undefined') return;
     const socket = io({ transports: ['websocket','polling'] });
-    socket.on('connect', function() {
-      socket.emit('join_business', { businessId: bizId, token: localStorage.getItem('cafehq_token') });
-    });
+    ownerSocket = socket;
+    socket.on('connect', joinOwnerRoom);
 
     // New order placed at the café → refresh dashboard KPIs live
     socket.on('new_order', function(data) {

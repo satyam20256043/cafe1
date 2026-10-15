@@ -49,7 +49,16 @@ app.post('/api/businesses/:id/walkin', requireAuth, requireBranchAccess, (req, r
     notes: notes || (existing && existing.notes) || '',
   });
 
+  // The response always claimed +10 points for a new walk-in, but
+  // updateCustomerProfile above only writes customer_profiles.json — it never
+  // touched the SQLite loyalty_points table that balance lookups, the
+  // leaderboard, and redemption all actually read. The customer's card showed
+  // 0 the moment they checked, no matter what this response said.
   const pointsAwarded = isNew ? 10 : 0;
+  if (isNew && pointsAwarded && db) {
+    try { db.awardBonusPoints(id, cleanPhone, name, pointsAwarded, 'Walk-in welcome gift', getLoyaltySettings(id).loyalty); }
+    catch(e) { console.error('[Walkin] award points failed:', e.message); }
+  }
   res.json({ success: true, isNew, customer, pointsAwarded });
 });
 
@@ -580,13 +589,21 @@ app.put('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, 
     }
     if (b.loyalty.expiryMonths !== undefined) {
       const newMonths = Math.max(0, Math.min(60, Math.round(Number(b.loyalty.expiryMonths) || 0)));
-      const wasOff = !cur.expiryMonths || cur.expiryMonths <= 0;
+      const prevMonths = Number(cur.expiryMonths) || 0;
+      const wasOff = prevMonths <= 0;
+      // A shrink of an already-on window (12mo -> 3mo) can retroactively put an
+      // existing balance's deadline in the past just as surely as switching
+      // expiry on fresh does — grandfather it the same way: reset the clock so
+      // a stricter policy still gives everyone a full window from today, not a
+      // window backdated to their last visit.
+      const isShrink = !wasOff && newMonths > 0 && newMonths < prevMonths;
       cur.expiryMonths = newMonths;
       // expiryStartedAt is SERVER-SET ONLY — never taken from the client — and
-      // only stamped the moment expiry transitions off→on, never on every save
-      // (that would keep resetting the grandfather window for no reason).
-      // Switching back off clears it, so a future re-enable is a fresh start.
-      if (newMonths > 0 && wasOff) cur.expiryStartedAt = new Date().toISOString();
+      // only stamped when expiry newly applies (off→on, or a stricter shrink
+      // while already on), never on every save (that would keep resetting the
+      // grandfather window for no reason). Switching back off clears it, so a
+      // future re-enable is a fresh start.
+      if (newMonths > 0 && (wasOff || isShrink)) cur.expiryStartedAt = new Date().toISOString();
       else if (newMonths === 0) cur.expiryStartedAt = null;
     }
   }

@@ -194,6 +194,16 @@ function updateStaffHandler(req, res) {
   const { active }  = req.body;
   const { businessId, id: actorId, name: actorName } = req.staff;
 
+  // Unlike list/create, this route has no :id/branch param in its URL, so
+  // there's nothing for requireBranchAccess to check — the ownership check
+  // has to happen here, or an owner at one café can deactivate (or silently
+  // reactivate) a staff account at a completely different one just by
+  // guessing/obtaining its staffId.
+  const target = db.getStaffById(staffId);
+  if (!target || target.business_id !== businessId) {
+    return res.status(404).json({ error: 'Staff member not found' });
+  }
+
   db.setStaffActive(staffId, active);
   db.audit(businessId, actorId, actorName, 'staff_updated',
     `Staff ${staffId} active=${active}`, req.ip);

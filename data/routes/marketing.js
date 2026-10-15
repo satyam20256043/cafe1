@@ -14,9 +14,10 @@ module.exports = function register(ctx) {
     whatsappClient,
     emitToBranch,
     loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion,
-    sendWhatsAppToCustomer, GEMINI_MODEL,
+    sendWhatsAppToCustomer, GEMINI_MODEL, getLoyaltySettings,
     qrBulkBlocked,
   } = ctx;
+  const { rateLimit } = require('../rateLimit');
 
   // Shared "campaigns need the Business API" response for QR-connected cafés.
   const QR_BULK_MSG = "Campaign sends need the Business API — a quick-connect (QR) number only handles customer conversations. Connect the Business API in Settings → WhatsApp to send campaigns.";
@@ -48,7 +49,7 @@ app.post('/api/businesses/:id/google-review/:claimId/approve', requireAuth, requ
   let card = null;
   if (db) {
     try {
-      card = db.awardBonusPoints(id, claim.phone, claim.customerName, 100, 'Google review reward');
+      card = db.awardBonusPoints(id, claim.phone, claim.customerName, 100, 'Google review reward', getLoyaltySettings(id).loyalty);
       emitToBranch(id, 'loyalty_update', { businessId: id, card });
     } catch(e) { return res.status(500).json({ error: 'Points award failed: ' + e.message }); }
   }
@@ -275,19 +276,31 @@ app.get('/api/businesses/:id/feedback', (req, res) => {
 });
 
 // 10a-2. Submit feedback from customer website
-app.post('/api/businesses/:id/feedback', (req, res) => {
+// No auth by design (a real customer submits this after their visit) — but
+// unauthenticated + auto-issues a real coupon means it needs its own abuse
+// guard: an IP rate limit, and a per-phone cooldown so resubmitting the same
+// number repeatedly can't mint unlimited 15%-off codes.
+// Sized against carrier NAT (many genuine customers can share one public IP),
+// so this stops a coupon-farming loop without blocking a real café's feedback.
+// The per-phone 30-day coupon cooldown below is the tighter, more precise guard.
+const feedbackSubmitLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 30,
+  message: 'Too many feedback submissions from this connection. Please try again later.' });
+app.post('/api/businesses/:id/feedback', feedbackSubmitLimit, (req, res) => {
   const { id } = req.params;
   const { customerName, phone, rating, comment } = req.body;
   if (!customerName || !rating || !comment) {
     return res.status(400).json({ error: 'Name, rating, and comment are required.' });
   }
-  
+
   const feedback = getBranchData(id, 'feedback.json');
   const feedbackId = 'f_' + Date.now();
 
   let couponCode = null;
   if (parseInt(rating) === 5) {
-    if (db) {
+    if (db && phone && db.hasRecentCouponForPhone(id, 'feedback5', phone, 30)) {
+      // Already rewarded this number for a 5-star review in the last 30 days —
+      // still accept the review itself, just don't mint a second coupon.
+    } else if (db) {
       const issued = db.issueCoupon({ businessId: id, sourceType: 'feedback5', sourceId: feedbackId,
         customerPhone: phone, discountType: 'percent', discountValue: 15 });
       couponCode = issued.code;
@@ -403,7 +416,7 @@ app.post('/api/businesses/:id/autopilot/toggle', requireAuth, requireBranchAcces
 });
 
 // 10c. Manual trigger Auto-Pilot campaign
-app.post('/api/businesses/:id/autopilot/trigger', requireAuth, requireBranchAccess, (req, res) => {
+app.post('/api/businesses/:id/autopilot/trigger', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
   const { id } = req.params;
   const { forceDay } = req.body;
   // runAutoPilotCampaign lives in server.js and is shared via ctx (was a ReferenceError here)
@@ -566,7 +579,7 @@ Output a raw JSON array of objects. Do not wrap in markdown code blocks. Each ob
 });
 
 // Approve and send campaign
-app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', requireAuth, requireBranchAccess, (req, res) => {
+app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
   const { id, suggestionId } = req.params;
   const { customOfferText } = req.body;
   
@@ -648,7 +661,7 @@ app.get('/api/businesses/:id/offers', requireAuth, requireBranchAccess, (req, re
 });
 
 // 13. Approve custom offer
-app.post('/api/businesses/:id/offers/:offerId/approve', requireAuth, requireBranchAccess, (req, res) => {
+app.post('/api/businesses/:id/offers/:offerId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
   const { id, offerId } = req.params;
   const { customText } = req.body;
   const offers = getBranchData(id, 'offer_requests.json');
@@ -690,7 +703,7 @@ app.post('/api/businesses/:id/offers/:offerId/approve', requireAuth, requireBran
 });
 
 // 14. Reject custom offer
-app.post('/api/businesses/:id/offers/:offerId/reject', requireAuth, requireBranchAccess, (req, res) => {
+app.post('/api/businesses/:id/offers/:offerId/reject', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
   const { id, offerId } = req.params;
   const offers = getBranchData(id, 'offer_requests.json');
   const index = offers.findIndex(o => o.id === offerId);
@@ -774,7 +787,7 @@ app.post('/api/businesses/:id/growth-suggestion/dismiss', requireAuth, requireBr
 // - winback / birthday: sends the offer to every currently-qualifying
 //   customer via the café's own connected WhatsApp number (degrades
 //   silently if not connected, same as everywhere else).
-app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBranchAccess, async (req, res) => {
+app.post('/api/businesses/:id/growth-suggestion/accept', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), async (req, res) => {
   const { id } = req.params;
   const current = loadGrowthSuggestion(id);
   if (!current || current.status !== 'suggested') {

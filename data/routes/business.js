@@ -15,6 +15,13 @@ module.exports = function register(ctx) {
     whatsappClient,
     startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   } = ctx;
+  const { rateLimit } = require('../rateLimit');
+  // Self-serve signup is unauthenticated by necessity — no throttle at all
+  // meant a scripted loop could spam the platform's own WhatsApp sender at any
+  // phone number (the welcome message includes a real temp password) and
+  // create unbounded junk business rows in the same breath.
+  const onboardLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 5,
+    message: 'Too many signup attempts from this connection. Please try again later or contact us directly.' });
 
 
 
@@ -88,13 +95,26 @@ function publicBusinessView(b) {
   PUBLIC_BUSINESS_FIELDS.forEach(k => { if (b[k] !== undefined) out[k] = b[k]; });
   return out;
 }
-// Returns true when the request carries a valid staff JWT (any role)
-function hasStaffToken(req) {
+// Returns the verified payload of the request's staff JWT, or null.
+// verifyToken has two shapes across this codebase ({ok,payload} vs. a bare
+// payload), so both are unwrapped here — same handling hasStaffToken uses.
+function staffPayload(req) {
   const header = req.headers['authorization'] || '';
   const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (!token) return false;
+  if (!token) return null;
   const v = verifyToken(token);
-  return !!(v && (v.ok === undefined ? v : v.payload));
+  if (!v) return null;
+  const p = (v.ok === undefined) ? v : (v.ok ? v.payload : null);
+  return p || null;
+}
+// Returns the caller's role, or null when there's no valid token.
+function staffRoleFromToken(req) {
+  const p = staffPayload(req);
+  return p ? p.role : null;
+}
+// Returns true when the request carries a valid staff JWT (any role)
+function hasStaffToken(req) {
+  return !!staffPayload(req);
 }
 
 // ── Update franchiseGroupId ───────────────────────────────────────────────────
@@ -135,8 +155,23 @@ app.get('/api/businesses/:id/franchise-group', requireAuth, requireBranchAccess,
 // (login page, café site, table ordering) already knows its id and uses
 // GET /api/businesses/:id below, which is unauthenticated but scoped to one
 // business via publicBusinessView.
+//
+// The full, unredacted roster (owner name/email/phone, subscription state for
+// every café on the platform) is an agency-level view — admin.html's
+// franchise grid and HQ-wide stats are the only real caller. It used to be
+// gated on "any valid staff token," so a single café's own waiter or cashier
+// login could pull every OTHER business's owner contact info too. Any other
+// authenticated role gets an empty list, same as unauthenticated — nothing in
+// the app expects "my own business" back from this specific endpoint.
+// Deliberately NOT behind requireAuth: the established contract here is
+// "unauthorized callers get an empty list, not an error" — several callers
+// (client.js's franchise grid) call this with no header and .map() the result
+// directly, so a 401 body would throw on them instead of degrading quietly.
+// The fix for the leak is narrowing WHO counts as authorized, not changing
+// the response shape.
 app.get('/api/businesses', (req, res) => {
-  if (hasStaffToken(req)) return res.json(businesses);
+  const role = staffRoleFromToken(req);
+  if (role && ['agency_admin','admin'].includes(role)) return res.json(businesses);
   res.json([]);
 });
 
@@ -179,8 +214,10 @@ app.post('/api/businesses', requireAuth, requireRole('agency_admin', 'admin'), (
     portalUrl:  `/portal/${id}`, trialEndsAt: trialEnds });
 });
 
-// 3. Update business details
-app.post('/api/businesses/:id', requireAuth, requireBranchAccess, (req, res) => {
+// 3. Update business details — name, contact, WiFi password, platform links,
+// GBP review link, brand color. Owner/manager only: this is café configuration,
+// not something a waiter or cashier account should be able to change.
+app.post('/api/businesses/:id', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
   const { id } = req.params;
   const index = businesses.findIndex(b => b.id === id);
   if (index === -1) return res.status(404).json({ error: 'Business not found' });
@@ -258,14 +295,22 @@ app.get('/api/businesses/:id', (req, res) => {
 
 // POST /api/onboard — self-serve client registration
 // Creates business + default manager staff account
-app.post('/api/onboard', async (req, res) => {
+app.post('/api/onboard', onboardLimit, async (req, res) => {
   const {
     businessName, ownerName, ownerEmail, ownerPhone,
-    location, city, timings, brandColor
+    location, city, timings, brandColor, theme
   } = req.body;
 
   if (!businessName || !ownerName || !ownerPhone) {
     return res.status(400).json({ error: 'Business name, owner name, and phone are required' });
+  }
+  // This number is where the account's own login credentials get sent, and
+  // it becomes the café's WhatsApp contact for every future order/status
+  // notification — a value that doesn't even look like a phone number was
+  // previously accepted and silently collapsed to '' downstream.
+  const cleanPhone = ownerPhone.replace(/\D/g,'').slice(-10);
+  if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+    return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
   }
 
   // Generate a clean branch ID
@@ -290,7 +335,8 @@ app.post('/api/onboard', async (req, res) => {
     // Onboarding fields
     ownerName,
     ownerEmail: ownerEmail || '',
-    ownerPhone: ownerPhone.replace(/\D/g,'').slice(-10),
+    ownerPhone: cleanPhone,
+    theme: theme || 'espresso',
     brandColor: brandColor || '#C9A84C',
     subscriptionStatus: 'trial',
     trialEndsAt: trialEnds,
@@ -339,12 +385,24 @@ app.post('/api/onboard', async (req, res) => {
     console.error('[Onboard] Staff creation error:', e.message);
   }
 
+  // The business record above was created successfully even if this failed —
+  // don't tell the customer everything worked when there's no account they
+  // can actually log into. The business isn't rolled back (that's a rarer,
+  // recoverable failure a human can fix by adding a staff account manually);
+  // what must not happen is a celebratory "you're live!" screen with a
+  // manager URL that leads nowhere.
+  if (!staffCreds) {
+    return res.status(500).json({
+      error: 'Your café was created, but we could not set up your login automatically. Please contact us with this reference so we can finish setup.',
+      businessId: id,
+    });
+  }
+
   // Send welcome WhatsApp if connected
   const BASE_URL = process.env.BASE_URL || 'http://localhost:3010';
   if (whatsappClient) {
     try {
-      const phone = ownerPhone.replace(/\D/g,'').slice(-10);
-      const chatId = '91' + phone + '@c.us';
+      const chatId = '91' + cleanPhone + '@c.us';
       const welcomeMsg =
         `☕ *Welcome to Zordical!*\n\n` +
         `Hi ${ownerName}! Your café *${businessName}* is now live.\n\n` +

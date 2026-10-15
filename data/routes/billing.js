@@ -10,13 +10,31 @@ module.exports = function register(ctx) {
   } = ctx;
 
   const PLANS_FILE = path.join(DATA_DIR, 'plans.json');
+  const PENDING_SUB_FILE = path.join(DATA_DIR, 'pending_subscriptions.json');
+
+  function loadPendingSubscriptions() {
+    try { return new Map(Object.entries(JSON.parse(fs.readFileSync(PENDING_SUB_FILE, 'utf-8')))); }
+    catch(e) { return new Map(); }
+  }
+  function savePendingSubscriptions() {
+    try { fs.writeFileSync(PENDING_SUB_FILE, JSON.stringify(Object.fromEntries(pendingSubscriptionOrders))); }
+    catch(e) { console.error('[Billing] Failed to persist pending subscriptions:', e.message); }
+  }
 
   // razorpay_order_id -> { businessId, planId } recorded when create-order mints
   // the order, and consumed (deleted) the moment verify-payment succeeds. This
   // is the server's own record of what was actually paid for — verify-payment
   // must never trust the client-supplied planId/businessId, since a request
   // body is fully attacker-controlled.
-  const pendingSubscriptionOrders = new Map();
+  //
+  // Persisted to disk, not just held in memory: a deploy/restart between
+  // "order created" and "payment verified" used to strand a real captured
+  // payment with no record of what it was for — the browser's verify call
+  // would come back after the restart to an empty Map and a hard failure,
+  // money taken with no way to activate the plan short of the webhook (which
+  // depends on a separately-configured URL that's easy to skip). Reloaded at
+  // startup and rewritten on every change so that window closes.
+  const pendingSubscriptionOrders = loadPendingSubscriptions();
 
   function loadPlans() {
     try { return JSON.parse(fs.readFileSync(PLANS_FILE, 'utf-8')).plans; }
@@ -76,6 +94,7 @@ module.exports = function register(ctx) {
         }
       });
       pendingSubscriptionOrders.set(order.id, { businessId: biz.id, planId: plan.id });
+      savePendingSubscriptions();
       res.json({
         orderId: order.id,
         amount: order.amount,
@@ -118,6 +137,7 @@ module.exports = function register(ctx) {
     // One-time use — once consumed, the same valid signature can't be replayed
     // again (against this business or any other) to re-activate anything.
     pendingSubscriptionOrders.delete(razorpay_order_id);
+    savePendingSubscriptions();
 
     const plans = loadPlans();
     const plan = plans.find(p => p.id === pending.planId);
@@ -224,13 +244,20 @@ module.exports = function register(ctx) {
   // Configure this URL in your Razorpay Dashboard → Webhooks
   app.post('/api/billing/webhook', (req, res) => {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const crypto = require('crypto');
-      const sig  = req.headers['x-razorpay-signature'];
-      const body = JSON.stringify(req.body);
-      const expected = crypto.createHmac('sha256', webhookSecret).update(body).digest('hex');
-      if (sig !== expected) return res.status(400).json({ error: 'Invalid webhook signature' });
+    // Fail CLOSED: an unset secret used to fall through and process the event
+    // anyway, which turns this into a fully unauthenticated "activate any plan
+    // for any business" endpoint the moment the env var is forgotten during
+    // setup — nothing else about the app breaks visibly when that happens, so
+    // it's easy to miss. Refuse instead of silently trusting the request.
+    if (!webhookSecret) {
+      console.error('[Billing Webhook] RAZORPAY_WEBHOOK_SECRET is not set — refusing unsigned webhook request. Configure it in the environment to enable automatic payment activation.');
+      return res.status(503).json({ error: 'Webhook not configured' });
     }
+    const crypto = require('crypto');
+    const sig  = req.headers['x-razorpay-signature'];
+    const body = JSON.stringify(req.body);
+    const expected = crypto.createHmac('sha256', webhookSecret).update(body).digest('hex');
+    if (sig !== expected) return res.status(400).json({ error: 'Invalid webhook signature' });
 
     const event = req.body;
     if (event && event.event === 'payment.captured') {

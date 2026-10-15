@@ -160,10 +160,7 @@ footer a{color:var(--gold);text-decoration:none;}
               </div>
             </div>
             <input type="hidden" id="themeInput" value="espresso">
-            <div class="form-group" style="margin-top:18px">
-              <label>Franchise Group ID <span style="font-size:.75rem;opacity:.55;font-weight:400">(optional — link multiple branches together)</span></label>
-              <input type="text" id="franchiseGroupId" placeholder="e.g. roasted_bean_group (leave blank for standalone café)"/>
-            </div>
+            <input type="hidden" id="brandColorInput" value="#C9A84C">
           </div>
           <button type="submit" class="btn-submit" id="submit-btn">
             <span class="spinner"></span>Launch My Café ☕
@@ -202,20 +199,48 @@ footer a{color:var(--gold);text-decoration:none;}
 <script>
 const themeCards = document.querySelectorAll('.theme-card');
 const themeInput = document.getElementById('themeInput');
+const brandColorInput = document.getElementById('brandColorInput');
+// The backend only ever stored brandColor, never theme — and this form never
+// collected brandColor at all, so every self-onboarded café got the default
+// gold regardless of what was picked here. Same accent hex each card's own
+// theme-dot already uses, so the picker and the saved brand color agree.
+const THEME_COLORS = {
+  espresso:'#C9A84C', ocean:'#3B82F6', forest:'#16A34A', cherry:'#E11D48',
+  lavender:'#9333EA', terracotta:'#C2410C', emerald:'#059669', midnight:'#94A3B8',
+};
 
 themeCards.forEach(card => {
   card.addEventListener('click', () => {
     themeCards.forEach(c => c.classList.remove('active'));
     card.classList.add('active');
     themeInput.value = card.dataset.theme;
+    brandColorInput.value = THEME_COLORS[card.dataset.theme] || THEME_COLORS.espresso;
   });
 });
 
+// This whole render path had no escaping at all — safe today only because
+// businessId/username/tempPassword happen to come from a character-restricted
+// generator server-side, not because anything here defends against it. esc()
+// covers text and quoted attribute values. Values a handler needs travel in data-*
+// (this.dataset), never inside the onclick string itself.
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
 function copyText(text, btn) {
+  if (!navigator.clipboard) {
+    btn.textContent = 'Copy failed — select & copy manually';
+    setTimeout(() => btn.textContent = 'Copy', 2200);
+    return;
+  }
   navigator.clipboard.writeText(text).then(() => {
     const orig = btn.textContent;
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = orig, 1800);
+  }).catch(() => {
+    // Given the password warning says "this is the only time it will be
+    // shown," a silent failure here risks the owner believing they saved a
+    // password they didn't — surface it instead.
+    btn.textContent = 'Copy failed — select & copy manually';
+    setTimeout(() => btn.textContent = 'Copy', 2200);
   });
 }
 
@@ -233,14 +258,22 @@ document.getElementById('onboard-form').addEventListener('submit', async e => {
     ownerEmail:   document.getElementById('ownerEmail').value.trim(),
     location:     document.getElementById('location').value.trim(),
     timings:      document.getElementById('timings').value.trim(),
-    theme:           document.getElementById('themeInput').value,
-    franchiseGroupId: document.getElementById('franchiseGroupId')?.value.trim() || ''
+    theme:        document.getElementById('themeInput').value,
+    brandColor:   document.getElementById('brandColorInput').value,
   };
 
   try {
     const res  = await fetch('/api/onboard', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    // A 500 here (staff account creation failed server-side) used to still
+    // carry success:true and render the full "you're live!" screen with N/A
+    // credentials and no real login — !res.ok now correctly routes it to the
+    // catch below instead, with the businessId reference the backend provides
+    // for support to look up.
+    if (!res.ok) {
+      const ref = data.businessId ? ' Reference: ' + data.businessId : '';
+      throw new Error((data.error || 'Registration failed') + ref);
+    }
     showSuccess(payload, data);
   } catch(err) {
     alert('Error: ' + err.message);
@@ -261,20 +294,21 @@ function showSuccess(payload, data) {
 
   const loginUrl = window.location.origin + '/login/' + (data.businessId || '');
 
+  const portalUrl = window.location.origin+'/portal/'+(data.businessId||'');
   const rows = [
-    { label:'Login URL',     html:`<a href="${loginUrl}" target="_blank">${loginUrl}</a>`, copy:loginUrl },
-    { label:'Café Page URL', html:`<a href="${cafeUrl}" target="_blank">${cafeUrl}</a>`, copy:cafeUrl },
-    { label:'Manager URL',   html:`<a href="${managerUrl}" target="_blank">${managerUrl}</a>`, copy:managerUrl },
-    { label:'Owner Portal',  html:`<a href="${window.location.origin+'/portal/'+data.businessId}" target="_blank">${window.location.origin+'/portal/'+data.businessId}</a>`, copy:window.location.origin+'/portal/'+(data.businessId||'') },
-    { label:'Username',      html:username,  copy:username },
-    { label:'Temp Password', html:`<strong style="color:var(--gold-light)">${password}</strong>`, copy:password },
-    { label:'Trial Ends',    html: data.trialEndsAt || '30 days from today', copy:null },
+    { label:'Login URL',     html:`<a href="${esc(loginUrl)}" target="_blank">${esc(loginUrl)}</a>`, copy:loginUrl },
+    { label:'Café Page URL', html:`<a href="${esc(cafeUrl)}" target="_blank">${esc(cafeUrl)}</a>`, copy:cafeUrl },
+    { label:'Manager URL',   html:`<a href="${esc(managerUrl)}" target="_blank">${esc(managerUrl)}</a>`, copy:managerUrl },
+    { label:'Owner Portal',  html:`<a href="${esc(portalUrl)}" target="_blank">${esc(portalUrl)}</a>`, copy:portalUrl },
+    { label:'Username',      html:esc(username),  copy:username },
+    { label:'Temp Password', html:`<strong style="color:var(--gold-light)">${esc(password)}</strong>`, copy:password },
+    { label:'Trial Ends',    html: esc(data.trialEndsAt || '30 days from today'), copy:null },
   ];
 
   document.getElementById('creds-box').innerHTML = rows.map(r =>
     `<div class="cred-row">
-      <span class="cred-label">${r.label}</span>
-      <span class="cred-value">${r.html}${r.copy ? `<button class="copy-btn" onclick="copyText('${r.copy}',this)">Copy</button>` : ''}</span>
+      <span class="cred-label">${esc(r.label)}</span>
+      <span class="cred-value">${r.html}${r.copy ? `<button class="copy-btn" data-copy="${esc(r.copy)}" onclick="copyText(this.dataset.copy,this)">Copy</button>` : ''}</span>
     </div>`
   ).join('');
 

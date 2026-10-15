@@ -14,6 +14,17 @@ module.exports = function register(ctx) {
     whatsappClient,
     emitToBranch,
   } = ctx;
+  const { rateLimit } = require('../rateLimit');
+  // This is the one place a customer's full card (spend, visits, birthday,
+  // transaction history) is reachable with just a phone number and no login
+  // — by design, so a customer can check their own balance without a staff
+  // account. That same design means anyone who knows/guesses a number gets
+  // the same data, so it's throttled rather than left wide open.
+  // Deliberately loose: mobile carriers NAT many real customers behind one
+  // public IP, so this is sized to stop a scripted enumeration run, not to
+  // throttle a busy café's genuine traffic.
+  const loyaltyLookupLimit = rateLimit({ windowMs: 60000, max: 40,
+    message: 'Too many lookups. Please wait a moment and try again.' });
 
 // ════════════════════════════════════════════════════════════════════════════
 // Phase 3 — Loyalty Points Routes
@@ -23,7 +34,7 @@ module.exports = function register(ctx) {
 
 // POST /api/businesses/:id/loyalty/lookup  — lookup or create card
 // { phone, name }
-app.post('/api/businesses/:id/loyalty/lookup', (req, res) => {
+app.post('/api/businesses/:id/loyalty/lookup', loyaltyLookupLimit, (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const { phone, name } = req.body;
   if (!phone) return res.status(400).json({ error: 'phone required' });
@@ -74,13 +85,13 @@ app.post('/api/businesses/:id/loyalty/birthday', (req, res) => {
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const { phone, birthday } = req.body;
   if (!phone || !birthday) return res.status(400).json({ error: 'phone and birthday required' });
-  db.updateBirthday(req.params.id, phone, birthday);
-  res.json({ success: true });
+  const result = db.updateBirthday(req.params.id, phone, birthday);
+  res.json(result);
 });
 
 // GET /api/businesses/:id/loyalty/leaderboard  — top customers
 app.get('/api/businesses/:id/loyalty/leaderboard', requireAuth, requireBranchAccess, (req, res) => {
-  if (db) return res.json(db.getLoyaltyLeaderboard(req.params.id, 20).map(r => ({ ...r, last_visit: toIsoZ(r.last_visit) })));
+  if (db) return res.json(db.getLoyaltyLeaderboard(req.params.id, 20, getLoyaltySettings(req.params.id).loyalty).map(r => ({ ...r, last_visit: toIsoZ(r.last_visit) })));
   // JSON mode: derive leaderboard from customer profiles
   const profiles = getBranchData(req.params.id, 'customer_profiles.json') || [];
   const board = profiles

@@ -9,6 +9,9 @@ module.exports = function register(ctx) {
     const { rating, comment, customerName, phone } = req.body;
     const r = Math.max(1, Math.min(5, parseInt(rating) || 5));
     const order = db.getOrderById(req.params.orderId);
+    if (!order || order.business_id !== req.params.id) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
     const id = `fb_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
     db.raw().prepare(`
       INSERT INTO feedback (id,business_id,customer_name,phone,rating,comment,source,order_id)

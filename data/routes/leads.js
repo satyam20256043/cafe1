@@ -220,6 +220,13 @@ module.exports = function register(ctx) {
     if (!lead || (isRep && lead.assigned_to !== req.staff.id)) {
       return res.status(404).json({ error: 'Lead not found' });
     }
+    // A lead is spent the first time it successfully links a business — without
+    // this, the same lead can be replayed against a second, unrelated business
+    // (one with no rep yet) and silently attach a real commission to a café
+    // this lead had nothing to do with.
+    if (lead.linked_business_id) {
+      return res.status(409).json({ error: 'This lead has already been used to link a business.' });
+    }
     const idx = businesses.findIndex(b => b.id === businessId);
     if (idx === -1) return res.status(404).json({ error: 'Business not found' });
     // Reassignment is an admin-only concern, out of scope here — refuse to
@@ -230,6 +237,7 @@ module.exports = function register(ctx) {
     businesses[idx].salesRepId = lead.assigned_to || null;
     businesses[idx].salesLeadId = lead.id;
     fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2));
+    db.raw().prepare('UPDATE crm_leads SET linked_business_id = ? WHERE id = ?').run(businessId, lead.id);
     res.json({ success: true, businessId, salesRepId: businesses[idx].salesRepId, salesLeadId: lead.id });
   });
 

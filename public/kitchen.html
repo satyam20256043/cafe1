@@ -354,7 +354,11 @@ function actionBtns(order, orderId, status) {
   // no other signal so it's offered as soon as the order exists; an online
   // payment is only offered once its own signature-verified payment_status
   // already says paid (never let a tap alone mark an unverified one as paid).
-  if (!(order.staff_confirmed || order.staffConfirmed)) {
+  // A cancelled order was never fulfilled — confirming payment on it doesn't
+  // mean anything (revenue queries already exclude cancelled orders either
+  // way), but the button used to show up anyway since only staff_confirmed
+  // was checked, not status.
+  if (!(order.staff_confirmed || order.staffConfirmed) && status !== 'cancelled') {
     const method = order.payment_method || order.paymentMethod || 'cash';
     const paid   = (order.payment_status || order.paymentStatus) === 'paid';
     if (method === 'cash') {
@@ -377,6 +381,10 @@ function renderBoard() {
     const msgs = {
       active: ['✅', 'All clear!', 'No active orders right now.'],
       pending: ['📋', 'No new orders', 'New table orders will appear here.'],
+      confirmed: ['✅', 'Nothing confirmed yet', 'Confirmed orders waiting to start will appear here.'],
+      preparing: ['👨‍🍳', 'Nothing in the kitchen', 'Orders being prepared right now will appear here.'],
+      ready: ['🔔', 'Nothing ready', 'Orders ready for pickup or delivery will appear here.'],
+      out_for_delivery: ['🛵', 'Nothing out for delivery', 'Orders on their way to a customer will appear here.'],
       served: ['🎉', 'Nothing served yet', ''],
       all: ['📋', 'No orders yet', 'Orders placed via table QR codes appear here.'],
     };

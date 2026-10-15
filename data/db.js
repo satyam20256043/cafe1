@@ -254,6 +254,7 @@ db.exec(`
     follow_up_date TEXT,            -- YYYY-MM-DD, nullable
     notes TEXT,
     assigned_to TEXT,                -- staff id of the sales rep who owns this lead, NULL = operator's own pipeline
+    linked_business_id TEXT,         -- set once, on first successful link-business call — stops reuse
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -460,6 +461,9 @@ db.exec(`
     ['backups', 'status',  'TEXT'],
     // Sales rep foundation
     ['crm_leads', 'assigned_to', 'TEXT'],
+    // Set once a lead successfully links to a business — stops the same lead
+    // being reused to attach an unrelated business to a rep's commission.
+    ['crm_leads', 'linked_business_id', 'TEXT'],
   ];
   cols.forEach(([tbl, col, def]) => {
     try { db.prepare(`ALTER TABLE ${tbl} ADD COLUMN ${col} ${def}`).run(); }
@@ -852,18 +856,23 @@ function confirmOrderPayment(id) {
 // counts. Local-day boundaries via LOCAL_TZ_OFFSET so "today" means the café's
 // today, not UTC's. `today_unconfirmed` surfaces how much is still awaiting a
 // payment tap so the collection gap stays visible.
+// 'pending_approval' orders are excluded from every revenue figure below —
+// the café hasn't agreed to fulfil them yet, so counting their total as
+// revenue overstates today's take before a manager has even looked at them.
+// pending_count DOES include them: they're exactly the orders needing staff
+// attention right now, which is what that tile is for.
 function getRevenueStats(businessId) {
   const T = LOCAL_TZ_OFFSET;
   const row = db.prepare(`
     SELECT
-      COALESCE(SUM(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status!='cancelled' THEN total ELSE 0 END),0)  AS today_revenue,
-      COUNT(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status!='cancelled' THEN 1 END)                        AS today_orders,
-      COALESCE(SUM(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status!='cancelled' AND payment_status!='paid' THEN total ELSE 0 END),0) AS today_unconfirmed,
-      COALESCE(SUM(CASE WHEN date(created_at,@tz)>=date('now',@tz,'-6 days') AND status!='cancelled' THEN total ELSE 0 END),0) AS week_revenue,
-      COUNT(CASE WHEN date(created_at,@tz)>=date('now',@tz,'-6 days') AND status!='cancelled' THEN 1 END)             AS week_orders,
-      COALESCE(SUM(CASE WHEN strftime('%Y-%m',created_at,@tz)=strftime('%Y-%m','now',@tz) AND status!='cancelled' THEN total ELSE 0 END),0) AS month_revenue,
-      COUNT(CASE WHEN strftime('%Y-%m',created_at,@tz)=strftime('%Y-%m','now',@tz) AND status!='cancelled' THEN 1 END) AS month_orders,
-      COUNT(CASE WHEN status='pending' THEN 1 END)                                                                     AS pending_count,
+      COALESCE(SUM(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status NOT IN ('cancelled','pending_approval') THEN total ELSE 0 END),0)  AS today_revenue,
+      COUNT(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status NOT IN ('cancelled','pending_approval') THEN 1 END)                        AS today_orders,
+      COALESCE(SUM(CASE WHEN date(created_at,@tz)=date('now',@tz) AND status NOT IN ('cancelled','pending_approval') AND payment_status!='paid' THEN total ELSE 0 END),0) AS today_unconfirmed,
+      COALESCE(SUM(CASE WHEN date(created_at,@tz)>=date('now',@tz,'-6 days') AND status NOT IN ('cancelled','pending_approval') THEN total ELSE 0 END),0) AS week_revenue,
+      COUNT(CASE WHEN date(created_at,@tz)>=date('now',@tz,'-6 days') AND status NOT IN ('cancelled','pending_approval') THEN 1 END)             AS week_orders,
+      COALESCE(SUM(CASE WHEN strftime('%Y-%m',created_at,@tz)=strftime('%Y-%m','now',@tz) AND status NOT IN ('cancelled','pending_approval') THEN total ELSE 0 END),0) AS month_revenue,
+      COUNT(CASE WHEN strftime('%Y-%m',created_at,@tz)=strftime('%Y-%m','now',@tz) AND status NOT IN ('cancelled','pending_approval') THEN 1 END) AS month_orders,
+      COUNT(CASE WHEN status IN ('pending','pending_approval') THEN 1 END)                                             AS pending_count,
       COUNT(CASE WHEN status='preparing' THEN 1 END)                                                                   AS preparing_count
     FROM orders WHERE business_id=@biz
   `).get({ tz: T, biz: businessId });
@@ -904,7 +913,7 @@ function getDailyRevenue(businessId, days=14) {
            COALESCE(SUM(total),0) AS revenue,
            COALESCE(SUM(CASE WHEN payment_status!='paid' THEN total ELSE 0 END),0) AS unconfirmed
     FROM orders
-    WHERE business_id=? AND status!='cancelled'
+    WHERE business_id=? AND status NOT IN ('cancelled','pending_approval')
       AND date(created_at, ?) >= date('now', ?, '-'||?||' days')
     GROUP BY day
   `).all(LOCAL_TZ_OFFSET, businessId, LOCAL_TZ_OFFSET, LOCAL_TZ_OFFSET, days - 1);
@@ -1230,8 +1239,13 @@ function getLoyaltyTransactions(businessId, phone, limit) {
   return rows;
 }
 
-function awardBonusPoints(businessId, phone, name, bonusPoints, description) {
-  const card   = getOrCreateCard(businessId, phone, name);
+function awardBonusPoints(businessId, phone, name, bonusPoints, description, opts = {}) {
+  getOrCreateCard(businessId, phone, name);
+  // Same expiry-before-read guard as awardPoints/redeemPoints — without this a
+  // stale, past-deadline balance gets a bonus stacked straight on top instead
+  // of being zeroed first, silently reviving points that should be gone.
+  expireStalePointsIfDue(businessId, phone, opts);
+  const card   = getLoyaltyCard(businessId, phone);
   const newPts = card.points + bonusPoints;
   const tier   = loyaltyTier(newPts, card.visits);
 
@@ -1291,11 +1305,23 @@ function redeemPoints(businessId, phone, pointsToRedeem, opts = {}) {
 }
 
 function updateBirthday(businessId, phone, birthday) {
-  db.prepare('UPDATE loyalty_points SET birthday=? WHERE business_id=? AND phone=?')
+  // A customer setting their birthday before their first order/visit has no
+  // card row yet — create one first, or the UPDATE below silently matches
+  // zero rows and the birthday is discarded with no signal to the caller.
+  getOrCreateCard(businessId, phone);
+  const result = db.prepare('UPDATE loyalty_points SET birthday=? WHERE business_id=? AND phone=?')
     .run(birthday, businessId, phone);
+  return { success: result.changes > 0 };
 }
 
-function getLoyaltyLeaderboard(businessId, limit=20) {
+function getLoyaltyLeaderboard(businessId, limit=20, opts = {}) {
+  // Expire any stale balance before ranking — otherwise a customer whose
+  // points should already be gone still shows up ranked on a number that
+  // would evaporate the instant anything else touched their card.
+  if (Number(opts.expiryMonths) > 0) {
+    const stale = db.prepare(`SELECT phone FROM loyalty_points WHERE business_id=? AND points>0`).all(businessId);
+    for (const r of stale) expireStalePointsIfDue(businessId, r.phone, opts);
+  }
   // manager.html's renderLeaderboard/updateLoyaltyKPIs read r.name (matching
   // the JSON-mode fallback below, which builds that field manually) — the raw
   // column here is customer_name, so without this alias every row rendered
@@ -1402,6 +1428,19 @@ const findCouponBySourceStmt = db.prepare(
 function findCouponBySource(businessId, sourceType, sourceId) {
   return findCouponBySourceStmt.get(businessId, sourceType, sourceId);
 }
+
+// Has this phone already received a coupon of this type recently? Used to
+// stop an unauthenticated, repeatable action (like the public feedback form)
+// from minting unlimited coupons against one phone number just by resubmitting.
+function hasRecentCouponForPhone(businessId, sourceType, phone, sinceDays = 30) {
+  if (!phone) return false;
+  const p = normalizePhone(phone);
+  const row = db.prepare(
+    `SELECT 1 FROM coupons WHERE business_id=? AND source_type=? AND customer_phone=?
+     AND issued_at >= datetime('now', '-'||?||' days') LIMIT 1`
+  ).get(businessId, sourceType, p, sinceDays);
+  return !!row;
+}
 const redeemCouponStmt = db.prepare(`
   UPDATE coupons SET status = 'redeemed', redeemed_at = datetime('now'), order_id = ?, redeemed_revenue = ?
   WHERE business_id = ? AND code = ? AND status = 'issued'
@@ -1505,7 +1544,7 @@ function getAttributionReport(businessId, { from, to } = {}) {
   }));
 }
 
-Object.assign(module.exports, { issueCoupon, findCouponBySource, validateCoupon, redeemCoupon, getAttributionReport });
+Object.assign(module.exports, { issueCoupon, findCouponBySource, hasRecentCouponForPhone, validateCoupon, redeemCoupon, getAttributionReport });
 
 // ── AI escalations ────────────────────────────────────────────────────────────
 const insertEscalationStmt = db.prepare(`

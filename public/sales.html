@@ -239,16 +239,18 @@ function leadCard(l, opts){
     </div>
     <textarea class="input" style="margin-top:8px;min-height:44px;font-size:12.5px" placeholder="Notes…" onchange="updateLead('${l.id}','notes',this.value)">${esc(l.notes||'')}</textarea>
     <div class="card-row" style="margin-top:10px;justify-content:space-between">
-      <button class="btn btn-ghost btn-sm" onclick="toggleLink('${l.id}')">🔗 Convert / Link</button>
+      ${l.linked_business_id
+        ? `<span style="font-size:12px;color:var(--z-sage,#5a9a6f);font-weight:600">✅ Linked to ${esc(l.linked_business_id)}</span>`
+        : `<button class="btn btn-ghost btn-sm" onclick="toggleLink('${l.id}')">🔗 Convert / Link</button>`}
       <button class="btn btn-danger btn-sm" onclick="deleteLead('${l.id}')">Delete</button>
     </div>
-    <div class="hidden" id="link-${esc(l.id)}" style="margin-top:10px;border-top:1px solid var(--z-border);padding-top:10px">
+    ${l.linked_business_id ? '' : `<div class="hidden" id="link-${esc(l.id)}" style="margin-top:10px;border-top:1px solid var(--z-border);padding-top:10px">
       <div style="font-size:11.5px;color:var(--z-ink-3);margin-bottom:6px">Signed up? Open onboarding, then paste the new café's ID here (from the confirmation screen or its manager URL) to attribute it to you.</div>
       <button class="btn btn-gold btn-sm" style="margin-bottom:8px" onclick="window.open('/onboard','_blank')">↗ Open Onboarding</button>
       <input class="input" id="link-input-${esc(l.id)}" placeholder="e.g. the_roasted_bean_ab12cd">
       <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="linkLead('${l.id}')">Link this café</button>
       <div class="msg" id="link-msg-${esc(l.id)}"></div>
-    </div>
+    </div>`}
   </div>`;
 }
 function toggleLink(id){ document.getElementById('link-'+id).classList.toggle('hidden'); }
@@ -279,12 +281,23 @@ async function linkLead(id){
   const msg = document.getElementById('link-msg-'+id);
   const businessId = (input.value||'').trim();
   if (!businessId) { msg.textContent = 'Paste the café ID first.'; msg.className='msg msg-err'; return; }
+  // Irreversible and revenue-attributing (this lead earns commission on every
+  // future payment that business makes) — same confirm() bar as deleteLead(),
+  // which this action is arguably more consequential than.
+  if (!confirm('Link this lead to café "'+businessId+'"? This attributes all future commission on that café to you and cannot be undone.')) return;
   msg.textContent = 'Linking…'; msg.className = 'msg';
   try{
     const r = await fetch('/api/crm-leads/'+encodeURIComponent(id)+'/link-business', { method:'POST', headers:{'Content-Type':'application/json',...authHdr()}, body: JSON.stringify({businessId}) });
     const d = await r.json();
     if (!r.ok) { msg.textContent = d.error === 'Business already linked to a sales rep' ? '⚠️ This café is already linked to a rep.' : ('❌ ' + (d.error || 'Failed')); msg.className = 'msg msg-err'; return; }
     msg.textContent = '✅ Linked — commission starts once they pay.'; msg.className = 'msg msg-ok';
+    // Reflect the lock immediately — re-render this card so the link form
+    // disappears rather than staying open and ready to accept a second,
+    // different business id in the same box.
+    const lead = _leads.find(l => l.id === id);
+    if (lead) lead.linked_business_id = businessId;
+    const cardEl = document.getElementById('lead-'+id);
+    if (cardEl && lead) cardEl.outerHTML = leadCard(lead);
   }catch(e){ console.error('[linkLead]', e); msg.textContent = '❌ ' + friendly(e); msg.className = 'msg msg-err'; }
 }
 
