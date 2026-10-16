@@ -336,6 +336,7 @@ db.exec(`
     code        TEXT NOT NULL,
     expires_at  DATETIME NOT NULL,
     used        INTEGER DEFAULT 0,
+    attempts    INTEGER DEFAULT 0,
     created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_otp_staff ON password_reset_otps(staff_id, code);
@@ -431,6 +432,8 @@ db.exec(`
     ['staff',  'active',              'INTEGER DEFAULT 1'],
     ['staff',  'created_at',          "DATETIME DEFAULT CURRENT_TIMESTAMP"],
     ['staff',  'phone',               'TEXT'],
+    // Password reset codes — wrong-guess counter (lock after 5)
+    ['password_reset_otps', 'attempts', 'INTEGER DEFAULT 0'],
     // Orders
     ['orders', 'table_no',            'TEXT'],
     ['orders', 'order_type',          "TEXT DEFAULT 'dine_in'"],
@@ -684,8 +687,11 @@ function getStaffById(id) {
 }
 // Agency-wide login: matches by username only, restricted to platform-operator
 // roles (never used for café staff, who must always match their own business_id).
+// If an old setup left two agency accounts with the same username, always pick the same one:
+// active first, then the real HQ account (business_id '_agency'), then the oldest.
 function getAdminStaffByUsername(username) {
-  return db.prepare("SELECT * FROM staff WHERE username=? AND role IN ('agency_admin','admin','sales') LIMIT 1")
+  return db.prepare(`SELECT * FROM staff WHERE username=? AND role IN ('agency_admin','admin','sales')
+                     ORDER BY COALESCE(active,1) DESC, (business_id = '_agency') DESC, created_at ASC, rowid ASC LIMIT 1`)
            .get(username);
 }
 function listStaff(businessId) {
@@ -744,10 +750,23 @@ function consumePasswordResetOtp(id) {
   db.prepare('UPDATE password_reset_otps SET used=1 WHERE id=?').run(id);
 }
 
+// Checks a reset code against the NEWEST unused, unexpired code for this staff member only.
+// Each wrong guess counts; after OTP_MAX_ATTEMPTS the code is cancelled, so the 6 digits
+// can't be brute-forced inside the 10-minute window. Returns { ok, id } or { ok:false, reason }.
+const OTP_MAX_ATTEMPTS = 5;
+function checkPasswordResetOtp(staffId, code) {
+  const row = db.prepare("SELECT * FROM password_reset_otps WHERE staff_id=? AND used=0 AND expires_at > datetime('now') ORDER BY id DESC LIMIT 1").get(staffId);
+  if (!row) return { ok: false, reason: 'none' };
+  if (String(code || '').trim() === String(row.code)) return { ok: true, id: row.id };
+  const attempts = (row.attempts || 0) + 1;
+  db.prepare('UPDATE password_reset_otps SET attempts=?, used=CASE WHEN ? >= ? THEN 1 ELSE used END WHERE id=?').run(attempts, attempts, OTP_MAX_ATTEMPTS, row.id);
+  return attempts >= OTP_MAX_ATTEMPTS ? { ok: false, reason: 'locked' } : { ok: false, reason: 'wrong', triesLeft: OTP_MAX_ATTEMPTS - attempts };
+}
+
 // Re-export with all helpers
 Object.assign(module.exports, {
   raw, getStaffByUsername, getAdminStaffByUsername, getStaffById, listStaff, listAgencyStaff,
-  createStaff, updateStaffPassword, setStaffActive, logBackup,
+  createStaff, updateStaffPassword, setStaffActive, logBackup, checkPasswordResetOtp,
   createPasswordResetOtp, getValidPasswordResetOtp, consumePasswordResetOtp,
   upsertBusinessRow,
   migrateFromJSON,

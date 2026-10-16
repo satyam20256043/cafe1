@@ -134,8 +134,8 @@ function changePasswordHandler(req, res) {
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'currentPassword and newPassword required' });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
   }
 
   const staff = db.getStaffById(id);
@@ -164,6 +164,9 @@ function createStaffHandler(req, res) {
 
   if (!name || !username || !password) {
     return res.status(400).json({ error: 'name, username and password required' });
+  }
+  if (String(password).length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
 
   const validRoles = ['owner', 'manager', 'waiter', 'cashier'];

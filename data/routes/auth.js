@@ -175,8 +175,8 @@ app.get('/api/admin/staff', requireAuth, requireRole('agency_admin', 'admin'), (
 // ── Admin: change any staff password ─────────────────────────────────────────
 app.put('/api/admin/staff/:id/password', requireAuth, requireRole('agency_admin', 'admin'), (req, res) => {
   const { newPassword } = req.body;
-  if (!newPassword || newPassword.length < 4)
-    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  if (!newPassword || newPassword.length < 8)
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
   if (db) {
     const member = db.getStaffById(req.params.id);

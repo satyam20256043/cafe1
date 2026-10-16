@@ -9,9 +9,9 @@ see `docs/ZORDIC_PITCH_PLAYBOOK.md`. Same rule applies everywhere below: never s
 or "CRM," always say what it does for their business.
 
 **Call goal, in order of preference:**
-1. Sign them up live on the call (walk them through zordic.in/onboard together)
+1. Sign them up live on the call (walk them through zordical.com/onboard together)
 2. Book an in-person visit / demo at their café
-3. Permission to send the pitch link + guide on WhatsApp and a fixed follow-up day
+3. Permission to send the pitch link on WhatsApp and a fixed follow-up day
 
 Never end a call without one of these three.
 
@@ -21,8 +21,8 @@ Never end a call without one of these three.
 
 - Look up the café on Google Maps: rating, review count, photos, busy times.
   One specific detail = ten generic pitches.
-- Have open on your screen: `zordic.in/pitch`, `zordic.in/onboard`, this script.
-- Ready to send on WhatsApp: pitch link, `zordic.in/Zordic-Owner-Guide.pdf`.
+- Have open on your screen: `zordical.com/pitch`, `zordical.com/onboard`, this script.
+- Ready to send on WhatsApp: the pitch link, `zordical.com/pitch`.
 - Smile before you dial — it genuinely changes your voice.
 
 ---
@@ -88,6 +88,10 @@ Then pick the ONE lane matching their discovery answer:
 > part owners love — you SEE who actually came back and spent money. Not likes,
 > not views. Rupees."
 
+**Be accurate about Lanes B and C:** sending an offer to many customers at once uses the
+official WhatsApp Business connection (we set it up with them). Quick QR connect handles
+replies, not bulk offers. If they ask, say exactly that — never promise more.
+
 **The safety line (use in every call — it kills the biggest fear before they say it):**
 > "And important — the AI never gambles with your reputation. A complaint, a refund,
 > a big group booking, anything it's not sure about? It calms the customer politely
@@ -128,9 +132,8 @@ Then pick the ONE lane matching their discovery answer:
 
 **"I'm not technical."**
 > "Perfect, it's built for you then. If you can use WhatsApp, you can use Zordical.
-> There's a full picture-guide for every button, and I personally help you set up —
-> including the WhatsApp connection, which is the only technical step, and I do
-> that WITH you."
+> I personally help you set up, step by step — including the WhatsApp connection,
+> which is the only technical step, and I do that WITH you."
 
 **"Send me details, I'll see."** (the polite brush-off)
 > "Of course, sending right now on this number. But so I send the right thing —
@@ -148,7 +151,7 @@ Their answer = the real objection. Handle THAT, then close again.
 
 **Best close — sign up together, on the call:**
 > "Tell you what — the signup takes literally 2 minutes and the first 30 days are
-> free, no card. Open zordic.in/onboard on your phone, I'll stay on the line and
+> free, no card. Open zordical.com/onboard on your phone, I'll stay on the line and
 > we'll do it together right now. Then you can play with it tonight."
 
 Walking them through it live is worth 10 follow-up calls. While on it:
@@ -161,8 +164,8 @@ right now."** → show them the dashboard opens.
 > own table. [Day] morning or evening?"
 
 **Soft close — locked follow-up:**
-> "No problem. I'm sending you two links on WhatsApp — a 2-minute visual demo and
-> the full guide. Have a look tonight, and I'll call Thursday at 5. If it's not for
+> "No problem. I'm sending you the 2-minute visual demo on WhatsApp right now.
+> Have a look tonight, and I'll call Thursday at 5. If it's not for
 > you, tell me straight, no hard feelings."
 
 ---
@@ -170,14 +173,12 @@ right now."** → show them the dashboard opens.
 ## 6. After the call — WhatsApp within 5 minutes (while you're warm in their memory)
 
 **If signed up:**
-> "Great talking, [Name]! 🎉 Your café is live. Your login: zordic.in/login/[cafe-id]
-> Guide with pictures for every button: zordic.in/Zordic-Owner-Guide.pdf
+> "Great talking, [Name]! 🎉 Your café is live. Your login: zordical.com/login/[cafe-id]
 > I'll call tomorrow to help connect your WhatsApp — that's the last step. Welcome aboard! ☕"
 
 **If thinking:**
 > "Good talking, [Name]! As promised:
-> ▸ 2-min demo: zordic.in/pitch
-> ▸ Full guide: zordic.in/Zordic-Owner-Guide.pdf
+> ▸ 2-min demo: zordical.com/pitch
 > The trial is 30 days free, no card. Calling you [day] at [time] as agreed. — Satyam, Zordical"
 
 **If no:**
@@ -224,4 +225,4 @@ right now."** → show them the dashboard opens.
 **MATH:** ₹3,000/mo ≈ 6 tables · conservative +₹40–50k/mo · 30 days free, no card
 **CLOSE:** onboard together NOW → or visit [day]? → or links + locked callback
 **AFTER:** WhatsApp within 5 min · log the call · call back exactly when promised
-**LINKS:** zordic.in/pitch · zordic.in/onboard · zordic.in/Zordic-Owner-Guide.pdf
+**LINKS:** zordical.com/pitch · zordical.com/onboard

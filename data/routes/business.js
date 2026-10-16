@@ -16,6 +16,7 @@ module.exports = function register(ctx) {
     startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   } = ctx;
   const { rateLimit } = require('../rateLimit');
+  const TERMS_VERSION = '2026-10-15';
   // Self-serve signup is unauthenticated by necessity — no throttle at all
   // meant a scripted loop could spam the platform's own WhatsApp sender at any
   // phone number (the welcome message includes a real temp password) and
@@ -340,7 +341,11 @@ app.post('/api/onboard', onboardLimit, async (req, res) => {
     brandColor: brandColor || '#C9A84C',
     subscriptionStatus: 'trial',
     trialEndsAt: trialEnds,
-    onboardedAt: new Date().toISOString()
+    onboardedAt: new Date().toISOString(),
+    // Signing up = agreeing to the Terms/Privacy shown on the form (public/onboard.html).
+    // TERMS_VERSION is the "Last updated" date on /terms; bump it when the terms change.
+    termsAcceptedAt: new Date().toISOString(),
+    termsVersion: TERMS_VERSION,
   };
 
   businesses.push(newBiz);
@@ -467,6 +472,8 @@ app.get('/api/agency/clients', requireAuth, requireRole('agency_admin', 'admin')
       })(),
       daysLeft,
       onboardedAt: b.onboardedAt || null,
+      termsAcceptedAt: b.termsAcceptedAt || null,
+      termsVersion: b.termsVersion || null,
       brandColor: b.brandColor || '#C9A84C',
       waMode: ((getBranchData(b.id, 'whatsapp_config.json') || {}).mode) || null,
       revenue,

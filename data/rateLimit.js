@@ -6,10 +6,14 @@
 // limit MORE permissive for a moment, never less safe.
 
 const buckets = new Map();
+let limiterCount = 0;
 
 function rateLimit({ windowMs = 60000, max = 20, keyFn, message } = {}) {
+  // Each limiter counts on its own: without this prefix, every limiter keyed by IP shared one
+  // counter, so e.g. a few password-reset tries blocked a signup from the same connection.
+  const ns = 'L' + (++limiterCount) + ':';
   return (req, res, next) => {
-    const key = (keyFn ? keyFn(req) : req.ip) || 'unknown';
+    const key = ns + ((keyFn ? keyFn(req) : req.ip) || 'unknown');
     const now = Date.now();
     let bucket = buckets.get(key);
     if (!bucket || now - bucket.start > windowMs) {

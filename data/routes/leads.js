@@ -15,7 +15,7 @@ module.exports = function register(ctx) {
     const { name, username, password, phone } = req.body;
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
     if (!username || !String(username).trim()) return res.status(400).json({ error: 'username is required' });
-    if (!password || String(password).length < 4) return res.status(400).json({ error: 'password must be at least 4 characters' });
+    if (!password || String(password).length < 8) return res.status(400).json({ error: 'password must be at least 8 characters' });
 
     // createStaff's duplicate-username fallback path uses INSERT OR IGNORE and
     // silently returns the EXISTING row instead of erroring — without this

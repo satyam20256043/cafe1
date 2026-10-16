@@ -49,7 +49,7 @@ the whole pitch.
 ### 6. Show the demo
 > "Let me quickly show you our presentation."
 
-Share **zordic.in/pitch** and walk through it together.
+Share **zordical.com/pitch** and walk through it together.
 
 ### 7. Show the future
 > "We're continuously improving the platform. Early partner cafés also get to

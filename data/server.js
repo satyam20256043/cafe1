@@ -3024,25 +3024,32 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   res.json({ success: true, message: 'Code sent via WhatsApp' });
 });
 
-app.post('/api/auth/reset-password', (req, res) => {
+// Per-connection cap on code checks, on top of the 5-wrong-tries lock per code (db.checkPasswordResetOtp).
+const resetCodeLimit = require('./rateLimit').rateLimit({ windowMs: 15 * 60 * 1000, max: 20,
+  message: 'Too many attempts. Please try again in 15 minutes.' });
+app.post('/api/auth/reset-password', resetCodeLimit, (req, res) => {
   const { businessId, username, otp, newPassword } = req.body;
   if (!businessId || !username || !otp || !newPassword) {
     return res.status(400).json({ error: 'All fields are required' });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
   }
   if (!db) return res.status(503).json({ error: 'Not available in this server mode' });
 
   const staff = db.getStaffByUsername(businessId, username);
-  if (!staff) return res.status(401).json({ error: 'Invalid request' });
+  if (!staff) return res.status(400).json({ error: 'Invalid or expired code' });
 
-  const validOtp = db.getValidPasswordResetOtp(staff.id, otp);
-  if (!validOtp) return res.status(400).json({ error: 'Invalid or expired code' });
+  const check = db.checkPasswordResetOtp(staff.id, otp);
+  if (!check.ok) {
+    if (check.reason === 'locked') return res.status(429).json({ error: 'Too many wrong codes. Please request a new code.', code: 'OTP_LOCKED' });
+    if (check.reason === 'wrong') return res.status(400).json({ error: `That code isn't right. ${check.triesLeft} ${check.triesLeft === 1 ? 'try' : 'tries'} left.`, code: 'OTP_WRONG' });
+    return res.status(400).json({ error: 'Invalid or expired code', code: 'OTP_INVALID' });
+  }
 
   const bcrypt = require('bcryptjs');
   db.updateStaffPassword(staff.id, bcrypt.hashSync(newPassword, 10));
-  db.consumePasswordResetOtp(validOtp.id);
+  db.consumePasswordResetOtp(check.id);
   db.audit(businessId, staff.id, staff.name, 'password_reset_otp', 'Password reset via WhatsApp OTP', req.ip);
 
   res.json({ success: true });

@@ -436,7 +436,7 @@
           </div>
           <div class="field" style="margin-bottom:14px">
             <label>New Password</label>
-            <input type="password" id="cp-new" class="input" placeholder="Min 6 characters">
+            <input type="password" id="cp-new" class="input" placeholder="Min 8 characters">
           </div>
           <div class="field" style="margin-bottom:18px">
             <label>Confirm New Password</label>
@@ -950,7 +950,7 @@ async function changePassword() {
 
   if (!cur || !nw || !conf) { msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc'; msg.textContent='All fields are required.'; return; }
   if (nw !== conf) { msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc'; msg.textContent='New passwords do not match.'; return; }
-  if (nw.length < 6) { msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc'; msg.textContent='Password must be at least 6 characters.'; return; }
+  if (nw.length < 8) { msg.style.cssText='display:block;background:#fdf0f0;color:#c00;border:1px solid #fcc'; msg.textContent='Password must be at least 8 characters.'; return; }
 
   try {
     const res = await fetch('/api/auth/change-password', {
