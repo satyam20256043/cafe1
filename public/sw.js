@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 // Zordical — Service Worker (Phase 5 PWA)
 // ══════════════════════════════════════════════════════════════════════════════
-const CACHE_NAME    = 'cafe-hq-v4';
+const CACHE_NAME    = 'cafe-hq-v5';
 const OFFLINE_PAGE  = '/offline.html';
 
 // Assets to pre-cache on install

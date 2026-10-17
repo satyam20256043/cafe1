@@ -10,7 +10,7 @@ module.exports = function register(ctx) {
     requireAuth, requireBranchAccess, requireRole,
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
-    db, getLoyaltySettings, getDeliverySettings,
+    db, getLoyaltySettings, getDeliverySettings, getFollowUpOfferPct,
   } = ctx;
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -550,6 +550,7 @@ app.get('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, 
       keySecret: maskSecret(s.razorpay?.keySecret),
     },
     aiMaxDiscount: Number.isFinite(s.aiMaxDiscount) ? s.aiMaxDiscount : 0,
+    followUpOfferPct: getFollowUpOfferPct(s), // the % follow-ups actually use, even before the owner sets one
     loyalty: loyaltySettings.loyalty,
     studentDiscount: loyaltySettings.studentDiscount,
     delivery: getDeliverySettings(req.params.id),
@@ -573,6 +574,10 @@ app.put('/api/businesses/:id/settings', requireAuth, requireBranchAccess, (req, 
 
   if (b.aiMaxDiscount !== undefined) {
     s.aiMaxDiscount = Math.max(0, Math.min(100, Math.round(Number(b.aiMaxDiscount) || 0)));
+  }
+
+  if (b.followUpOfferPct !== undefined) {
+    s.followUpOfferPct = Math.max(0, Math.min(100, Math.round(Number(b.followUpOfferPct) || 0)));
   }
 
   if (b.loyalty) {

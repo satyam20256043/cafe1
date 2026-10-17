@@ -6,10 +6,17 @@
 
 const GRAPH_URL = 'https://graph.facebook.com/v19.0';
 
+// Meta needs the country code. Stored phones (owners, customer profiles) are 10 digits, so
+// those get India's 91, the same app-wide default the QR senders (waweb/baileys) use.
+function toWaNumber(to) {
+  const digits = String(to).replace(/[^0-9]/g, '');
+  return digits.length === 10 ? '91' + digits : digits;
+}
+
 // ── Send a plain text message ────────────────────────────────────────────────
 async function sendMessage(phoneNumberId, accessToken, to, text) {
   if (!phoneNumberId || !accessToken) throw new Error('Missing WhatsApp API credentials');
-  const cleanTo = String(to).replace(/[^0-9]/g, '');
+  const cleanTo = toWaNumber(to);
   try {
     const res = await fetch(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       method: 'POST',
@@ -59,7 +66,7 @@ async function markAsRead(phoneNumberId, accessToken, messageId) {
 // ── Send a template message (for proactive notifications) ───────────────────
 async function sendTemplate(phoneNumberId, accessToken, to, templateName, langCode, components) {
   if (!phoneNumberId || !accessToken) throw new Error('Missing WhatsApp API credentials');
-  const cleanTo = String(to).replace(/[^0-9]/g, '');
+  const cleanTo = toWaNumber(to);
   try {
     const res = await fetch(`${GRAPH_URL}/${phoneNumberId}/messages`, {
       method: 'POST',

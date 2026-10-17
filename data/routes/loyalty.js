@@ -11,8 +11,7 @@ module.exports = function register(ctx) {
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
     db,
-    whatsappClient,
-    emitToBranch,
+    emitToBranch, messageCustomer, qrBulkBlocked,
   } = ctx;
   const { rateLimit } = require('../rateLimit');
   // This is the one place a customer's full card (spend, visits, birthday,
@@ -180,45 +179,44 @@ app.post('/api/businesses/:id/loyalty/birthday-campaign', requireAuth, requireBr
     `Just show this message at the counter. Valid today only!\n\n` +
     `With warmth & coffee, ${bizName} ☕`;
 
-  const sendWA = async (phone, msg) => {
-    if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-      const wid = phone.replace(/[^0-9]/g,'') + '@c.us';
-      try { await whatsappClient.sendMessage(wid, msg); return true; }
-      catch(e) { return false; }
-    }
-    return false;
-  };
+  // Through the café's own WhatsApp. One wish the owner picked is like a personal message;
+  // "send to everyone" is a campaign, so it follows the campaign rules (Business API only).
+  const sendWA = (phone, name, msg, bulk) => messageCustomer(req.params.id, phone, name, msg, bulk ? { bulk: true } : {});
+  const notSentHelp = "Couldn't send on WhatsApp. Check your WhatsApp connection in Settings and try again.";
 
   if (singlePhone) {
     // Single recipient
     const code = db ? db.issueCoupon({ businessId: req.params.id, sourceType: 'birthday',
       customerPhone: singlePhone, discountType: 'free_item', discountValue: 0 }).code : null;
     const msg = buildMsg(singleName, code);
-    const sent = await sendWA(singlePhone, msg);
+    const sent = await sendWA(singlePhone, singleName, msg, false);
     if (db) db.logEvent(req.params.id, 'campaign.sent', { customerPhone: singlePhone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'birthday', sent } });
-    return res.json({ success: true, sent, message: msg, note: sent ? undefined : 'WhatsApp not connected — copy message manually' });
+    return res.json({ success: true, sent, text: msg,
+      message: sent ? `Birthday wish sent to ${singleName || singlePhone} ✓` : notSentHelp });
   }
 
   // Bulk: all upcoming birthdays (next 7 days)
   if (!db) return res.status(503).json({ error: 'DB not loaded' });
   const upcoming = db.getUpcomingBirthdays(req.params.id, 7);
   if (!upcoming.length) return res.json({ success: true, sent: 0, message: 'No upcoming birthdays in the next 7 days' });
+  if (qrBulkBlocked && qrBulkBlocked(req.params.id)) {
+    return res.json({ success: false, sent: 0, total: upcoming.length,
+      message: 'Sending to everyone at once needs the WhatsApp Business API. On quick connect (QR), use the Wish button next to each customer instead.' });
+  }
 
   let sentCount = 0;
   for (const c of upcoming) {
     const code = db.issueCoupon({ businessId: req.params.id, sourceType: 'birthday',
       customerPhone: c.phone, discountType: 'free_item', discountValue: 0 }).code;
-    const msg = buildMsg(c.name, code);
-    const ok  = await sendWA(c.phone, msg);
+    const name = c.customer_name || c.name;
+    const msg = buildMsg(name, code);
+    const ok  = await sendWA(c.phone, name, msg, true);
     if (ok) sentCount++;
     db.logEvent(req.params.id, 'campaign.sent', { customerPhone: c.phone, actor: 'system', metadata: { source: 'birthday', sent: ok } });
   }
-  const waConnected = whatsappClient && whatsappConnectionStatus === 'Connected';
   res.json({
-    success: true, sent: sentCount, total: upcoming.length,
-    message: waConnected
-      ? `Sent ${sentCount} of ${upcoming.length} birthday wishes via WhatsApp ✓`
-      : `WhatsApp not connected. ${upcoming.length} customers have birthdays this week — connect WhatsApp to send wishes.`
+    success: sentCount > 0, sent: sentCount, total: upcoming.length,
+    message: sentCount ? `Sent ${sentCount} of ${upcoming.length} birthday wishes via WhatsApp ✓` : notSentHelp,
   });
 });
 

@@ -1354,6 +1354,7 @@ function getUpcomingBirthdays(businessId, days=7) {
   const rows = db.prepare(`SELECT * FROM loyalty_points WHERE business_id=? AND birthday IS NOT NULL`)
     .all(businessId);
   const today = new Date();
+  today.setHours(0, 0, 0, 0); // midnight, so a birthday that's today counts as 0 days away, not next year
   return rows.filter(r => {
     if (!r.birthday) return false;
     const parts = r.birthday.split('-');
@@ -1665,13 +1666,15 @@ Object.assign(module.exports, { saveWaContactId, getWaContactId });
 // an inbound message immediately followed by our reply can easily land in
 // the same second; without a secondary key ROW_NUMBER()'s tie order is
 // unspecified and can pick the inbound row, silently dropping the thread.
+// Threads whose last message is a staff notice or a campaign (channel 'notice'/'campaign',
+// see messageCustomer in server.js) are left out: the customer didn't walk away from a chat.
 const staleOutboundThreadsStmt = db.prepare(`
   SELECT business_id, phone, message, created_at FROM (
-    SELECT business_id, phone, direction, message, created_at,
+    SELECT business_id, phone, direction, message, created_at, channel,
            ROW_NUMBER() OVER (PARTITION BY business_id, phone ORDER BY created_at DESC, id DESC) rn
     FROM chat_messages
     WHERE created_at >= ?
-  ) WHERE rn = 1 AND direction = 'out'
+  ) WHERE rn = 1 AND direction = 'out' AND COALESCE(channel, '') NOT IN ('notice', 'campaign')
 `);
 function getStaleOutboundThreads(sinceIso) {
   return staleOutboundThreadsStmt.all(sinceIso);

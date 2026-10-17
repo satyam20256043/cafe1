@@ -11,16 +11,22 @@ module.exports = function register(ctx) {
     signToken, verifyToken, loadStaff, STAFF_FILE,
     getSubscriptionStatus, requireActiveSubscription,
     db,
-    whatsappClient,
     emitToBranch,
     loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion,
-    sendWhatsAppToCustomer, GEMINI_MODEL, getLoyaltySettings,
+    sendWhatsAppToCustomer, messageCustomer, GEMINI_MODEL, getLoyaltySettings,
     qrBulkBlocked,
   } = ctx;
   const { rateLimit } = require('../rateLimit');
 
   // Shared "campaigns need the Business API" response for QR-connected cafés.
   const QR_BULK_MSG = "Campaign sends need the Business API — a quick-connect (QR) number only handles customer conversations. Connect the Business API in Settings → WhatsApp to send campaigns.";
+
+  // Express 4 doesn't catch errors thrown inside async handlers: without this, a failure (an
+  // unreadable data file, say) leaves the owner's request hanging instead of answering.
+  const safe = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(e => {
+    console.error('[marketing]', req.method, req.path, e.message);
+    if (!res.headersSent) res.status(500).json({ error: 'Something went wrong. Please try again.' });
+  });
 
 // Chat persistence note: chat_messages table + saveChatMessage live in db.js;
 // processCafeBotReply (server.js wrapper) persists both directions for every
@@ -69,26 +75,20 @@ app.post('/api/businesses/:id/google-review/:claimId/approve', requireAuth, requ
 
   emitToBranch(id, 'google_review_claim_update', { branchId: id, claim: claims[idx] });
 
-  // Notify customer via WhatsApp
-  if (whatsappClient) {
-    try {
-      const business = businesses.find(b => b.id === id) || { name: 'Zordical' };
-      const chatId = '91' + claim.phone + '@c.us';
-      const newBal = card ? card.points : '?';
-      await whatsappClient.sendMessage(chatId,
-        `🎉 *Google Review Verified!*
+  // Tell the customer on WhatsApp
+  const business = businesses.find(b => b.id === id) || { name: 'Zordical' };
+  const newBal = card ? card.points : '?';
+  const notified = await messageCustomer(id, claim.phone, claim.customerName,
+    `🎉 *Google Review Verified!*
 
 Hi ${claim.customerName}! Your Google review has been verified by our team.
 
 🎁 *+100 Loyalty Points* have been added to your account!
 💰 New balance: *${newBal} points*
 ${reviewCoupon ? `🎟 Coupon: *${reviewCoupon}* (15% Off your next visit)\n` : ''}
-Thank you for supporting ${business.name}! ☕`
-      );
-    } catch(e) { console.warn('[Review] WhatsApp notify failed:', e.message); }
-  }
+Thank you for supporting ${business.name}! ☕`);
 
-  res.json({ success: true, claim: claims[idx], card });
+  res.json({ success: true, claim: claims[idx], card, notified });
 });
 
 // POST /api/businesses/:id/google-review/:claimId/reject
@@ -106,23 +106,17 @@ app.post('/api/businesses/:id/google-review/:claimId/reject', requireAuth, requi
   if (db) db.logEvent(id, 'review.claimed', { customerPhone: claims[idx].phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { claimId, status: 'rejected', reason: claims[idx].rejectReason } });
   emitToBranch(id, 'google_review_claim_update', { branchId: id, claim: claims[idx] });
 
-  // Notify customer
-  if (whatsappClient) {
-    try {
-      const chatId = '91' + claims[idx].phone + '@c.us';
-      const business = businesses.find(b => b.id === id) || { name: 'Zordical', review: '' };
-      await whatsappClient.sendMessage(chatId,
-        `😔 We couldn't verify a Google review under the name *${claims[idx].reviewerName}*.
+  // Tell the customer on WhatsApp
+  const business = businesses.find(b => b.id === id) || { name: 'Zordical', review: '' };
+  const notified = await messageCustomer(id, claims[idx].phone, claims[idx].customerName,
+    `😔 We couldn't verify a Google review under the name *${claims[idx].reviewerName}*.
 
 Please make sure your review is posted at:
 ${business.review}
 
-If you think this is a mistake, reply *review claim* and try again. 🙏`
-      );
-    } catch(e) {}
-  }
+If you think this is a mistake, reply *review claim* and try again. 🙏`);
 
-  res.json({ success: true, claim: claims[idx] });
+  res.json({ success: true, claim: claims[idx], notified });
 });
 
 // 4. Get Menu of branch
@@ -188,30 +182,32 @@ app.post('/api/businesses/:id/reservations', (req, res) => {
 });
 
 // 7. Update reservation status (approve/cancel)
-app.post('/api/businesses/:id/reservations/:resId/status', requireAuth, requireBranchAccess, (req, res) => {
+app.post('/api/businesses/:id/reservations/:resId/status', requireAuth, requireBranchAccess, safe(async (req, res) => {
   const { id, resId } = req.params;
   const { status } = req.body;
   const reservations = getBranchData(id, 'reservations.json');
   const index = reservations.findIndex(r => r.id === resId);
   if (index === -1) return res.status(404).json({ error: 'Reservation not found' });
 
+  const previous = reservations[index].status;
   reservations[index].status = status;
   writeBranchData(id, 'reservations.json', reservations);
   if (db) db.logEvent(id, 'reservation.status', { customerPhone: reservations[index].phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { resId, status } });
-
-  // SIMULATE SENDING WHATSAPP CONGRATULATORY UPDATE
-  if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-    const notifyMsg = status === 'approved' 
-      ? `Hi ${reservations[index].name}! Your table reservation for ${reservations[index].guests} guests on ${reservations[index].datetime} has been officially APPROVED! 🎉 We look forward to seeing you. ☕`
-      : `Hi ${reservations[index].name}, due to peak rush or timings, we were unable to approve your booking for ${reservations[index].datetime}. Please try another timing! 😔`;
-    
-    // In a real scenario, we'd send to reservations[index].phone. For safety during sandbox/playground, we log:
-    console.log(`[WhatsApp Broadcast Notification] Sent to customer: "${notifyMsg}"`);
-  }
-
   emitToBranch(id, 'reservation_update', { branchId: id, reservations });
-  res.json({ success: true, reservations });
-});
+
+  // Tell the customer on WhatsApp — once per change, never for a repeat tap.
+  const r = reservations[index];
+  let notified = false;
+  if (status !== previous && (status === 'approved' || status === 'rejected')) {
+    const name = r.name ? ' ' + String(r.name).trim().split(' ')[0] : '';
+    const when = r.datetime ? ` on ${r.datetime}` : '';
+    const text = status === 'approved'
+      ? `Hi${name}! Your table${r.guests ? ` for ${r.guests}` : ''}${when} is confirmed. 🎉 See you soon! ☕`
+      : `Hi${name}, sorry, we can't take your booking${when}. 😔 Reply here and we'll help you find another time.`;
+    notified = await messageCustomer(id, r.phone, r.name, text);
+  }
+  res.json({ success: true, reservations, notified });
+}));
 
 // 8. Get CRM profiles
 app.get('/api/businesses/:id/crm', requireAuth, requireBranchAccess, (req, res) => {
@@ -579,15 +575,16 @@ Output a raw JSON array of objects. Do not wrap in markdown code blocks. Each ob
 });
 
 // Approve and send campaign
-app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), requireActiveSubscription, (req, res) => {
+app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), requireActiveSubscription, safe(async (req, res) => {
   const { id, suggestionId } = req.params;
   const { customOfferText } = req.body;
-  
+
   const cache = campaignSuggestionsCache[id] || [];
   const sug = cache.find(s => s.id === suggestionId);
   if (!sug) return res.status(404).json({ error: 'Suggestion not found or cache expired' });
-  
-  sug.status = 'approved';
+  // A campaign is marketing the customer didn't ask for: Business API only, like broadcasts.
+  if (qrBulkBlocked && qrBulkBlocked(id)) return res.json({ success: false, message: QR_BULK_MSG });
+
   let textToSend = customOfferText || sug.offerText;
 
   let aiCampaignCoupon = null;
@@ -597,6 +594,12 @@ app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', re
     aiCampaignCoupon = issued.code;
     textToSend += `\n\n🎟 Use code *${aiCampaignCoupon}* at checkout for 15% off!`;
   }
+
+  const sent = await messageCustomer(id, sug.customerPhone, sug.customerName, textToSend, { bulk: true });
+  if (!sent) {
+    return res.json({ success: false, message: "Couldn't send this on WhatsApp. Check your WhatsApp connection in Settings and try again." });
+  }
+  sug.status = 'approved';
   sug.offerText = textToSend;
 
   // Update CRM customer profile with offer received
@@ -612,24 +615,9 @@ app.post('/api/businesses/:id/ai-campaign-suggestions/:suggestionId/approve', re
     emitToBranch(id, 'crm_update', { branchId: id, profiles });
   }
 
-  // Broadcast simulated chat notification
-  emitToBranch(id, 'inbound_chat', {
-    branchId: id,
-    phone: sug.customerPhone,
-    text: `🎁 *[AI SMART CAMPAIGN]*: ${textToSend}`,
-    sender: 'ai',
-    timestamp: new Date().toLocaleTimeString()
-  });
-  
-  // Send via WhatsApp if connected
-  if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-    const wid = sug.customerPhone.includes('@') ? sug.customerPhone : `${sug.customerPhone}@c.us`;
-    whatsappClient.sendMessage(wid, textToSend).catch(e => console.error('[WhatsApp AI Campaign Error]', e));
-  }
-
   if (db) db.logEvent(id, 'campaign.sent', { customerPhone: sug.customerPhone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'ai_campaign', suggestionId, offerText: textToSend } });
   res.json({ success: true, suggestion: sug });
-});
+}));
 
 // 11. Programmatic chatbot response simulation (Async)
 app.post('/api/businesses/:id/chat', async (req, res) => {
@@ -661,7 +649,7 @@ app.get('/api/businesses/:id/offers', requireAuth, requireBranchAccess, (req, re
 });
 
 // 13. Approve custom offer
-app.post('/api/businesses/:id/offers/:offerId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
+app.post('/api/businesses/:id/offers/:offerId/approve', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), safe(async (req, res) => {
   const { id, offerId } = req.params;
   const { customText } = req.body;
   const offers = getBranchData(id, 'offer_requests.json');
@@ -683,27 +671,16 @@ app.post('/api/businesses/:id/offers/:offerId/approve', requireAuth, requireBran
   }
   writeBranchData(id, 'offer_requests.json', offers);
 
-  if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-    const wid = phone.includes('@') ? phone : `${phone}@c.us`;
-    whatsappClient.sendMessage(wid, msgContent).catch(e => console.error('Send error', e));
-  }
+  // The customer asked for this, so it's a reply, not a campaign: allowed on QR too.
+  const notified = await messageCustomer(id, phone, null, msgContent);
 
-  // Emit chat response to simulated logs
-  emitToBranch(id, 'inbound_chat', {
-    branchId: id,
-    phone: phone,
-    text: `🔔 *[APPROVED CUSTOM OFFER]*: ${msgContent}`,
-    sender: 'ai',
-    timestamp: new Date().toLocaleTimeString()
-  });
-
-  if (db) db.logEvent(id, 'campaign.sent', { customerPhone: phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'offer_request_approved', offerId } });
+  if (db) db.logEvent(id, 'campaign.sent', { customerPhone: phone, actor: req.staff ? `staff:${req.staff.id}` : 'staff', metadata: { source: 'offer_request_approved', offerId, sent: notified } });
   emitToBranch(id, 'offers_update', { branchId: id, offers });
-  res.json({ success: true, offers });
-});
+  res.json({ success: true, offers, notified });
+}));
 
 // 14. Reject custom offer
-app.post('/api/businesses/:id/offers/:offerId/reject', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), (req, res) => {
+app.post('/api/businesses/:id/offers/:offerId/reject', requireAuth, requireBranchAccess, requireRole('owner','manager','agency_admin','admin'), safe(async (req, res) => {
   const { id, offerId } = req.params;
   const offers = getBranchData(id, 'offer_requests.json');
   const index = offers.findIndex(o => o.id === offerId);
@@ -713,25 +690,12 @@ app.post('/api/businesses/:id/offers/:offerId/reject', requireAuth, requireBranc
   writeBranchData(id, 'offer_requests.json', offers);
 
   const phone = offers[index].phone;
-  const msgContent = `Sorry, we cannot offer any additional custom discount at this time. However, please check out our Tuesday Coffee specials! 😊☕`;
-
-  if (whatsappClient && whatsappConnectionStatus === 'Connected') {
-    const wid = phone.includes('@') ? phone : `${phone}@c.us`;
-    whatsappClient.sendMessage(wid, msgContent).catch(e => console.error('Send error', e));
-  }
-
-  // Emit chat response to simulated logs
-  emitToBranch(id, 'inbound_chat', {
-    branchId: id,
-    phone: phone,
-    text: msgContent,
-    sender: 'ai',
-    timestamp: new Date().toLocaleTimeString()
-  });
+  const msgContent = `Sorry, we can't offer an extra discount on this one right now. We'd still love to see you soon! 😊☕`;
+  const notified = await messageCustomer(id, phone, null, msgContent);
 
   emitToBranch(id, 'offers_update', { branchId: id, offers });
-  res.json({ success: true, offers });
-});
+  res.json({ success: true, offers, notified });
+}));
 
 // ── AI escalations (G3) ───────────────────────────────────────────────────────
 // Customer messages the AI escalated instead of handling itself — complaints/

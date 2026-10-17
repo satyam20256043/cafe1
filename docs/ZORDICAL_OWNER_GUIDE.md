@@ -97,7 +97,7 @@ Customers will ask for discounts. In **Menu & Pricing → AI Discount Limit**, s
 
 The **AI Max %** column in your menu sets a different limit for one item. For example: 10% across the café, but up to 25% on Cold Coffee.
 
-This limit is also used for follow-up offers. See [Follow-ups](#follow-ups-for-customers-who-go-quiet).
+Just below, **⏰ Follow-up offer** sets the discount for customers who go quiet in a chat, or switches it off. See [Follow-ups](#follow-ups-for-customers-who-go-quiet).
 
 ---
 
@@ -149,7 +149,7 @@ Reply from **Customer Chats**, or tap **💬 WhatsApp Customer**. When you've so
 
 ### Discount requests
 
-If a request is within your AI Discount Limit, the AI gives the customer a coupon code straight away. If it isn't, the AI says it's checking with the manager, and the request appears in **Offer Requests**. **Approve** lets you write the offer the customer receives. **Reject** turns it down.
+If a request is within your AI Discount Limit, the AI gives the customer a coupon code straight away. If it isn't, the AI says it's checking with the manager, and the request appears in **Offer Requests**. **Approve** lets you write the offer, which is sent to the customer on WhatsApp with a coupon code. **Reject** sends them a polite no.
 
 ### Follow-ups for customers who go quiet
 
@@ -158,7 +158,7 @@ If a customer stops replying partway through a chat, the AI follows up once:
 1. After **10 minutes**: a friendly check-in, with no discount.
 2. **15 minutes** later, if there's still no reply: an offer for that day only, with a coupon code.
 
-The offer uses your AI Discount Limit. **If your limit is 0%, the follow-up offer is 10%.** Follow-ups stop while your plan is paused.
+You choose the offer in **Menu & Pricing → ⏰ Follow-up offer**. The box shows the % being used now (10% unless you've changed it). Set it to **0** to switch the offer off: quiet customers then get only the friendly check-in. Follow-ups stop while your plan is paused.
 
 ### Replying yourself
 
@@ -204,7 +204,9 @@ Delivery customers must give a phone number and address. They get WhatsApp updat
 
 ### Reservations
 
-The AI takes bookings in the chat (name, number of guests, date and time) and confirms them to the customer. Every booking appears in **Reservations** so you can plan the day. **Approve** marks it confirmed; **Cancel** cancels it. If you cancel, message the customer yourself to let them know. Groups of 8 or more come to you in **Needs You** before anything is confirmed.
+The AI takes bookings in the chat (name, number of guests, date and time). Every booking appears in **Reservations** so you can plan the day. **Approve** sends the customer a WhatsApp confirmation. **Cancel** tells them you can't take the booking and invites them to pick another time. Groups of 8 or more come to you in **Needs You** first.
+
+After each of these, the dashboard tells you whether the WhatsApp message reached the customer. If it couldn't (for example, WhatsApp isn't connected), contact them yourself.
 
 ---
 
@@ -221,7 +223,7 @@ Set the rules in **Settings → 🎁 Loyalty & Discounts**:
 - Whether points **expire** after some months without a visit. Turning this on never removes points already earned.
 - An optional **student discount**.
 
-The **Loyalty & Rewards** tab shows your members, a points leaderboard and recent activity. Use **Manual Points Adjustment** to add goodwill points or fix a mistake (enter a minus number to deduct). **Upcoming Birthdays** lists customers with a birthday in the next 7 days, so you can send them a wish and a treat.
+The **Loyalty & Rewards** tab shows your members, a points leaderboard and recent activity. Use **Manual Points Adjustment** to add goodwill points or fix a mistake (enter a minus number to deduct). **Upcoming Birthdays** lists customers with a birthday in the next 7 days. Tap **Wish** next to a customer to send them a birthday message on WhatsApp with a free-dessert code. **Send WhatsApp Wishes** sends to everyone on the list at once; that needs the WhatsApp Business API, like other campaigns.
 
 ### Reviews and ratings
 
@@ -229,8 +231,8 @@ Customers can rate you in the WhatsApp chat. After a **5-star** rating, the AI i
 
 **Google review claims.** After posting on Google, the customer tells the AI the name they reviewed under. A claim then appears in **Loyalty & Rewards → ⭐ Google Review Claims**. Check your Google listing for a review under that name, then:
 
-- **Approve**: the customer gets 100 loyalty points and a 15%-off coupon.
-- **Reject**: if you can't find the review.
+- **Approve**: the customer gets 100 loyalty points and a 15%-off coupon, and a WhatsApp message telling them so.
+- **Reject**: if you can't find the review. The customer gets a WhatsApp message asking them to check it.
 
 Check this list every few days so customers aren't kept waiting.
 
@@ -319,7 +321,7 @@ WhatsApp alerts go to the owner number on your account and are sent through your
 
 **Campaigns or broadcasts aren't sending**
 
-These need the WhatsApp Business API connection, not Quick connect (QR). They also pause while your plan is paused.
+These need the WhatsApp Business API connection, not Quick connect (QR). They also pause while your plan is paused. After a broadcast, the CRM tab shows how many customers it actually reached.
 
 ---
 

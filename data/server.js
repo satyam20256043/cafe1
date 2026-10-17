@@ -1388,6 +1388,15 @@ const REENGAGE_OFFER_AFTER_MS   = 15 * 60 * 1000;    // +15 min after the check-
 const REENGAGE_LOOKBACK_MS      = 2 * 60 * 60 * 1000; // ignore threads gone stale longer ago than this
 const REENGAGE_DEFAULT_DISCOUNT = 10; // used when the café hasn't set its own AI discount ceiling
 
+// The follow-up offer % for a café. The owner's own setting (followUpOfferPct, from Menu &
+// Pricing) wins, and 0 means "check-in only, no offer". Cafés that never set it keep the
+// original rule: their AI discount limit, or 10% when that limit is 0.
+function getFollowUpOfferPct(settings) {
+  const s = settings && !Array.isArray(settings) ? settings : {};
+  if (Number.isFinite(s.followUpOfferPct)) return Math.max(0, Math.min(100, Math.round(s.followUpOfferPct)));
+  return (Number.isFinite(s.aiMaxDiscount) && s.aiMaxDiscount > 0) ? s.aiMaxDiscount : REENGAGE_DEFAULT_DISCOUNT;
+}
+
 function sqliteTimeToMs(s) { return new Date(String(s).replace(' ', 'T') + 'Z').getTime(); }
 // SQLite's datetime('now')/CURRENT_TIMESTAMP writes "YYYY-MM-DD HH:MM:SS" —
 // always UTC, but with no zone marker. Sent to the browser as-is, `new
@@ -1502,9 +1511,12 @@ async function sweepReengagementNudgesInner() {
         if (coupon) {
           discountPct = coupon.discount_value;
         } else {
-          const settings = getBranchData(branchId, 'branch-settings.json');
-          discountPct = (settings && Number.isFinite(settings.aiMaxDiscount) && settings.aiMaxDiscount > 0)
-            ? settings.aiMaxDiscount : REENGAGE_DEFAULT_DISCOUNT;
+          discountPct = getFollowUpOfferPct(getBranchData(branchId, 'branch-settings.json'));
+          if (discountPct <= 0) {
+            // Owner switched follow-up offers off: the check-in was the only nudge this cycle.
+            db.advanceReengagementStage(branchId, phone, 'offer_sent', row.anchor_at);
+            continue;
+          }
           coupon = db.issueCoupon({
             businessId: branchId, sourceType: 'reengagement', sourceId, customerPhone: phone,
             discountType: 'percent', discountValue: discountPct,
@@ -2523,6 +2535,7 @@ const routeCtx = {
   loadGrowthSuggestion, saveGrowthSuggestion, computeGrowthSuggestion, runWeeklyGrowthSuggestions,
   runTrialReminders,
   sendWhatsAppToCustomer, getWaConfig, writeWaConfig, getRazorpayConfig, getLoyaltySettings, getDeliverySettings, GEMINI_MODEL,
+  getFollowUpOfferPct, messageCustomer,
   startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   waweb, startQrClientForBranch, qrBulkBlocked,
   opsAlerts, backup,
@@ -2983,6 +2996,23 @@ async function sendWhatsAppToCustomer(branchId, phone, text, opts = {}) {
   }
 }
 
+// One message to one customer that the café's staff triggered (an approved offer, a booking
+// answer, a review-claim result, a birthday wish). Goes out through the café's own WhatsApp
+// like the AI's replies, and when it's sent it's saved to Customer Chats. Pass {bulk:true}
+// for marketing sends, so the QR and lapsed-plan rules apply. Resolves true when sent.
+// Saved under channel 'notice' (or 'campaign' for bulk), which the follow-up sweep skips: a
+// booking confirmation or a campaign isn't a chat the customer walked away from.
+async function messageCustomer(branchId, phone, customerName, text, opts = {}) {
+  if (!phone || !text) return false;
+  let sent = false;
+  try { sent = await sendWhatsAppToCustomer(branchId, phone, text, opts); } catch (e) { sent = false; }
+  if (sent && db) {
+    db.saveChatMessage(branchId, phone, customerName || null, 'out', text, opts.bulk ? 'campaign' : 'notice');
+    emitToBranch(branchId, 'inbound_chat', { branchId, phone, text, sender: 'ai' });
+  }
+  return !!sent;
+}
+
 // ── Forgot password via WhatsApp OTP ─────────────────────────────────────────
 // Only works once a café has connected its own WhatsApp (Settings tab) — there
 // is no agency-wide sender number configured, so this can't fall back to one.
@@ -3400,8 +3430,8 @@ io.on('connection', (socket) => {
 
   // Handle dynamic campaign triggers — requires a staff token for the branch,
   // otherwise any visitor could broadcast WhatsApp messages to all customers.
-  socket.on('trigger_campaign_broadcast', (data) => {
-    const { branchId, campaignText, targetTag, token } = data;
+  socket.on('trigger_campaign_broadcast', async (data) => {
+    const { branchId, campaignText, targetTag, token } = data || {};
     const staff = token ? verifyToken(token) : null;
     const allowed = staff && (
       ['agency_admin', 'admin'].includes(staff.role) || staff.businessId === branchId
@@ -3410,25 +3440,26 @@ io.on('connection', (socket) => {
       socket.emit('campaign_broadcast_result', { success: false, error: 'Not authorized for this branch' });
       return;
     }
+    // Say up front why nothing can go out, instead of reporting sends that never happened.
+    const refuse = error => socket.emit('campaign_broadcast_result', { success: false, error });
+    if (!campaignText || !String(campaignText).trim()) return refuse('Enter a campaign message');
+    if (!isServiceActive(branchId)) return refuse('Your Zordical plan has ended, so campaigns are paused. Renew to send them.');
+    if (qrBulkBlocked(branchId)) return refuse('Campaigns need the WhatsApp Business API. A quick-connect (QR) number only handles customer conversations. Set up the Business API in Settings → WhatsApp Connection.');
+    if (!isWhatsAppConnected(branchId)) return refuse('WhatsApp isn\'t connected. Connect it in Settings → WhatsApp Connection first.');
+
     const profiles = getBranchData(branchId, 'customer_profiles.json');
+    const targetCustomers = profiles.filter(p => p.phone && (targetTag === 'all' || (p.tags || []).includes(targetTag)));
 
-    // Filter profiles by tag
-    const targetCustomers = profiles.filter(p => targetTag === 'all' || (p.tags || []).includes(targetTag));
+    // One at a time, recording what actually happened to each send.
+    const logs = [];
+    for (const cust of targetCustomers) {
+      const ok = await messageCustomer(branchId, cust.phone, cust.name, campaignText, { bulk: true });
+      logs.push({ phone: cust.phone, name: cust.name, status: ok ? 'Sent' : 'Failed' });
+    }
+    const sent = logs.filter(l => l.status === 'Sent').length;
+    console.log(`[Broadcast] ${branchId}: sent ${sent} of ${logs.length}`);
 
-    let logs = [];
-    targetCustomers.forEach(cust => {
-      const msgLog = `[SaaS Promo Broadcast] Sent to ${cust.name || 'Customer'} (${cust.phone}): "${campaignText}"`;
-      console.log(msgLog);
-      logs.push({ phone: cust.phone, name: cust.name, status: 'Sent Successfully' });
-
-      // Send via WhatsApp (Cloud API or QR, whichever this branch is on) —
-      // {bulk:true} makes sendWhatsAppToCustomer itself refuse QR-linked
-      // numbers (ban-risk), same protection runAutoPilotCampaign gets.
-      sendWhatsAppToCustomer(branchId, cust.phone, campaignText, { bulk: true })
-        .catch(e => console.error('Send error', e));
-    });
-
-    socket.emit('campaign_broadcast_result', { success: true, logs });
+    socket.emit('campaign_broadcast_result', { success: true, sent, total: logs.length, logs });
   });
 
   socket.on('disconnect', () => {

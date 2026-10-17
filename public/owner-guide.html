@@ -81,7 +81,7 @@ h2,h3,#cheat-card{scroll-margin-top:16px}
 <p>Customers will ask for discounts. In <strong>Menu &amp; Pricing → AI Discount Limit</strong>, set the most the AI may give on its own, then tap <strong>Save Limit</strong>.</p>
 <ul><li><strong>0%</strong> (the default): every discount request comes to you in <strong>Offer Requests</strong>.</li><li><strong>Above 0%</strong>: the AI gives up to that much straight away, with a coupon code the customer shows at billing. Bigger requests still come to you.</li></ul>
 <p>The <strong>AI Max %</strong> column in your menu sets a different limit for one item. For example: 10% across the café, but up to 25% on Cold Coffee.</p>
-<p>This limit is also used for follow-up offers. See <a href="#follow-ups-for-customers-who-go-quiet">Follow-ups</a>.</p>
+<p>Just below, <strong>⏰ Follow-up offer</strong> sets the discount for customers who go quiet in a chat, or switches it off. See <a href="#follow-ups-for-customers-who-go-quiet">Follow-ups</a>.</p>
 <hr>
 <h2 id="your-daily-5-minute-routine">Your daily 5-minute routine</h2>
 <p><strong>Morning</strong></p>
@@ -104,11 +104,11 @@ h2,h3,#cheat-card{scroll-margin-top:16px}
 <p>The customer gets a polite reply saying the team will get back to them. You get a WhatsApp alert with their message and a suggested next step, and the conversation appears in the <strong>⚠️ Needs You</strong> card on Overview.</p>
 <p>Reply from <strong>Customer Chats</strong>, or tap <strong>💬 WhatsApp Customer</strong>. When you've sorted it out, tap <strong>✓ Mark Handled</strong>. For questions the AI couldn't answer, add the answer in <strong>Teach your AI</strong> so it can handle them next time.</p>
 <h3 id="discount-requests">Discount requests</h3>
-<p>If a request is within your AI Discount Limit, the AI gives the customer a coupon code straight away. If it isn't, the AI says it's checking with the manager, and the request appears in <strong>Offer Requests</strong>. <strong>Approve</strong> lets you write the offer the customer receives. <strong>Reject</strong> turns it down.</p>
+<p>If a request is within your AI Discount Limit, the AI gives the customer a coupon code straight away. If it isn't, the AI says it's checking with the manager, and the request appears in <strong>Offer Requests</strong>. <strong>Approve</strong> lets you write the offer, which is sent to the customer on WhatsApp with a coupon code. <strong>Reject</strong> sends them a polite no.</p>
 <h3 id="follow-ups-for-customers-who-go-quiet">Follow-ups for customers who go quiet</h3>
 <p>If a customer stops replying partway through a chat, the AI follows up once:</p>
 <ol><li>After <strong>10 minutes</strong>: a friendly check-in, with no discount.</li><li><strong>15 minutes</strong> later, if there's still no reply: an offer for that day only, with a coupon code.</li></ol>
-<p>The offer uses your AI Discount Limit. <strong>If your limit is 0%, the follow-up offer is 10%.</strong> Follow-ups stop while your plan is paused.</p>
+<p>You choose the offer in <strong>Menu &amp; Pricing → ⏰ Follow-up offer</strong>. The box shows the % being used now (10% unless you've changed it). Set it to <strong>0</strong> to switch the offer off: quiet customers then get only the friendly check-in. Follow-ups stop while your plan is paused.</p>
 <h3 id="replying-yourself">Replying yourself</h3>
 <p><strong>Customer Chats</strong> shows every conversation, newest first. Search by name, phone number or words. Open a chat and type in the box at the bottom to send a reply straight to the customer's WhatsApp.</p>
 <h3 id="daily-ai-allowance-on-the-trial-and-starter">Daily AI allowance on the trial and Starter</h3>
@@ -129,18 +129,19 @@ h2,h3,#cheat-card{scroll-margin-top:16px}
 <ol><li>In <strong>Settings → 🛵 Delivery</strong>, tick <strong>Offer delivery ordering</strong>.</li><li>Set your delivery fee, the order value above which delivery is free, any minimum order, and a note about where you deliver.</li><li>Optional: tick <strong>Require my approval before the kitchen sees a delivery order</strong>. New delivery orders then wait in <strong>🕐 Awaiting Approval</strong> on Orders &amp; Revenue until you accept them.</li><li>Tap <strong>Save Delivery Settings</strong>.</li><li>Copy your <strong>Delivery Ordering Link</strong> from the <strong>Table QR Codes</strong> tab and share it on Instagram, WhatsApp or your website.</li></ol>
 <p>Delivery customers must give a phone number and address. They get WhatsApp updates as their order moves along.</p>
 <h3 id="reservations">Reservations</h3>
-<p>The AI takes bookings in the chat (name, number of guests, date and time) and confirms them to the customer. Every booking appears in <strong>Reservations</strong> so you can plan the day. <strong>Approve</strong> marks it confirmed; <strong>Cancel</strong> cancels it. If you cancel, message the customer yourself to let them know. Groups of 8 or more come to you in <strong>Needs You</strong> before anything is confirmed.</p>
+<p>The AI takes bookings in the chat (name, number of guests, date and time). Every booking appears in <strong>Reservations</strong> so you can plan the day. <strong>Approve</strong> sends the customer a WhatsApp confirmation. <strong>Cancel</strong> tells them you can't take the booking and invites them to pick another time. Groups of 8 or more come to you in <strong>Needs You</strong> first.</p>
+<p>After each of these, the dashboard tells you whether the WhatsApp message reached the customer. If it couldn't (for example, WhatsApp isn't connected), contact them yourself.</p>
 <hr>
 <h2 id="bringing-customers-back">Bringing customers back</h2>
 <h3 id="loyalty-points-and-stamps">Loyalty points and stamps</h3>
 <p>Every completed order earns points and one stamp. 10 stamps earn a free item. Customers move up loyalty tiers as they keep coming back.</p>
 <p>Set the rules in <strong>Settings → 🎁 Loyalty &amp; Discounts</strong>:</p>
 <ul><li><strong>Points earned per ₹1 spent</strong> and <strong>points needed for ₹1 off</strong>. The screen shows what this works out to in rupees.</li><li>A <strong>minimum</strong> number of points before a customer can redeem.</li><li>Whether points <strong>expire</strong> after some months without a visit. Turning this on never removes points already earned.</li><li>An optional <strong>student discount</strong>.</li></ul>
-<p>The <strong>Loyalty &amp; Rewards</strong> tab shows your members, a points leaderboard and recent activity. Use <strong>Manual Points Adjustment</strong> to add goodwill points or fix a mistake (enter a minus number to deduct). <strong>Upcoming Birthdays</strong> lists customers with a birthday in the next 7 days, so you can send them a wish and a treat.</p>
+<p>The <strong>Loyalty &amp; Rewards</strong> tab shows your members, a points leaderboard and recent activity. Use <strong>Manual Points Adjustment</strong> to add goodwill points or fix a mistake (enter a minus number to deduct). <strong>Upcoming Birthdays</strong> lists customers with a birthday in the next 7 days. Tap <strong>Wish</strong> next to a customer to send them a birthday message on WhatsApp with a free-dessert code. <strong>Send WhatsApp Wishes</strong> sends to everyone on the list at once; that needs the WhatsApp Business API, like other campaigns.</p>
 <h3 id="reviews-and-ratings">Reviews and ratings</h3>
 <p>Customers can rate you in the WhatsApp chat. After a <strong>5-star</strong> rating, the AI invites them to review you on Google. Lower ratings stay private: they appear in <strong>Reviews → In-app feedback</strong> so you can follow up.</p>
 <p><strong>Google review claims.</strong> After posting on Google, the customer tells the AI the name they reviewed under. A claim then appears in <strong>Loyalty &amp; Rewards → ⭐ Google Review Claims</strong>. Check your Google listing for a review under that name, then:</p>
-<ul><li><strong>Approve</strong>: the customer gets 100 loyalty points and a 15%-off coupon.</li><li><strong>Reject</strong>: if you can't find the review.</li></ul>
+<ul><li><strong>Approve</strong>: the customer gets 100 loyalty points and a 15%-off coupon, and a WhatsApp message telling them so.</li><li><strong>Reject</strong>: if you can't find the review. The customer gets a WhatsApp message asking them to check it.</li></ul>
 <p>Check this list every few days so customers aren't kept waiting.</p>
 <p>Connecting your <strong>Google Business Profile</strong> (AI-drafted replies to Google reviews, Google posts and listing insights) is coming soon. Until then, the Google card in Settings says it isn't available yet.</p>
 <h3 id="your-customer-list-crm">Your customer list (CRM)</h3>
@@ -175,7 +176,7 @@ h2,h3,#cheat-card{scroll-margin-top:16px}
 <p><strong>I'm not getting alerts</strong></p>
 <p>WhatsApp alerts go to the owner number on your account and are sent through your café's WhatsApp, so it must be connected. For dashboard alerts, tap the 🔔 bell and allow notifications. To change your owner number, message Zordical support.</p>
 <p><strong>Campaigns or broadcasts aren't sending</strong></p>
-<p>These need the WhatsApp Business API connection, not Quick connect (QR). They also pause while your plan is paused.</p>
+<p>These need the WhatsApp Business API connection, not Quick connect (QR). They also pause while your plan is paused. After a broadcast, the CRM tab shows how many customers it actually reached.</p>
 <hr>
 <h2 id="getting-help">Getting help</h2>
 <p>Message Zordical on WhatsApp: <strong>+91 80042 84193</strong> (<a href="https://wa.me/918004284193" target="_blank" rel="noopener">wa.me/918004284193</a>). Tell us your café name and what you were trying to do. A screenshot helps.</p>

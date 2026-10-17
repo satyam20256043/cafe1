@@ -744,6 +744,27 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
           </div>
         </div>
       </div>
+
+      <div class="panel" style="margin-top:14px;border-left:3px solid var(--caramel)">
+        <div class="panel-head">
+          <div><div class="panel-title">⏰ Follow-up offer — customers who go quiet</div>
+          <div class="panel-sub">If a customer stops replying mid-chat, the AI checks in after 10 minutes. If there's still no reply 15 minutes later, it sends a coupon for this %, valid that day only.</div></div>
+        </div>
+        <div class="panel-body">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <label for="followup-offer-pct" style="font-size:13px;font-weight:600">Follow-up offer</label>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input class="form-input" id="followup-offer-pct" type="number" min="0" max="100" step="1" value="10" style="width:80px"/>
+              <span style="font-weight:600">%</span>
+            </div>
+            <button class="btn primary" onclick="saveFollowUpOffer()">Save</button>
+            <span id="followup-offer-msg" style="font-size:12.5px"></span>
+          </div>
+          <div style="font-size:12px;color:#9A8870;margin-top:10px;line-height:1.5">
+            Set to <strong>0</strong> to switch the offer off — quiet customers still get the friendly check-in, with no discount.
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- CRM -->
@@ -1900,6 +1921,12 @@ function toast(msg, type=''){
   t.textContent=msg; c.appendChild(t);
   setTimeout(()=>t.remove(),3500);
 }
+// After an action that messages the customer (offers, bookings, review claims): say whether
+// WhatsApp actually reached them, so nobody assumes a message went out when it didn't.
+function toastCustomerTold(done, d){
+  if (d && d.notified) toast(done + ' — customer told on WhatsApp', 'success');
+  else toast(done + " — couldn't message the customer on WhatsApp, please contact them yourself", 'error');
+}
 // Alias — some sections use showToast(msg, isError)
 function showToast(msg, isError){
   toast(msg, isError ? 'error' : 'success');
@@ -2213,7 +2240,7 @@ async function dismissGrowthSuggestion(){
 
 // ── Customer Chats tab: full history + live view ─────────────────────────────
 let _chatConvos = [], _chatOpenPhone = null, _chatOpenName = null;
-const CHAT_CHANNEL_ICONS = { whatsapp:'📱', web:'🌐', simulator:'🖥' };
+const CHAT_CHANNEL_ICONS = { whatsapp:'📱', web:'🌐', simulator:'🖥', notice:'🔔', campaign:'📢' };
 
 async function loadChatConvos(){
   const body = document.getElementById('chats-body');
@@ -2528,8 +2555,10 @@ async function loadReservations(){
 async function updateRes(id, status){
   if (status === 'rejected' && !confirm('Cancel this reservation? The customer will be notified.')) return;
   try {
-    await fetch(`/api/businesses/${branchId}/reservations/${id}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
-    toast(`Reservation ${status}`,'success');
+    const r=await fetch(`/api/businesses/${branchId}/reservations/${id}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) toast(d.error||'Could not update the booking','error');
+    else toastCustomerTold(status==='approved'?'Booking confirmed':'Booking cancelled', d);
     loadReservations(); loadOverviewKPIs();
 
   } catch(e) {
@@ -2627,7 +2656,31 @@ async function loadAiDiscount(){
     const s=await r.json();
     const inp=document.getElementById('ai-max-discount');
     if(inp) inp.value=Number(s.aiMaxDiscount)||0;
+    const fu=document.getElementById('followup-offer-pct');
+    if(fu && Number.isFinite(Number(s.followUpOfferPct))) fu.value=Number(s.followUpOfferPct);
   } catch(e){ console.error('[loadAiDiscount]', e); }
+}
+
+async function saveFollowUpOffer(){
+  const inp=document.getElementById('followup-offer-pct');
+  const msg=document.getElementById('followup-offer-msg');
+  const val=Math.max(0,Math.min(100,Math.round(Number(inp.value)||0)));
+  inp.value=val;
+  msg.textContent='Saving…'; msg.style.color='#9A8870';
+  try {
+    const r=await fetch(`/api/businesses/${branchId}/settings`,{
+      method:'PUT',headers:{'Content-Type':'application/json',...getAuthHeaders()},
+      body:JSON.stringify({followUpOfferPct:val})
+    });
+    const d=await r.json();
+    if(d.success){
+      msg.textContent=val>0?`✓ Quiet customers get a ${val}% same-day offer`:'✓ Follow-up offers off — check-in only';
+      msg.style.color='var(--sage)';
+    } else { msg.textContent='✕ '+(d.error||'Failed'); msg.style.color='var(--rose)'; }
+  } catch(e){
+    console.error('[saveFollowUpOffer]', e);
+    msg.textContent='✕ Could not save'; msg.style.color='var(--rose)';
+  }
 }
 
 async function saveAiDiscount(){
@@ -2998,8 +3051,19 @@ async function broadcastCampaign(){
   }
 }
 socket.on('campaign_broadcast_result',data=>{
-  document.getElementById('broadcast-result').textContent=`✅ Sent to ${data.logs.length} customer(s)`;
-  toast(`Campaign sent to ${data.logs.length} customers`,'success');
+  const el=document.getElementById('broadcast-result');
+  if(!data||!data.success){
+    const err=(data&&data.error)||'Campaign not sent';
+    el.textContent='✕ '+err; el.style.color='var(--rose)';
+    toast(err,'error');
+    return;
+  }
+  const failed=data.total-data.sent;
+  el.textContent=data.total
+    ? `✅ Sent to ${data.sent} of ${data.total} customer(s)`+(failed?` · ${failed} couldn't be reached`:'')
+    : 'No customers in that group yet';
+  el.style.color=data.total&&!data.sent?'var(--rose)':'var(--sage)';
+  toast(data.total?`Campaign sent to ${data.sent} of ${data.total} customers`:'No customers in that group yet',data.sent||!data.total?'success':'error');
 });
 
 // Feedback
@@ -3802,7 +3866,7 @@ async function approveCampaign(id){
     const r=await fetch(`/api/businesses/${branchId}/ai-campaign-suggestions/${id}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customOfferText})});
     const d=await r.json();
     if(d.success){ toast('Campaign sent to customer via WhatsApp!','success'); loadCampaigns(); }
-    else toast('Error sending campaign','error');
+    else toast(d.message||d.error||'Error sending campaign','error');
 
   } catch(e) {
     console.error('[approveCampaign]', e);
@@ -3814,7 +3878,9 @@ async function triggerAutoPilot(){
   try {
     const r=await fetch(`/api/businesses/${branchId}/autopilot/trigger`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
     const d=await r.json();
-    toast(d.result&&d.result.count?`Auto-pilot sent to ${d.result.count} customer(s)`:'No target customers matched today','success');
+    const ap=d.result||{};
+    if(ap.success===false&&ap.reason) toast(ap.reason,'error');
+    else toast(ap.count?`Auto-pilot sent to ${ap.count} customer(s)`:'No target customers matched today','success');
 
   } catch(e) {
     console.error('[triggerAutoPilot]', e);
@@ -3867,8 +3933,10 @@ function openApproveOffer(i){
 async function submitApproveOffer(){
   try {
     const text=document.getElementById('approve-offer-text').value.trim();
-    await fetch(`/api/businesses/${branchId}/offers/${currentOfferId}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customText:text})});
-    toast('Offer approved and sent!','success');
+    const r=await fetch(`/api/businesses/${branchId}/offers/${currentOfferId}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customText:text})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){ toast(d.error||'Could not approve the offer','error'); return; }
+    toastCustomerTold('Offer approved', d);
     closeModal('approve-offer-modal');
     loadOffers(); loadOverviewKPIs();
 
@@ -3881,8 +3949,10 @@ async function submitApproveOffer(){
 async function rejectOffer(id){
   if (!confirm('Reject this offer request? The customer will be notified.')) return;
   try {
-    await fetch(`/api/businesses/${branchId}/offers/${id}/reject`,{method:'POST'});
-    toast('Offer rejected');
+    const r=await fetch(`/api/businesses/${branchId}/offers/${id}/reject`,{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){ toast(d.error||'Could not reject the offer','error'); return; }
+    toastCustomerTold('Offer rejected', d);
     loadOffers();
 
   } catch(e) {
@@ -5199,8 +5269,8 @@ async function sendBirthdayCampaign() {
   try {
     const res = await fetch('/api/businesses/' + branchId + '/loyalty/birthday-campaign', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
     const data = await res.json();
-    msg.textContent = data.message || ('Sent to ' + (data.sent||0) + ' customers');
-    msg.style.color = '#7ECF7E';
+    msg.textContent = data.message || data.error || ('Sent to ' + (data.sent||0) + ' customers');
+    msg.style.color = (res.ok && data.success !== false) ? '#7ECF7E' : '#E84545';
     loadLoyalty();
   } catch(e) { console.error('[sendBirthdayCampaign]', e); msg.textContent = 'Error: ' + friendly(e); msg.style.color = '#E84545'; }
   finally { btn.disabled=false; btn.innerHTML='<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg> Send WhatsApp Wishes'; }
@@ -5212,10 +5282,10 @@ async function sendSingleBday(phone, name) {
   try {
     const res = await fetch('/api/businesses/' + branchId + '/loyalty/birthday-campaign', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ phone })
+      body: JSON.stringify({ phone, name: name === 'Guest' ? '' : name })
     });
     const data = await res.json();
-    if (msg) { msg.textContent = data.message || 'Sent!'; msg.style.color = '#7ECF7E'; }
+    if (msg) { msg.textContent = data.message || data.error || 'Sent!'; msg.style.color = data.sent ? '#7ECF7E' : '#E84545'; }
   } catch(e) { console.error('[sendSingleBday]', e); if(msg) { msg.textContent='Error: '+friendly(e); msg.style.color='#E84545'; } }
 }
 
@@ -5300,7 +5370,7 @@ async function approveReviewClaim(claimId) {
     const res  = await fetch('/api/businesses/'+branchId+'/google-review/'+claimId+'/approve', { method:'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast('✅ Approved! +100 points awarded and customer notified via WhatsApp.', 'success');
+    toastCustomerTold('Approved, +100 points and a 15% coupon added', data);
     loadReviewClaims();
     loadLoyalty();
   } catch(e) { console.error(e); toast('Error: ' + friendly(e), 'error'); }
@@ -5316,7 +5386,7 @@ async function rejectReviewClaim(claimId) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
-    toast('Claim rejected. Customer has been notified.', '');
+    toastCustomerTold('Claim rejected', data);
     loadReviewClaims();
   } catch(e) { console.error(e); toast('Error: ' + friendly(e), 'error'); }
 }

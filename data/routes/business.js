@@ -12,15 +12,15 @@ module.exports = function register(ctx) {
     getSubscriptionStatus, requireActiveSubscription,
     db, toIsoZ,
     initializeBusinessFiles,
-    whatsappClient,
+    sendWhatsAppToCustomer,
     startKnowledgeInterview, SUGGESTED_KNOWLEDGE_QUESTIONS,
   } = ctx;
   const { rateLimit } = require('../rateLimit');
   const TERMS_VERSION = '2026-10-15';
   // Self-serve signup is unauthenticated by necessity — no throttle at all
   // meant a scripted loop could spam the platform's own WhatsApp sender at any
-  // phone number (the welcome message includes a real temp password) and
-  // create unbounded junk business rows in the same breath.
+  // phone number (via the welcome message) and create unbounded junk business
+  // rows in the same breath.
   const onboardLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 5,
     message: 'Too many signup attempts from this connection. Please try again later or contact us directly.' });
 
@@ -403,21 +403,26 @@ app.post('/api/onboard', onboardLimit, async (req, res) => {
     });
   }
 
-  // Send welcome WhatsApp if connected
+  // Welcome on WhatsApp. The new café has no WhatsApp of its own yet, so this goes from
+  // Zordical's own connected number: the café set as OPERATOR_ALERT_BRANCH_ID (also used
+  // for operator alerts). Not sent when that isn't set. The password is left out on
+  // purpose: it was shown on screen, and a mistyped number mustn't put a working login
+  // in a stranger's chat.
   const BASE_URL = process.env.BASE_URL || 'http://localhost:3010';
-  if (whatsappClient) {
-    try {
-      const chatId = '91' + cleanPhone + '@c.us';
-      const welcomeMsg =
-        `☕ *Welcome to Zordical!*\n\n` +
-        `Hi ${ownerName}! Your café *${businessName}* is now live.\n\n` +
-        `🔗 Customer page: ${BASE_URL}/cafe/${id}\n` +
-        `🛠 Manager dashboard: ${BASE_URL}/manager/${id}\n` +
-        `🔑 Login: ${BASE_URL}/login/${id}\n` +
-        (staffCreds ? `👤 Username: ${staffCreds.username}\n🔑 Password: ${staffCreds.tempPassword}\n` : '') +
-        `\n📅 Trial ends: ${trialEnds}\n\nReply HELP for support. ☕`;
-      await whatsappClient.sendMessage(chatId, welcomeMsg);
-    } catch(e) { console.warn('[Onboard] WhatsApp welcome failed:', e.message); }
+  const welcomeFrom = process.env.OPERATOR_ALERT_BRANCH_ID;
+  if (welcomeFrom && sendWhatsAppToCustomer) {
+    const support = process.env.SUPPORT_WHATSAPP || '918004284193';
+    const welcomeMsg =
+      `☕ *Welcome to Zordical!*\n\n` +
+      `Hi ${ownerName}! *${businessName}* is set up and your free trial has started (it ends ${trialEnds}).\n\n` +
+      `🔑 Sign in: ${BASE_URL}/login/${id}\n` +
+      `👤 Username: ${staffCreds.username}\n` +
+      `(Use the password shown when you signed up.)\n\n` +
+      `📘 Setup guide, 15 minutes: ${BASE_URL}/owner-guide\n\n` +
+      `Questions? Message us: https://wa.me/${support}`;
+    sendWhatsAppToCustomer(welcomeFrom, cleanPhone, welcomeMsg)
+      .then(ok => { if (!ok) console.warn('[Onboard] WhatsApp welcome not sent for', id); })
+      .catch(e => console.warn('[Onboard] WhatsApp welcome failed:', e.message));
   }
 
   res.json({

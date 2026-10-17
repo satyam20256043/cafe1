@@ -703,8 +703,10 @@ function triggerCampaignBroadcast() {
 
 socket.on('campaign_broadcast_result', (data) => {
   if (data.success) {
-    alert(`Success! Campaign broadcast completed. Broadcasted to ${data.logs.length} targets via WhatsApp. 😊`);
+    alert(`Campaign sent to ${data.sent} of ${data.total} customers on WhatsApp.`);
     document.getElementById('broadcast-text-area').value = '';
+  } else if (data.error) {
+    alert('Campaign not sent: ' + data.error);
   }
 });
 
