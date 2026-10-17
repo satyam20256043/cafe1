@@ -1,5 +1,10 @@
 # ZORDICAL OWNER MANUAL GUIDE — v1.0 (for a Sonnet execution session)
 
+> **Superseded 2026-10-17.** The PDF this describes was retired (it was out of date). The owner
+> guide is now a web page: edit `docs/ZORDICAL_OWNER_GUIDE.md`, then run
+> `node data/scripts/build-doc-pages.js` to rebuild `public/owner-guide.html` (served at `/owner-guide`).
+> Kept for history only.
+
 **Status: M0–M4 all complete** (2026-07-11) — `public/Zordic-Owner-Guide.pdf` shipped, 32 pages,
 3.2MB, 21 annotated screenshots across 20 screens + 5 written-only chapters (Getting Started,
 Daily Routine, How the AI Works, Connecting WhatsApp, FAQ). Verified via Chromium's native PDF

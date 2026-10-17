@@ -17,11 +17,22 @@ blockquote p:last-child{margin-bottom:0}
 .say{font-style:italic;color:var(--z-ink,#1a1612)}
 code{background:var(--z-cream,#f5efe6);padding:1px 6px;border-radius:6px;font-size:14px}
 hr{border:none;border-top:1px solid var(--z-border,#e8dfd2);margin:28px 0}
+ol{padding-left:22px;margin:0 0 12px}
 .tbl{overflow-x:auto;margin:12px 0}
 table{border-collapse:collapse;width:100%;min-width:480px;font-size:15px}
 th,td{border:1px solid var(--z-border,#e8dfd2);padding:9px 11px;text-align:left;vertical-align:top}
 th{background:var(--z-cream,#f5efe6)}
-#cheat-card{scroll-margin-top:16px}
+h2,h3,#cheat-card{scroll-margin-top:16px}
+.print-btn{font:inherit;font-size:14px;padding:8px 14px;border:1px solid var(--z-border,#e8dfd2);border-radius:999px;background:var(--z-surface,#fff);color:var(--z-ink-2,#4a3f35);cursor:pointer}
+.print-btn:hover{border-color:var(--z-gold,#C9A84C)}
+@media print{
+  body{background:#fff}
+  .lg-top,.lg-foot{display:none}
+  main{max-width:none;padding:0}
+  a{color:inherit;text-decoration:none}
+  h2,h3{break-after:avoid}
+  li,blockquote{break-inside:avoid}
+}
 </style>
 </head>
 <body>

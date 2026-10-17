@@ -350,6 +350,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
     display:flex;align-items:center;gap:14px;width:100%;text-align:left;
     padding:14px 8px;background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.08);
     color:rgba(255,255,255,0.85);font-size:14.5px;font-family:inherit;cursor:pointer;min-height:44px;
+    text-decoration:none;box-sizing:border-box;
   }
   .more-sheet-item svg{width:20px;height:20px;flex-shrink:0;color:var(--gold,#C9A84C)}
   /* Comfortable touch targets on mobile for status/action buttons */
@@ -526,6 +527,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.55}
          agency_admin/admin. A café operator should never see a link into the
          agency panel (this is an independent-café SaaS, not a franchise). -->
     <a id="link-agency-hq" href="/hq" target="_blank" class="back-btn" style="color:rgba(196,127,58,0.55);margin-bottom:4px;border:1px solid rgba(196,127,58,0.2);border-radius:6px;padding:6px 10px;display:none">🏢 Agency HQ</a>
+    <a href="/owner-guide" target="_blank" class="back-btn" style="color:rgba(196,127,58,0.7);margin-bottom:4px">📘 Owner Guide</a>
     <a id="view-customer-portal" href="#" target="_blank" class="back-btn" style="color:rgba(196,127,58,0.7);margin-bottom:4px">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       Customer Portal
@@ -2021,6 +2023,15 @@ function openMoreSheet(){
     clone.onclick = () => { closeMoreSheet(); orig.click(); };
     sheet.appendChild(clone);
   });
+  // The sidebar's Owner Guide link isn't a nav-item, so phones get their own copy here.
+  const guide = document.createElement('a');
+  guide.className = 'more-sheet-item';
+  guide.href = '/owner-guide';
+  guide.target = '_blank';
+  guide.rel = 'noopener';
+  guide.textContent = '📘 Owner Guide';
+  guide.onclick = closeMoreSheet;
+  sheet.appendChild(guide);
   sheet.classList.add('open');
 }
 function closeMoreSheet(){

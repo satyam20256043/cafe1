@@ -228,6 +228,8 @@ app.get('/onboard', (req, res) => {
 app.get(['/privacy', '/privacy-policy'], (req, res) => res.sendFile(path.join(ROOT_DIR, 'public', 'privacy.html')));
 app.get(['/terms', '/terms-of-service'], (req, res) => res.sendFile(path.join(ROOT_DIR, 'public', 'terms.html')));
 app.get(['/refund', '/refund-policy', '/cancellation'], (req, res) => res.sendFile(path.join(ROOT_DIR, 'public', 'refund.html')));
+// Owner guide (built from docs/ZORDICAL_OWNER_GUIDE.md by data/scripts/build-doc-pages.js)
+app.get(['/owner-guide', '/guide', '/help'], (req, res) => res.sendFile(path.join(ROOT_DIR, 'public', 'owner-guide.html')));
 
 // ── Sales pitch deck (share with prospective café owners) ────────────────────
 app.get('/pitch', (req, res) => {
